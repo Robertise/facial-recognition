@@ -13,7 +13,7 @@ Hệ thống điểm danh bằng khuôn mặt qua webcam (COS30082 Applied Machi
 ```
 .
 ├── backend/                 # FastAPI: WebSocket /ws/attendance, /ws/register + REST API, SQLite
-├── frontend/                # Next.js UI (trang /attendance, /register)
+├── frontend/                # Next.js UI tiếng Anh, theme tối Console: Overview, Check-in, Register, People, History
 ├── liveness/                # Face anti-spoofing (module chính) — xem liveness/README.md
 │   └── tools/               # chuẩn bị dữ liệu, thu thập, đánh giá, demo
 ├── emotion/                 # Nhận diện cảm xúc (EmotionCNN, 7 lớp)

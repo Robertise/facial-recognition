@@ -170,7 +170,7 @@ def register_save(body: RegisterSave):
                 if match["matched"] and match["employee_id"] != body.employee_id:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Khuôn mặt này đã thuộc về nhân viên '{match['name']}' (Mã: {match['employee_id']})!"
+                        detail=f"This face is already registered to {match['name']} (ID {match['employee_id']})."
                     )
 
     saved = []

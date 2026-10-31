@@ -74,3 +74,6 @@ data/
 .agents
 
 CLAUDE.md
+
+# Hallmark design-skill run artefacts (screenshots, lint snapshots)
+.hallmark/

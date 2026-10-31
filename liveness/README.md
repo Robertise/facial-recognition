@@ -74,7 +74,7 @@ Khi config có `smoothing.enabled = true`, backend (`backend/main.py`) tạo m�
 
 - Trung bình `p_live` trong cửa sổ `window_s` giây; chuyển sang `Real` khi trung bình ≥ `t_on`, sang `Fake` khi < `t_off` (hysteresis).
 - Trạng thái reset khi mất mặt quá `reset_s` giây hoặc tâm bbox nhảy quá `jump_ratio` × bề rộng mặt trước đó.
-- Nhãn trả về: `Real`, `Fake`, `Checking` (chưa đủ `min_frames`), `Lại gần hơn` / `Lùi ra xa` (bề rộng mặt ngoài [`min_ratio`, `max_ratio`] × bề rộng khung hình).
+- Nhãn trả về: `Real`, `Fake`, `Checking` (chưa đủ `min_frames`), `Move closer` / `Move back` (bề rộng mặt ngoài [`min_ratio`, `max_ratio`] × bề rộng khung hình).
 - Emotion / recognition chỉ chạy khi trạng thái là `Real`. `liveness.score` = trung bình đã làm mượt; `liveness.raw_score` = điểm của frame hiện tại.
 - Config không có key `smoothing` (ví dụ Run 2) → quyết định từng frame như cũ.
 

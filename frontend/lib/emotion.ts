@@ -1,24 +1,28 @@
-// Emotion label -> emoji, for places that only have the stored label string
-// (e.g. the attendance history table) rather than the live websocket payload.
+// Emotion label -> icon, for every place that shows an emotion.
 //
 // `EmotionDetector.predict()` returns the capitalised class name, so that is what
-// the backend stores in `attendance.emotion` ("Happy", "Sad", ...). The map is
-// kept in sync with emotion/labels.json.
+// the backend sends and stores in `attendance.emotion` ("Happy", "Sad", ...). The
+// map is kept in sync with emotion/labels.json.
+import { Angry, Annoyed, FaceSlightlyFrowning, Frown, Laugh, Meh, Smile, type LucideIcon } from "lucide-react";
 
-export const EMOTION_EMOJI: Record<string, string> = {
-  Angry: "\u{1F620}",
-  Disgust: "\u{1F922}",
-  Fear: "\u{1F628}",
-  Happy: "\u{1F60A}",
-  Sad: "\u{1F622}",
-  Surprise: "\u{1F632}",
-  Neutral: "\u{1F610}",
+export const EMOTION_ICON: Record<string, LucideIcon> = {
+  Angry: Angry,
+  Disgust: Annoyed,
+  Fear: FaceSlightlyFrowning,
+  Happy: Smile,
+  Sad: Frown,
+  Surprise: Laugh,
+  Neutral: Meh,
 };
 
-/** Emoji for an emotion label; "" when the label is missing/unknown. */
-export function emotionEmoji(label?: string | null): string {
-  if (!label) return "";
-  if (EMOTION_EMOJI[label]) return EMOTION_EMOJI[label];
-  const normalised = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
-  return EMOTION_EMOJI[normalised] ?? "";
+/** Normalised label ("happy" -> "Happy"); null when missing. */
+export function emotionLabel(label?: string | null): string | null {
+  if (!label) return null;
+  return label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+}
+
+/** Icon for an emotion label; Meh when the label is unknown. */
+export function emotionIcon(label?: string | null): LucideIcon {
+  const key = emotionLabel(label);
+  return (key && EMOTION_ICON[key]) || Meh;
 }

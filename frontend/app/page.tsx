@@ -1,35 +1,53 @@
+"use client";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Camera, UserPlus } from "lucide-react";
+import AttendanceLog from "@/components/AttendanceLog";
+import { ErrorState } from "@/components/DataState";
+import { getEmployees, getToday, useResource } from "@/lib/api";
+import { formatLongDate } from "@/lib/format";
 
-export default function Home() {
+const noSubscribe = () => () => {};
+
+export default function Overview() {
+  // The date is the visitor's, so it is read in the browser, never at build time.
+  const date = useSyncExternalStore(noSubscribe, () => formatLongDate(new Date()), () => null);
+
+  const today = useResource(getToday, 5000);
+  const people = useResource(getEmployees, 30000);
+  const checkedIn = today.data ? new Set(today.data.map((r) => r.employee_id)).size : null;
+  const registered = people.data ? people.data.length : null;
+  const failed = today.status === "error" ? today : people.status === "error" ? people : null;
+
   return (
-    <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-8">
-      <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold text-white mb-2">🎭 Face Attendance</h1>
-        <p className="text-gray-400">Hệ thống điểm danh thông minh bằng nhận diện khuôn mặt</p>
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Today</h1>
+          <p className="lead measured" aria-live="polite">{date ?? " "}</p>
+        </div>
+        <div className="actions">
+          <Link href="/attendance" className="btn btn--primary"><Camera size={16} aria-hidden="true" />Start check-in</Link>
+          <Link href="/register" className="btn"><UserPlus size={16} aria-hidden="true" />Register a person</Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-        <Link href="/attendance"
-          className="flex flex-col items-center gap-4 p-10 rounded-2xl border-2 border-blue-600
-                     bg-blue-950/40 hover:bg-blue-900/40 transition-all hover:scale-105 cursor-pointer">
-          <Camera className="w-16 h-16 text-blue-400" />
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-white">Điểm Danh</h2>
-            <p className="text-blue-300 text-sm mt-1">Nhận diện qua webcam thời gian thực</p>
+      {failed ? (
+        <ErrorState what="today's figures" error={failed.error ?? ""} onRetry={() => { today.reload(); people.reload(); }} />
+      ) : (
+        <dl className="readings">
+          <div>
+            <dt>People checked in today</dt>
+            <dd className="reading">{checkedIn ?? <span className="skeleton" style={{ "--w": "2ch" } as React.CSSProperties} />}</dd>
           </div>
-        </Link>
+          <div>
+            <dt>Registered people</dt>
+            <dd className="reading">{registered ?? <span className="skeleton" style={{ "--w": "2ch" } as React.CSSProperties} />}</dd>
+          </div>
+        </dl>
+      )}
 
-        <Link href="/register"
-          className="flex flex-col items-center gap-4 p-10 rounded-2xl border-2 border-purple-600
-                     bg-purple-950/40 hover:bg-purple-900/40 transition-all hover:scale-105 cursor-pointer">
-          <UserPlus className="w-16 h-16 text-purple-400" />
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-white">Đăng Ký</h2>
-            <p className="text-purple-300 text-sm mt-1">Thêm nhân viên mới vào hệ thống</p>
-          </div>
-        </Link>
-      </div>
-    </main>
+      <AttendanceLog />
+    </>
   );
 }
