@@ -1,0 +1,6 @@
+# Innovation extension (install on top of requirements.txt).
+# Pins checked against torch 2.2.2 / numpy 1.26.4: see docs/innovation/verification_log.md.
+av==18.1.0                 # decode browser webm/opus clips (bundles FFmpeg)
+speechbrain==1.0.3         # ECAPA speaker embeddings; 1.1.x needs torch>=2.7.1
+requests                   # imported by speechbrain 1.0.3 but not declared by it
+faster-whisper==1.2.1      # ASR for the spoken challenge

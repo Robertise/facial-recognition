@@ -65,6 +65,24 @@ Mở `http://localhost:3000`.
 
 Biến tuỳ chọn: `TORCH_THREADS` giới hạn số thread CPU của torch. Trên laptop Windows có P/E-core, đặt `TORCH_THREADS=1` có thể nhanh hơn.
 
+## Innovation extension (đang phát triển)
+
+Xác thực đa phương thức (mặt, giọng đã enroll, chuỗi số đọc to, khớp môi) và attack ladder dùng để đánh giá nó. Kế hoạch, quyết định và nhật ký thí nghiệm nằm trong [`docs/innovation/`](docs/innovation/). Mặc định tắt. Để bật:
+
+```bash
+pip install -r innovation/requirements.txt
+```
+
+```bash
+INNOVATION_ENABLED=1 python -m uvicorn backend.main:app --port 8000
+```
+
+```bash
+cd frontend && NEXT_PUBLIC_INNOVATION=1 npm run dev
+```
+
+Khi bật flag sẽ có thêm trang `/lab` (kiểm tra ghi hình và ghi âm) và `/security` (danh sách các lần xác minh).
+
 ## Kiểm thử
 
 ```bash

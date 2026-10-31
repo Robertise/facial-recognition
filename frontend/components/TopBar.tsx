@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ScanFace } from "lucide-react";
+import { INNOVATION } from "@/lib/flags";
 
 const LINKS = [
   { href: "/", label: "Overview" },
@@ -9,6 +10,7 @@ const LINKS = [
   { href: "/register", label: "Register" },
   { href: "/people", label: "People" },
   { href: "/history", label: "History" },
+  ...(INNOVATION ? [{ href: "/security", label: "Security" }, { href: "/lab", label: "Lab" }] : []),
 ];
 
 export default function TopBar() {
