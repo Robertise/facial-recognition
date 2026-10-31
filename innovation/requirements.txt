@@ -3,4 +3,5 @@
 av==18.1.0                 # decode browser webm/opus clips (bundles FFmpeg)
 speechbrain==1.0.3         # ECAPA speaker embeddings; 1.1.x needs torch>=2.7.1
 requests                   # imported by speechbrain 1.0.3 but not declared by it
+huggingface_hub<0.26       # speechbrain 1.0.3 passes use_auth_token, removed in later releases
 faster-whisper==1.2.1      # ASR for the spoken challenge

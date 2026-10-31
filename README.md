@@ -67,21 +67,17 @@ Biến tuỳ chọn: `TORCH_THREADS` giới hạn số thread CPU của torch. T
 
 ## Innovation extension (đang phát triển)
 
-Xác thực đa phương thức (mặt, giọng đã enroll, chuỗi số đọc to, khớp môi) và attack ladder dùng để đánh giá nó. Kế hoạch, quyết định và nhật ký thí nghiệm nằm trong [`docs/innovation/`](docs/innovation/). Mặc định tắt. Để bật:
+Xác thực đa phương thức (mặt, giọng đã enroll, chuỗi số đọc to, khớp môi) và attack ladder dùng để đánh giá nó. Kế hoạch, quyết định và nhật ký thí nghiệm nằm trong [`docs/innovation/`](docs/innovation/). Mặc định tắt. Cách bật (dùng được trên cả Windows lẫn macOS/Linux):
+
+1. Cài dependency:
 
 ```bash
-pip install -r innovation/requirements.txt
+pip install -r requirements.txt -r innovation/requirements.txt
 ```
 
-```bash
-INNOVATION_ENABLED=1 python -m uvicorn backend.main:app --port 8000
-```
-
-```bash
-cd frontend && NEXT_PUBLIC_INNOVATION=1 npm run dev
-```
-
-Khi bật flag sẽ có thêm trang `/lab` (kiểm tra ghi hình và ghi âm) và `/security` (danh sách các lần xác minh).
+2. Backend: copy `.env.example` thành `.env` ở thư mục gốc repo (có dòng `INNOVATION_ENABLED=1`). Backend đọc file này lúc khởi động.
+3. Frontend: copy `frontend/.env.example` thành `frontend/.env.local` (có dòng `NEXT_PUBLIC_INNOVATION=1`; `true` cũng được). **Phải khởi động lại `npm run dev`** sau khi sửa file này.
+4. Chạy như bình thường. Thanh điều hướng sẽ có thêm **Security** và **Lab**; trang People có cột **Voice**.
 
 ## Kiểm thử
 
