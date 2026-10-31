@@ -127,7 +127,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="workbench">
+      <div className="workbench register-workbench">
         <WebcamCapture wsRef={wsRef} intervalMs={150} onFrameSize={setFrame}>
           <FaceOverlay bbox={result?.bbox} frame={frame} state={result?.face_detected ? liveness.face : "pending"} />
           <div className="stage-top">

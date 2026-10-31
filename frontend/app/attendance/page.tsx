@@ -43,7 +43,7 @@ export default function AttendancePage() {
         </span>
       </div>
 
-      <div className="workbench">
+      <div className="workbench attendance-workbench">
         <WebcamCapture wsRef={wsRef} intervalMs={200} onFrameSize={setFrame}>
           <FaceOverlay bbox={result?.bbox} frame={frame} state={face ? liveness.face : "pending"} tag={tag} />
         </WebcamCapture>
