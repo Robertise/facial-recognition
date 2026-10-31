@@ -13,6 +13,11 @@ const LINKS = [
   ...(INNOVATION ? [{ href: "/security", label: "Security" }, { href: "/lab", label: "Lab" }] : []),
 ];
 
+/** A link is current on its own page and on the pages below it (/people/SV001/voice is under People). */
+function isCurrent(pathname: string, href: string) {
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+}
+
 export default function TopBar() {
   const pathname = usePathname();
   return (
@@ -25,7 +30,7 @@ export default function TopBar() {
         <nav className="nav" aria-label="Main">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} className="nav-link"
-              aria-current={pathname === l.href ? "page" : undefined}>
+              aria-current={isCurrent(pathname, l.href) ? "page" : undefined}>
               {l.label}
             </Link>
           ))}

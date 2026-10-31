@@ -29,7 +29,7 @@ def research_mode() -> bool:
 def load_config(path: str | Path | None = None) -> dict[str, Any]:
     with open(path or CONFIG_PATH, "r", encoding="utf-8") as f:
         cfg = json.load(f)
-    for key in ("challenge", "asr", "fusion", "thresholds", "media"):
+    for key in ("challenge", "asr", "voice", "fusion", "thresholds", "media"):
         if key not in cfg:
             raise ValueError(f"innovation config is missing '{key}'")
     return cfg

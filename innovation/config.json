@@ -1,13 +1,37 @@
 {
-  "challenge": { "digits": 6, "window_s": 8.0, "lang": "en", "max_retries": 2 },
-  "asr": { "model": "tiny.en", "max_distance": 1 },
-  "fusion": { "rule": "R1" },
+  "challenge": {
+    "digits": 6,
+    "window_s": 8.0,
+    "lang": "en",
+    "max_retries": 2
+  },
+  "asr": {
+    "model": "tiny.en",
+    "max_distance": 1
+  },
+  "voice": {
+    "model": "speechbrain/spkrec-ecapa-voxceleb",
+    "savedir": "checkpoints/ecapa",
+    "enroll_samples": 3,
+    "enroll_digits": 6,
+    "enroll_window_s": 600,
+    "min_speech_s": 1.5,
+    "min_rms_dbfs": -40.0,
+    "max_clip_fraction": 0.01,
+    "min_snr_db": 10.0
+  },
+  "fusion": {
+    "rule": "R1"
+  },
   "thresholds": {
     "face": 0.5,
     "liveness": 0.5,
     "voice": 0.25,
     "av": 0.5
   },
-  "media": { "audio_rate": 16000, "min_fps": 20 },
+  "media": {
+    "audio_rate": 16000,
+    "min_fps": 20
+  },
   "_note": "thresholds are provisional until docs/innovation/prereg.md locks them"
 }

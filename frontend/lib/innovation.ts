@@ -59,3 +59,59 @@ export function probeMedia(clip: Blob): Promise<MediaProbe> {
   form.append("file", clip, `probe.${ext}`);
   return call<MediaProbe>("/api/innovation/media/probe", { method: "POST", body: form });
 }
+
+// ── Voice enrolment ─────────────────────────────────────────────────────────
+
+export type VoiceIssue = "TOO_SHORT" | "TOO_QUIET" | "CLIPPING" | "NOISY";
+
+export type VoiceQuality = {
+  duration_s: number;
+  speech_s: number;
+  rms_dbfs: number | null;
+  snr_db: number | null;
+  clip_fraction: number;
+  issues: VoiceIssue[];
+};
+
+export type EnrollStart = {
+  employee_id: string;
+  prompts: { challenge_id: string; digits: string }[];
+  samples_needed: number;
+  n_samples: number;
+};
+
+export type EnrollResult = {
+  ok: boolean;
+  quality: VoiceQuality;
+  n_samples: number;
+  enrolled?: boolean;
+  embed_ms?: number;
+};
+
+export type VoiceStatusAll = { samples_needed: number; counts: Record<string, number> };
+
+/** What to tell the person for each quality issue. */
+export const VOICE_ISSUE_TEXT: Record<VoiceIssue, string> = {
+  TOO_SHORT: "Less than 1.5 seconds of speech was heard. Read all six digits at a normal pace.",
+  TOO_QUIET: "Too quiet. Move closer to the microphone or speak up.",
+  CLIPPING: "Too loud, the sound clipped. Move back a little or speak more softly.",
+  NOISY: "Too much background noise. Find a quieter spot or move closer to the microphone.",
+};
+
+export const startVoiceEnrollment = (employeeId: string, reset = false) =>
+  call<EnrollStart>("/api/voice/enroll/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employee_id: employeeId, reset }),
+  });
+
+export function submitVoiceSample(employeeId: string, challengeId: string, clip: Blob, keepAudio = false) {
+  const form = new FormData();
+  form.append("employee_id", employeeId);
+  form.append("challenge_id", challengeId);
+  form.append("keep_audio", keepAudio ? "true" : "false");
+  form.append("file", clip, "voice.webm");
+  return call<EnrollResult>("/api/voice/enroll/submit", { method: "POST", body: form });
+}
+
+export const getVoiceStatusAll = () => call<VoiceStatusAll>("/api/voice/status");
