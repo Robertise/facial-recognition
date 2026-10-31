@@ -1,0 +1,9 @@
+# Tests and liveness tools (liveness/tools/). Install on top of requirements.txt.
+-r requirements.txt
+
+pytest
+
+matplotlib            # tools/prepare_fas_data.py
+huggingface_hub       # tools/prepare_fas_data.py
+pyarrow<18            # tools/prepare_fas_data.py
+ultralytics           # tools/offline_eval.py (YOLOv8 phone detector)

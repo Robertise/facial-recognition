@@ -1,8 +1,8 @@
 """
 emotion_detector.py  – Task 3: Emotion Detection
 =================================================
-Inference wrapper for the **own-trained** emotion classifier produced by
-`training/training_emotion.ipynb`.
+Inference wrapper for the **own-trained** emotion classifier
+(checkpoint in `checkpoints/emotion/`).
 
 The public API is unchanged from the previous (HSEmotion-based) version so that
 `backend/processing.py`, the FastAPI app, the frontend and the test scripts keep
@@ -152,7 +152,7 @@ class EmotionDetector:
         else:
             searched = ", ".join(str(pt) for pt, _ in candidates)
             msg = (f"[EmotionDetector] No trained checkpoint found (searched: {searched}). "
-                   f"Train one with training/training_emotion.ipynb.")
+                   f"Place emotion_best.pt/.pth in checkpoints/emotion/ or set EMOTION_CHECKPOINT.")
             print(msg)
             if allow_fallback:
                 self._init_hsemotion()
