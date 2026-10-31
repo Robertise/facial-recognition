@@ -19,9 +19,16 @@ from backend.processing import (
     _get_recognizer, _get_liveness, _get_head_pose, _get_emotion
 )
 from liveness.temporal import make_smoother
+from innovation import config as innovation_config
 
 
 app = FastAPI(title="Face Attendance API")
+
+# The innovation extension (voice, spoken challenge, AV sync) is off unless
+# INNOVATION_ENABLED=1; without it the API is exactly the attendance system.
+if innovation_config.enabled():
+    from innovation.api import router as innovation_router
+    app.include_router(innovation_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +42,10 @@ app.add_middleware(
 async def startup():
     init_db()
     print("[API] Database initialized.")
+    if innovation_config.enabled():
+        from innovation.db import init_innovation_db
+        init_innovation_db()
+        print("[API] Innovation extension enabled.")
     # Load every model now so a broken dependency shows up in the startup log
     # instead of silently killing the first WebSocket connection.
     for name, loader in [("liveness", _get_liveness), ("head_pose", _get_head_pose),

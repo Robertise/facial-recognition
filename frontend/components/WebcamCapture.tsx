@@ -9,25 +9,33 @@ interface Props {
   onFrame?: (canvas: HTMLCanvasElement) => void;
   /** Called with the camera's real frame size once the stream starts. */
   onFrameSize?: (size: { width: number; height: number }) => void;
+  /** Called with the open camera stream, so a recorder can reuse it instead of opening the camera again. */
+  onStream?: (stream: MediaStream | null) => void;
   children?: React.ReactNode;
 }
 
-export default function WebcamCapture({ wsRef, intervalMs = 200, onFrame, onFrameSize, children }: Props) {
+export default function WebcamCapture({ wsRef, intervalMs = 200, onFrame, onFrameSize, onStream, children }: Props) {
   const videoRef  = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [aspect, setAspect] = useState("4 / 3");
+  const onStreamRef = useRef(onStream);
+
+  useEffect(() => {
+    onStreamRef.current = onStream;
+  });
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     let stopped = false;
 
-    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
+    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: { ideal: 30 }, facingMode: "user" } })
       .then((s) => {
         if (stopped) { s.getTracks().forEach((t) => t.stop()); return; }
         stream = s;
         setCameraError(null);
         if (videoRef.current) videoRef.current.srcObject = s;
+        onStreamRef.current?.(s);
       })
       .catch((e: unknown) => {
         const name = e instanceof DOMException ? e.name : "";
@@ -57,6 +65,7 @@ export default function WebcamCapture({ wsRef, intervalMs = 200, onFrame, onFram
       stopped = true;
       clearInterval(timer);
       stream?.getTracks().forEach((t) => t.stop());
+      onStreamRef.current?.(null);
     };
   }, [wsRef, intervalMs, onFrame]);
 

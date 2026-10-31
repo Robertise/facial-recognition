@@ -1,0 +1,13 @@
+{
+  "challenge": { "digits": 6, "window_s": 8.0, "lang": "en", "max_retries": 2 },
+  "asr": { "model": "tiny.en", "max_distance": 1 },
+  "fusion": { "rule": "R1" },
+  "thresholds": {
+    "face": 0.5,
+    "liveness": 0.5,
+    "voice": 0.25,
+    "av": 0.5
+  },
+  "media": { "audio_rate": 16000, "min_fps": 20 },
+  "_note": "thresholds are provisional until docs/innovation/prereg.md locks them"
+}
