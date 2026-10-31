@@ -1,69 +1,32 @@
 "use client";
-import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/websocket";
-import { emotionEmoji } from "@/lib/emotion";
+import Link from "next/link";
+import { getToday, useResource } from "@/lib/api";
+import AttendanceTable, { ATTENDANCE_COLUMNS } from "@/components/AttendanceTable";
+import { EmptyState, ErrorState, TableSkeleton } from "@/components/DataState";
 
-type Record = {
-  id: number;
-  employee_id: string;
-  name: string;
-  timestamp: string;
-  emotion: string;
-  liveness_score: number;
-  similarity: number;
-};
-
+/** Today's check-ins, refreshed every 5 seconds. */
 export default function AttendanceLog() {
-  const [records, setRecords] = useState<Record[]>([]);
-
-  const fetchToday = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/attendance/today`);
-      setRecords(await res.json());
-    } catch {}
-  };
-
-  useEffect(() => {
-    fetchToday();
-    const t = setInterval(fetchToday, 5000);
-    return () => clearInterval(t);
-  }, []);
+  const today = useResource(getToday, 5000);
+  const count = today.data?.length ?? 0;
 
   return (
-    <div className="w-full mt-6">
-      <h2 className="text-lg font-semibold text-white mb-3">📋 Điểm danh hôm nay</h2>
-      {records.length === 0 ? (
-        <p className="text-gray-400 text-sm">Chưa có ai điểm danh hôm nay.</p>
+    <section aria-labelledby="today-heading">
+      <div className="section-head">
+        <h2 id="today-heading">Check-ins today</h2>
+        {today.status === "ready" && count > 0 && (
+          <span className="measured" aria-label={`${count} records`}>{count} {count === 1 ? "record" : "records"}</span>
+        )}
+      </div>
+      {today.status === "loading" && <TableSkeleton columns={ATTENDANCE_COLUMNS} />}
+      {today.status === "error" && <ErrorState what="today's check-ins" error={today.error} onRetry={today.reload} />}
+      {today.status === "ready" && (count === 0 ? (
+        <EmptyState title="No one has checked in today.">
+          <p>Each check-in appears here as soon as a registered face passes the checks.</p>
+          <Link href="/attendance" className="btn">Open check-in</Link>
+        </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-700">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-800 text-gray-300">
-              <tr>
-                <th className="px-4 py-2">Mã NV</th>
-                <th className="px-4 py-2">Tên</th>
-                <th className="px-4 py-2">Thời gian</th>
-                <th className="px-4 py-2">Cảm xúc</th>
-                <th className="px-4 py-2">Độ tương đồng</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr key={r.id} className="border-t border-gray-700 hover:bg-gray-800/50">
-                  <td className="px-4 py-2 font-mono text-blue-400">{r.employee_id}</td>
-                  <td className="px-4 py-2 text-white">{r.name}</td>
-                  <td className="px-4 py-2 text-gray-300">{new Date(r.timestamp).toLocaleTimeString("vi-VN")}</td>
-                  <td className="px-4 py-2 text-yellow-300">
-                    {emotionEmoji(r.emotion)
-                      ? `${emotionEmoji(r.emotion)} ${r.emotion}`
-                      : r.emotion || "—"}
-                  </td>
-                  <td className="px-4 py-2 text-green-400">{(r.similarity * 100).toFixed(1)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+        <AttendanceTable records={today.data} caption="Check-ins today" />
+      ))}
+    </section>
   );
 }

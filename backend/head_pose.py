@@ -27,11 +27,11 @@ _PITCH_THRESH = 15
 ANGLES = ['front', 'left', 'right', 'up', 'down']
 
 ANGLE_INSTRUCTIONS = {
-    'front': 'Nhìn thẳng vào camera',
-    'left':  'Quay mặt sang TRÁI',
-    'right': 'Quay mặt sang PHẢI',
-    'up':    'Ngẩng đầu lên',
-    'down':  'Cúi đầu xuống',
+    'front': 'Look straight at the camera',
+    'left':  'Turn your head to the left',
+    'right': 'Turn your head to the right',
+    'up':    'Tilt your head up',
+    'down':  'Tilt your head down',
 }
 
 

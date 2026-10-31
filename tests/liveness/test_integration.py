@@ -228,8 +228,8 @@ def test_stream_temporal_hysteresis_and_downstream_calls(monkeypatch):
 def test_distance_gate_too_far_and_too_close(monkeypatch):
     """
     When distance gate is enabled:
-    - Bbox ratio < 0.22 -> label "Lại gần hơn", is_real=False, smoother NOT updated.
-    - Bbox ratio > 0.70 -> label "Lùi ra xa", is_real=False, smoother NOT updated.
+    - Bbox ratio < 0.22 -> label "Move closer", is_real=False, smoother NOT updated.
+    - Bbox ratio > 0.70 -> label "Move back", is_real=False, smoother NOT updated.
     - Downstream emotion/recognition NOT called.
     """
     mock_live = MagicMock()
@@ -258,7 +258,7 @@ def test_distance_gate_too_far_and_too_close(monkeypatch):
     res_far = processing.process_attendance_frame(frame, smoother, t=0.0)
 
     assert res_far["face_detected"] is True
-    assert res_far["liveness"]["label"] == "Lại gần hơn"
+    assert res_far["liveness"]["label"] == "Move closer"
     assert res_far["liveness"]["score"] == 0.92
     assert res_far["liveness"]["raw_score"] == 0.92
     assert res_far["head_pose"] is not None
@@ -270,7 +270,7 @@ def test_distance_gate_too_far_and_too_close(monkeypatch):
     res_close = processing.process_attendance_frame(frame, smoother, t=0.1)
 
     assert res_close["face_detected"] is True
-    assert res_close["liveness"]["label"] == "Lùi ra xa"
+    assert res_close["liveness"]["label"] == "Move back"
     assert res_close["liveness"]["score"] == 0.95
     assert res_close["liveness"]["raw_score"] == 0.95
     assert res_close["head_pose"] is not None
@@ -387,5 +387,5 @@ def test_process_register_frame_ready_to_capture(monkeypatch):
     # Frame with gate too_far: ready_to_capture=False
     mock_live.check.return_value = (True, 0.90, "Real", [100, 100, 50, 50])
     res_gate = processing.process_register_frame(frame, smoother, t=0.3)
-    assert res_gate["liveness"]["label"] == "Lại gần hơn"
+    assert res_gate["liveness"]["label"] == "Move closer"
     assert res_gate["ready_to_capture"] is False

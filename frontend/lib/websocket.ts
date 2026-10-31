@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 export type AttendanceResult = {
   face_detected: boolean;
   bbox: [number, number, number, number] | null;
-  liveness: { label: string; score: number } | null;
+  liveness: { label: string; score: number; raw_score?: number } | null;
   emotion: { label: string; emoji: string; score: number } | null;
   recognition: { matched: boolean; employee_id: string | null; name: string | null; similarity: number } | null;
   head_pose: { yaw: number; pitch: number; roll: number; angle: string | null } | null;
@@ -14,7 +14,7 @@ export type AttendanceResult = {
 export type RegisterResult = {
   face_detected: boolean;
   bbox: [number, number, number, number] | null;
-  liveness: { label: string; score: number } | null;
+  liveness: { label: string; score: number; raw_score?: number } | null;
   head_pose: { yaw: number; pitch: number; roll: number; angle: string | null } | null;
   face_preview: string | null;
   ready_to_capture: boolean;

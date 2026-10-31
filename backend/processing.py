@@ -134,10 +134,10 @@ def _liveness_decision(
         max_ratio = float(gate.get("max_ratio", 0.70))
         status = face_size_status(bbox, frame_w, min_ratio, max_ratio)
         if status == "too_far":
-            liveness_dict = {"label": "Lại gần hơn", "score": round(p, 3), "raw_score": round(p, 3)}
+            liveness_dict = {"label": "Move closer", "score": round(p, 3), "raw_score": round(p, 3)}
             return True, False, liveness_dict, bbox
         elif status == "too_close":
-            liveness_dict = {"label": "Lùi ra xa", "score": round(p, 3), "raw_score": round(p, 3)}
+            liveness_dict = {"label": "Move back", "score": round(p, 3), "raw_score": round(p, 3)}
             return True, False, liveness_dict, bbox
 
     # Gate passed or disabled -> update temporal smoother
