@@ -75,6 +75,5 @@ anti-spoofing runs on the original frame first.
 ## Tests
 
 ```bash
-python -m unittest discover -s extreme_cond_enhancer/tests -p 'test_lighting_enhancer.py'
-python extreme_cond_enhancer/tests/test_lowlight_enhance.py   # manual GUI preview, not a unit test
+python -m pytest tests/extreme_cond_enhancer
 ```

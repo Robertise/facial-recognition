@@ -2,9 +2,9 @@
 model.py – Task 3: Emotion Detection
 =====================================
 Shared model architecture + preprocessing for the *own-trained* emotion model.
-The architecture here MUST match the one trained in
-`training/training_emotion.ipynb` (the notebook also exports a TorchScript copy,
-which is preferred at inference time so this file is only a fallback).
+The architecture here MUST match the one the checkpoint was trained with
+(training also exported a TorchScript copy, which is preferred at inference
+time so this file is only a fallback).
 
 Public API:
     preprocess_face(face_bgr, size=48, channels=1, mean=0.5, std=0.5) -> Tensor[1,C,S,S]
