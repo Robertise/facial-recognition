@@ -1,0 +1,33 @@
+{
+  "verdict": "INSUFFICIENT",
+  "chosen_config": {
+    "model": "run3",
+    "policy": "P1",
+    "param_str": "w=0.6_on=0.5_off=0.2",
+    "params": {
+      "window_s": 0.6,
+      "t_on": 0.5,
+      "t_off": 0.2
+    },
+    "margin": -0.0053,
+    "is_pass": false,
+    "is_insufficient": true,
+    "avg_flips_per_min": 6.38
+  },
+  "table": [
+    {
+      "person": "robertiz",
+      "scenario": "spoof_photo_close",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 0.8947,
+      "n_windows": 19,
+      "flips_per_min": 6.38
+    }
+  ],
+  "median_ms_model": {
+    "run2": 8.25,
+    "run3": 6.24
+  },
+  "median_ms_phone": 0.0
+}

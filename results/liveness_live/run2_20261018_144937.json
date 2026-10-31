@@ -1,0 +1,31 @@
+{
+  "checkpoint": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code\\checkpoints\\liveness_run2\\liveness_best_scratch.pth",
+  "arch": "MultiFTNet/MiniFASNetV2SE",
+  "threshold": 0.0212,
+  "threshold_source": "calib",
+  "calibration": {
+    "real_frames": 1972,
+    "spoof_frames": 2215,
+    "real_p_live": {
+      "p10": 0.0404,
+      "p50": 0.842,
+      "p90": 0.9962
+    },
+    "spoof_p_live": {
+      "p10": 0.0,
+      "p50": 0.0,
+      "p90": 0.0083
+    }
+  },
+  "evaluation": {
+    "real": {
+      "correct": 0,
+      "total": 0
+    },
+    "spoof": {
+      "correct": 0,
+      "total": 0
+    },
+    "status": "INCOMPLETE"
+  }
+}

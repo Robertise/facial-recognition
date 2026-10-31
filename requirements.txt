@@ -1,0 +1,17 @@
+opencv-python 
+mediapipe
+kagglehub 
+torch 
+torchvision 
+scikit-learn 
+matplotlib 
+seaborn 
+tqdm 
+Pillow 
+numpy<2
+hsemotion-onnx
+fastapi 
+uvicorn 
+websockets 
+python-multipart
+timm
