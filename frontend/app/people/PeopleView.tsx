@@ -35,7 +35,7 @@ export default function PeopleView() {
       people.reload();
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      setDeleteError(`The backend refused (${reason}). Someone who already has check-in records cannot be deleted yet.`);
+      setDeleteError(`Could not delete this person: ${reason}`);
     } finally {
       setBusy(false);
     }
@@ -110,7 +110,7 @@ export default function PeopleView() {
         {target && (
           <>
             <h2 id="delete-title">Delete {target.name}?</h2>
-            <p>This removes {target.name} (ID <span className="measured">{target.id}</span>) and their saved face angles. It cannot be undone.</p>
+            <p>This removes {target.name} (ID <span className="measured">{target.id}</span>), their saved face angles, and all of their check-in records. It cannot be undone.</p>
             {deleteError && <p className="notice" data-tone="bad" role="alert">{deleteError}</p>}
             <div className="actions">
               <button type="button" className="btn btn--quiet" onClick={() => dialogRef.current?.close()}>Cancel</button>

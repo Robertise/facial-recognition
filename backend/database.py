@@ -73,6 +73,9 @@ def get_all_employees():
 
 def delete_employee(emp_id: str):
     with get_conn() as conn:
+        # Attendance rows reference employees without ON DELETE CASCADE.
+        # Remove dependent history in the same transaction before the employee.
+        conn.execute("DELETE FROM attendance WHERE employee_id=?", (emp_id,))
         conn.execute("DELETE FROM employees WHERE id=?", (emp_id,))
 
 
