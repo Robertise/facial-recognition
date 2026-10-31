@@ -206,3 +206,18 @@ select.input { padding-right: var(--space-xl); }
 .facts dt { color: var(--color-muted); }
 .facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
 .playback { width: 100%; border-radius: var(--radius-pill); background: var(--color-paper-3); }
+.consent { max-width: 60ch; color: var(--color-ink-2); font-size: var(--text-sm); }
+.prompts { margin: 0; padding: 0; list-style: none; }
+.prompt { display: grid; gap: var(--space-xs); padding: var(--space-md) var(--space-lg); border-top: var(--rule-hair) solid var(--color-rule); }
+.prompt[data-state="todo"] { color: var(--color-muted); }
+.prompt[data-state="current"] { background: var(--color-paper-3); }
+.prompt-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+.prompt-label { font-size: var(--text-sm); font-weight: 500; }
+.digits { font-family: var(--font-outlier); font-size: var(--text-3xl); font-variant-numeric: tabular-nums slashed-zero; letter-spacing: 0.3em; line-height: 1.1; color: var(--color-ink); }
+.prompt[data-state="todo"] .digits { color: var(--color-muted); }
+.prompt[data-state="current"] .digits { color: var(--color-accent); }
+.issues { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2xs); font-size: var(--text-sm); color: var(--color-bad); }
+.issues li { display: flex; gap: var(--space-xs); align-items: flex-start; }
+.issues svg { flex-shrink: 0; margin-top: var(--space-3xs); }
+.section-gap { margin-top: var(--space-xl); }
+.voice-cell { display: inline-flex; gap: var(--space-sm); align-items: center; white-space: nowrap; }

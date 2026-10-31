@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from typing import Any, Optional
+
+import numpy as np
 
 from backend.database import get_conn
 
@@ -85,3 +88,60 @@ def list_attempts(limit: int = 100, decision: Optional[str] = None,
         d["reason_codes"] = json.loads(d.get("reason_codes") or "[]")
         out.append(d)
     return out
+
+
+# ── Voice embeddings ────────────────────────────────────────────────────────
+
+def save_voice_embedding(employee_id: str, embedding: np.ndarray, source: str) -> None:
+    with get_conn() as conn:
+        conn.execute("INSERT INTO voice_embeddings (employee_id, embedding, source) VALUES (?,?,?)",
+                     (employee_id, np.asarray(embedding, np.float32).tobytes(), source))
+
+
+def get_voice_embeddings(employee_id: str) -> list[np.ndarray]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT embedding FROM voice_embeddings WHERE employee_id=? ORDER BY id",
+                            (employee_id,)).fetchall()
+    return [np.frombuffer(r["embedding"], dtype=np.float32).copy() for r in rows]
+
+
+def voice_counts() -> dict[str, int]:
+    """Number of enrolled voice samples per employee (only employees that have any)."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT employee_id, COUNT(*) AS n FROM voice_embeddings GROUP BY employee_id").fetchall()
+    return {r["employee_id"]: r["n"] for r in rows}
+
+
+def delete_voice(employee_id: str) -> int:
+    with get_conn() as conn:
+        return conn.execute("DELETE FROM voice_embeddings WHERE employee_id=?", (employee_id,)).rowcount
+
+
+def employee_exists(employee_id: str) -> bool:
+    with get_conn() as conn:
+        return conn.execute("SELECT 1 FROM employees WHERE id=?", (employee_id,)).fetchone() is not None
+
+
+# ── Challenges ──────────────────────────────────────────────────────────────
+
+def create_challenge(challenge_id: str, candidate_id: str, digits: str, window_s: float,
+                     mode: str = "attendance", now: Optional[float] = None) -> dict[str, Any]:
+    issued = time.time() if now is None else now
+    row = {"id": challenge_id, "candidate_id": candidate_id, "digits": digits,
+           "issued_at": issued, "expires_at": issued + window_s, "used": 0, "mode": mode}
+    with get_conn() as conn:
+        conn.execute("INSERT INTO challenges (id, candidate_id, digits, issued_at, expires_at, used, mode) "
+                     "VALUES (:id, :candidate_id, :digits, :issued_at, :expires_at, :used, :mode)", row)
+    return row
+
+
+def get_challenge(challenge_id: str) -> Optional[dict[str, Any]]:
+    with get_conn() as conn:
+        r = conn.execute("SELECT * FROM challenges WHERE id=?", (challenge_id,)).fetchone()
+    return dict(r) if r else None
+
+
+def consume_challenge(challenge_id: str) -> bool:
+    """Mark a challenge used. False when it was already used (so each one counts once)."""
+    with get_conn() as conn:
+        return conn.execute("UPDATE challenges SET used=1 WHERE id=? AND used=0", (challenge_id,)).rowcount == 1

@@ -32,3 +32,22 @@ Mẫu:
   - Owner chạy Lab trên máy thật (webcam và micro thật, Windows) và gửi lại các số liệu trên.
   - Nếu fps thực < 20 thì tính đến hạ độ phân giải ghi, hoặc tách frame theo timestamp thay vì giả định tốc độ cố định.
   - Sang P1.
+
+## 2026-10-31 p1-enrolment · P1 · partial
+- **Giả thuyết:** enroll giọng (3 chuỗi 6 số) chạy trọn trên giao diện. Các bản ghi kém được trả về đúng lỗi, và chỉ bản ghi đạt mới được lưu embedding.
+- **Cấu hình:**
+  - Backend dùng **encoder giả** thay cho ECAPA, vì môi trường cloud của Claude vẫn bị proxy chặn huggingface.co (403), kể cả sau khi owner đã mở quyền; cài đặt mạng mới có thể chỉ áp dụng cho session sau.
+  - Micro giả của Chromium phát một file wav giống giọng nói (tông hài có nhịp, xen khoảng lặng).
+- **Kết quả:**
+  - 57 test pass (gồm 12 test voice, 2 test metric). Luồng People → Enrol → đồng ý → 3 lần ghi → "Voice enrolled (3 of 3)" chạy trọn trong trình duyệt; `/api/voice/status` trả `{"SV002": 3}`.
+  - Test tổng hợp xác nhận phát hiện được các lỗi TOO_SHORT, TOO_QUIET, CLIPPING và NOISY.
+  - Khi tắt flag, cột Voice và `/people/<id>/voice` không xuất hiện.
+- **Phân tích:**
+  - Lần đầu, clip nhiều nhiễu bị báo thành TOO_SHORT + TOO_QUIET, vì VAD không tìm thấy giọng lẫn trong nhiễu. Hướng dẫn đó sai cho người dùng. Đã sửa: nếu tìm thấy ít giọng nhưng cả clip đủ to thì báo NOISY.
+- **Còn thiếu (chưa đạt nghiệm thu P1):**
+  - Latency ECAPA và Whisper trên máy owner: `python -m innovation.eval.latency`.
+  - Bảng điểm owner so với impostor kèm EER: `python -m innovation.eval.voice_scores ...`.
+  - Cả hai cần trọng số thật từ Hugging Face.
+- **Quyết định tiếp theo:**
+  - Owner enroll giọng thật và chạy hai script trên (hoặc Claude chạy khi session mới có quyền HF).
+  - Song song, bắt đầu P2 (challenge + ASR), vì phần code không phụ thuộc vào số đo.

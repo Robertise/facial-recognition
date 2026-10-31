@@ -4,9 +4,7 @@ tests/innovation/test_p0.py
 P0 infrastructure: media decoding, the new tables and the feature flag.
 """
 import importlib
-import io
 import tempfile
-from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -17,34 +15,7 @@ av = pytest.importorskip("av")
 import backend.database as database
 from innovation import config as cfg
 from innovation.media import decode_media
-
-
-def make_webm(seconds=4.0, fps=30, width=640, height=480, audio_rate=48000) -> bytes:
-    """A clip shaped like browser MediaRecorder output: VP8 video + Opus audio in webm."""
-    buf = io.BytesIO()
-    with av.open(buf, mode="w", format="webm") as out:
-        v = out.add_stream("libvpx", rate=fps)
-        v.width, v.height, v.pix_fmt = width, height, "yuv420p"
-        a = out.add_stream("libopus", rate=audio_rate)
-        a.layout = "mono"
-        for i in range(int(seconds * fps)):
-            img = np.full((height, width, 3), (i * 7) % 255, np.uint8)
-            frame = av.VideoFrame.from_ndarray(img, format="bgr24")
-            frame.pts, frame.time_base = i, Fraction(1, fps)
-            for pkt in v.encode(frame):
-                out.mux(pkt)
-        t = np.arange(int(seconds * audio_rate)) / audio_rate
-        tone = (0.3 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
-        step = 960
-        for k in range(0, len(tone) - step + 1, step):
-            af = av.AudioFrame.from_ndarray(tone[k:k + step].reshape(1, -1), format="flt", layout="mono")
-            af.sample_rate, af.pts, af.time_base = audio_rate, k, Fraction(1, audio_rate)
-            for pkt in a.encode(af):
-                out.mux(pkt)
-        for s in (v, a):
-            for pkt in s.encode(None):
-                out.mux(pkt)
-    return buf.getvalue()
+from tests.innovation.media_utils import make_webm
 
 
 @pytest.fixture

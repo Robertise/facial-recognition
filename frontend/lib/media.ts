@@ -26,9 +26,11 @@ const MIME_CANDIDATES = [
   "video/mp4",
 ];
 
-function pickMimeType(): string {
+const AUDIO_MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+
+function pickMimeType(audioOnly = false): string {
   if (typeof MediaRecorder === "undefined") return "";
-  return MIME_CANDIDATES.find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
+  return (audioOnly ? AUDIO_MIME_CANDIDATES : MIME_CANDIDATES).find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
 }
 
 function micErrorMessage(e: unknown): string {
@@ -39,11 +41,16 @@ function micErrorMessage(e: unknown): string {
 }
 
 /**
- * Record the given camera stream together with a microphone track.
+ * Record the given camera stream together with a microphone track (or, with
+ * `audioOnly`, the microphone alone).
  * `level` is the live input level (0–1) while recording; `actualFps` and
  * `audioSettings` are what the browser actually delivered.
  */
-export function useAVRecorder(videoStream: MediaStream | null, processing: AudioProcessing = DEFAULT_PROCESSING) {
+export function useAVRecorder(
+  videoStream: MediaStream | null,
+  processing: AudioProcessing = DEFAULT_PROCESSING,
+  { audioOnly = false }: { audioOnly?: boolean } = {},
+) {
   const [state, setState] = useState<RecorderState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
@@ -71,7 +78,7 @@ export function useAVRecorder(videoStream: MediaStream | null, processing: Audio
 
   /** Start recording; resolves false (with `error` set) when the microphone or recorder fails. */
   const start = useCallback(async (): Promise<boolean> => {
-    if (!videoStream) { setError("The camera is not ready yet."); setState("error"); return false; }
+    if (!videoStream && !audioOnly) { setError("The camera is not ready yet."); setState("error"); return false; }
     if (recorderRef.current?.state === "recording") return true;
     setError(null);
     setState("requesting");
@@ -82,7 +89,7 @@ export function useAVRecorder(videoStream: MediaStream | null, processing: Audio
       });
       micRef.current = mic;
       const audioTrack = mic.getAudioTracks()[0];
-      const videoTrack = videoStream.getVideoTracks()[0];
+      const videoTrack = audioOnly ? undefined : videoStream?.getVideoTracks()[0];
       setAudioSettings(audioTrack.getSettings());
       setActualFps(videoTrack?.getSettings().frameRate ?? null);
 
@@ -102,7 +109,7 @@ export function useAVRecorder(videoStream: MediaStream | null, processing: Audio
       };
       tick();
 
-      const mimeType = pickMimeType();
+      const mimeType = pickMimeType(audioOnly);
       const combined = new MediaStream([...(videoTrack ? [videoTrack] : []), audioTrack]);
       const rec = new MediaRecorder(combined, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
@@ -124,7 +131,7 @@ export function useAVRecorder(videoStream: MediaStream | null, processing: Audio
       setState("error");
       return false;
     }
-  }, [videoStream, processing, release]);
+  }, [videoStream, processing, audioOnly, release]);
 
   /** Stop and resolve with the recorded clip. */
   const stop = useCallback((): Promise<Blob | null> => {

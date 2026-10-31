@@ -1,16 +1,21 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { LoaderCircle, Trash2 } from "lucide-react";
+import { LoaderCircle, Mic, Trash2 } from "lucide-react";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/DataState";
 import { deleteEmployee, getEmployees, useResource, type Employee } from "@/lib/api";
 import { formatDate, parseDbTime } from "@/lib/format";
 import { matches, useSearchParam } from "@/lib/search";
+import { INNOVATION } from "@/lib/flags";
+import { getVoiceStatusAll } from "@/lib/innovation";
+
+const noVoice = () => Promise.resolve(null);
 
 export const PEOPLE_COLUMNS = ["ID", "Name", "Face angles", "Registered", ""];
 
 export default function PeopleView() {
   const people = useResource(getEmployees);
+  const voices = useResource(INNOVATION ? getVoiceStatusAll : noVoice);
   const [urlQ, setUrlQ] = useSearchParam("q");
   const [q, setText] = useState(urlQ);
   const setQ = (v: string) => { setText(v); setUrlQ(v); };
@@ -81,6 +86,7 @@ export default function PeopleView() {
                 <th scope="col">Name</th>
                 <th scope="col" className="num">Face angles</th>
                 <th scope="col">Registered</th>
+                {INNOVATION && <th scope="col">Voice</th>}
                 <th scope="col" className="cell-action"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
@@ -93,6 +99,7 @@ export default function PeopleView() {
                     <td data-label="Name">{e.name}</td>
                     <td className="num" data-label="Face angles">{e.angle_count} of 5</td>
                     <td className="measured" data-label="Registered"><time dateTime={at.toISOString()}>{formatDate(at)}</time></td>
+                    {INNOVATION && <VoiceCell id={e.id} count={voices.data?.counts[e.id] ?? 0} need={voices.data?.samples_needed ?? 3} loaded={voices.status === "ready"} />}
                     <td className="cell-action" data-label="">
                       <button type="button" className="btn btn--danger" onClick={() => askDelete(e)} aria-label={`Delete ${e.name}`}>
                         <Trash2 size={16} aria-hidden="true" /> Delete
@@ -123,5 +130,23 @@ export default function PeopleView() {
         )}
       </dialog>
     </>
+  );
+}
+
+function VoiceCell({ id, count, need, loaded }: { id: string; count: number; need: number; loaded: boolean }) {
+  const done = count >= need;
+  return (
+    <td data-label="Voice">
+      <span className="voice-cell">
+        {loaded && (
+          <span className="chip" data-tone={done ? "ok" : undefined}>
+            {done ? "Enrolled" : count > 0 ? `${count} of ${need}` : "Not enrolled"}
+          </span>
+        )}
+        <Link href={`/people/${encodeURIComponent(id)}/voice`} className="link">
+          <Mic size={14} aria-hidden="true" />{done ? "Re-enrol" : "Enrol"}
+        </Link>
+      </span>
+    </td>
   );
 }

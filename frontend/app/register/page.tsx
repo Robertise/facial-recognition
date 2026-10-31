@@ -7,6 +7,8 @@ import FaceOverlay from "@/components/FaceOverlay";
 import AngleGuide, { ANGLES, ANGLE_META, Angle } from "@/components/AngleGuide";
 import { useFrameSocket, API_BASE, RegisterResult } from "@/lib/websocket";
 import { livenessCheck } from "@/lib/checks";
+import { INNOVATION } from "@/lib/flags";
+import VoiceEnrollment from "@/components/VoiceEnrollment";
 
 type Capture = { angle: Angle; face_b64: string; preview: string };
 type Message = { tone: "ok" | "bad"; text: string };
@@ -214,13 +216,19 @@ export default function RegisterPage() {
             )}
             {status === "done" && (
               <>
-                <button type="button" onClick={reset} className="btn btn--primary">Register another person</button>
+                <button type="button" onClick={reset} className={INNOVATION ? "btn" : "btn btn--primary"}>Register another person</button>
                 <Link href="/attendance" className="btn">Go to check-in</Link>
               </>
             )}
           </div>
         </section>
       </div>
+
+      {INNOVATION && status === "done" && (
+        <div className="section-gap">
+          <VoiceEnrollment employeeId={empId} name={empName} />
+        </div>
+      )}
     </>
   );
 }
