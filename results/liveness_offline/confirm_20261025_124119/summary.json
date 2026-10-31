@@ -1,0 +1,65 @@
+{
+  "verdict": "PASS",
+  "chosen_config": {
+    "model": "run3",
+    "policy": "P0",
+    "param_str": "none",
+    "params": {},
+    "margin": 0.0083,
+    "is_pass": true,
+    "is_insufficient": false,
+    "avg_flips_per_min": 11.39
+  },
+  "table": [
+    {
+      "person": "robertiz",
+      "scenario": "real_still",
+      "label": "real",
+      "score_name": "real_accept",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 0.0
+    },
+    {
+      "person": "robertiz",
+      "scenario": "real_motion",
+      "label": "real",
+      "score_name": "real_accept",
+      "score": 0.9583,
+      "n_windows": 24,
+      "flips_per_min": 50.57
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_photo_close",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 20,
+      "flips_per_min": 0.0
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_photo_far",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 0.0
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_video",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 6.37
+    }
+  ],
+  "median_ms_model": {
+    "run2": 8.04,
+    "run3": 6.49
+  },
+  "median_ms_phone": 0.0
+}

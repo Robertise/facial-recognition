@@ -1,0 +1,15 @@
+Best model: M2 scratch (improved) (arch=emotioncnn, input=48)
+
+              precision    recall  f1-score   support
+
+       angry     0.6469    0.7583    0.6982       331
+     disgust     0.3469    0.6071    0.4416        28
+        fear     0.6724    0.4105    0.5098        95
+       happy     0.8810    0.8525    0.8665       929
+         sad     0.5788    0.4733    0.5208       450
+    surprise     0.8244    0.7892    0.8064       446
+     neutral     0.7571    0.8092    0.7823      1310
+
+    accuracy                         0.7590      3589
+   macro avg     0.6725    0.6715    0.6608      3589
+weighted avg     0.7596    0.7590    0.7567      3589

@@ -1,0 +1,78 @@
+{
+  "verdict": "PASS",
+  "chosen_config": {
+    "model": "run2",
+    "policy": "P1",
+    "param_str": "w=1.5_on=0.2_off=0.05",
+    "params": {
+      "window_s": 1.5,
+      "t_on": 0.2,
+      "t_off": 0.05
+    },
+    "margin": 0.05,
+    "is_pass": true,
+    "is_insufficient": false,
+    "avg_flips_per_min": 1.48
+  },
+  "table": [
+    {
+      "person": "robertiz",
+      "scenario": "real_still",
+      "label": "real",
+      "score_name": "real_accept",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 3.18
+    },
+    {
+      "person": "robertiz",
+      "scenario": "real_still",
+      "label": "real",
+      "score_name": "real_accept",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 3.19
+    },
+    {
+      "person": "robertiz",
+      "scenario": "real_motion",
+      "label": "real",
+      "score_name": "real_accept",
+      "score": 1.0,
+      "n_windows": 25,
+      "flips_per_min": 2.51
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_photo_close",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 19,
+      "flips_per_min": 0.0
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_photo_far",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 20,
+      "flips_per_min": 0.0
+    },
+    {
+      "person": "robertiz",
+      "scenario": "spoof_video",
+      "label": "spoof",
+      "score_name": "spoof_reject",
+      "score": 1.0,
+      "n_windows": 20,
+      "flips_per_min": 0.0
+    }
+  ],
+  "median_ms_model": {
+    "run2": 17.87,
+    "run3": 15.1
+  },
+  "median_ms_phone": 40.58
+}
