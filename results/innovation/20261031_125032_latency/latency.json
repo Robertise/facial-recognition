@@ -1,0 +1,28 @@
+{
+  "clip_s": 4.88,
+  "clip": "data/public/audiomnist/utterances/05/026281_6.wav",
+  "ecapa": {
+    "load_ms": 1675.6,
+    "dim": 192,
+    "median_ms": 114.2,
+    "min_ms": 101.8,
+    "max_ms": 135.4,
+    "runs": 3
+  },
+  "asr_tiny.en": {
+    "load_ms": 470.9,
+    "text": "0, 2, 6, 2, 8, 1.",
+    "median_ms": 386.4,
+    "min_ms": 339.6,
+    "max_ms": 390.2,
+    "runs": 3
+  },
+  "asr_base.en": {
+    "load_ms": 1132.7,
+    "text": "026281",
+    "median_ms": 543.5,
+    "min_ms": 431.9,
+    "max_ms": 580.4,
+    "runs": 3
+  }
+}

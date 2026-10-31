@@ -41,3 +41,9 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 | AV-Deepfake1M | CC BY-NC 4.0; phải ký EULA | Tuỳ chọn, chỉ dùng nếu LAV-DF không đủ |
 | FakeAVCeleb | Data cần điền Google form; code MIT | Tuỳ chọn |
 | VoxCeleb1 | Trang robots.ox.ac.uk bị chặn từ môi trường này; chưa xác minh điều kiện tải | Owner kiểm tra khi tải (dùng cho danh tính ảo B ở L1) |
+
+## 2026-10-31. P1, trọng số pretrained (sau khi owner mở quyền mạng)
+- huggingface.co đã truy cập được từ session này. Tải ECAPA `speechbrain/spkrec-ecapa-voxceleb`, cùng Whisper `tiny.en` và `base.en` (bản CTranslate2 của Systran): chạy được.
+- **Lỗi tương thích:** speechbrain 1.0.3 gọi `hf_hub_download(use_auth_token=...)`, mà huggingface_hub 2.x đã bỏ tham số này. Ghim `huggingface_hub<0.26` (đã thử với 0.25.2; faster-whisper vẫn chạy).
+- Vẫn bị chặn từ đây: download.tensorflow.org (Speech Commands), www.robots.ox.ac.uk (VoxCeleb), cdn-lfs.huggingface.co.
+- AudioMNIST (MIT, GitHub) tải được: dùng làm nguồn giọng thật đọc chữ số tiếng Anh cho P1 và P2.

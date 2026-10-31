@@ -23,5 +23,11 @@ Owner là kẻ tấn công nên không thể đồng thời là nạn nhân. N�
 ## 2026-10-31. Train trên dữ liệu public, test trên owner
 Thay cho việc chia tập theo người trong team: train và dev trên danh tính public, test trên owner (sau khi có prereg) và người ngoài.
 
+## 2026-10-31. Ngưỡng giọng tạm: 0.40 (thay cho 0.25)
+Đo trên AudioMNIST (12 người, giọng thật): ngưỡng 0.25 cho FAR 21%. Điểm EER ≈ 0.44; impostor p99 = 0.40; genuine p05 = 0.49. Chọn 0.40 làm giá trị tạm, ưu tiên ít từ chối nhầm người thật. **Ngưỡng chính thức chốt trong `prereg.md`**, dựa trên dữ liệu dev của owner (khác buổi, khác micro), vì AudioMNIST thu trong cùng một buổi nên cho kết quả lạc quan.
+
+## 2026-10-31. Cách bật feature flag
+`NEXT_PUBLIC_INNOVATION` nhận 1/true/yes/on (trước chỉ nhận "1", nên owner đặt `true` thì không thấy gì). Backend đọc `.env` ở thư mục gốc repo, vì cú pháp `KEY=1 python ...` không chạy được trên PowerShell hay cmd của Windows.
+
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).
