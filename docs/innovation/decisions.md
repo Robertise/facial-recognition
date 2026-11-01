@@ -50,5 +50,17 @@ Tạm thời chưa đổi giá trị trong `config.json`.
 
 Quyết định: độ phủ là tham số (`--thickness`, `--rim-scale`). Ablation 3 mức khoảng 4%, 8%, 12%; mặc định khoảng 8%. Mỗi lần chạy ghi độ phủ thật trong `attack.json`. Nếu owner vẫn muốn ≥ 15% thì phải đổi dạng phụ kiện (ví dụ kính kèm mặt nạ hoặc khẩu trang in), và đó là một thí nghiệm khác.
 
+## 2026-11-01. Sửa sau review code L1 giai đoạn A
+- **method5 là ViT, không phải FaceCNN.** Checkpoint method5 có 157 key (`backbone.cls_token`, `pos_embed`, `patch_embed`…), là `FaceViT_ArcFace` trong `training_max.ipynb` (commit đầu `39324a0`): ViT-B/16 của timm, Linear 768→512 không bias, BN, L2; đầu vào 224×224, chuẩn hoá ImageNet. Trước đây `FaceRecognizer` load mọi checkpoint vào `FaceCNN` với `strict=False`, nên method5 chạy bằng trọng số ngẫu nhiên mà không báo gì. Nay `FaceRecognizer` nhận dạng kiến trúc theo key (ViT / ArcFace / Classifier / Triplet), dùng đúng class, đúng preprocessing (`Preprocess(size, mean, std)`), suy `num_classes` từ shape.
+- **Load strict khi nghiên cứu.** Ở research mode (và luôn luôn trong các script L1) thiếu checkpoint hoặc có `missing_keys`/`unexpected_keys` thì dừng hẳn. App thường vẫn chạy như cũ nhưng in cảnh báo kèm danh sách key.
+- **Kết luận transfer khác kiến trúc chỉ dựa trên method5.** method1/2/4 là cùng kiến trúc `FaceCNN`, khác cách train.
+- **Max mềm bỏ log(n).** `τ·(logsumexp − log n)` lệch theo số ảnh: 10 ảnh trừ 0.115, 5 ảnh trừ 0.080 (τ = 0.05), tức margin lệch 0.035 giữa các người. Thay bằng trung bình có trọng số softmax `Σ softmax(cos/τ)·cos`: luôn ≤ max thật, tiến về max khi τ → 0, thêm ảnh xấu gần như không đổi điểm (test: < 0.001, bản cũ 0.035).
+- **Gallery 5 ảnh mỗi người**, đúng 5 góc như Register (trước: tới 10). Người có ít hơn 5 ảnh dùng được bị cảnh báo và ghi `gallery_report.uneven`.
+- **Liveness trong evaluate đi qua `backend.processing._liveness_decision`** (cổng khoảng cách "Move closer"/"Move back", rồi smoother), thay cho tự gọi `live.check` + `smoother.update`. Smoothing tắt trong config thì đi nhánh `live.check` như `process_attendance_frame`.
+- **Cổng sang giai đoạn B chỉ có kết luận khi có liveness**; không có thì `pass = null`.
+- **Tập đánh giá:** ngày khác, cùng ánh sáng bình thường. Frame tối (enhancer có tác động) báo cáo riêng ở tầng `…@dim`, không gộp vào tỉ lệ chính hay cổng.
+- **Nạn nhân và lớp mô phỏng lấy từ `verification_data`**: ID trong tập train đã ẩn danh nên không kiểm tra trùng theo tên được.
+- **Khoảng cách trong D_EOT** lấy từ `eot.UNSEEN.distance_px` (cạnh crop 60–120 px), giống `eot.photometric`, thay cho hệ số co cứng 0.5–0.8.
+
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).

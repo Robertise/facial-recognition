@@ -123,3 +123,17 @@ Mẫu:
 - **Chạy thử optimize, evaluate, export trên CPU bằng trọng số ngẫu nhiên:** chạy hết luồng, nhưng **không có ý nghĩa về hiệu quả**. Model ngẫu nhiên cho mọi ảnh cosine khoảng 0.98, gradient gần bằng 0, texture hội tụ về màu xám. Đã xoá các thư mục kết quả chạy thử.
   - Phát hiện và sửa: logsumexp chưa trừ τ·log(n) nên hàm max mềm vượt quá 1.
 - **Quyết định tiếp theo:** owner chạy `runbook_L1.md` với checkpoint thật. Bước đầu tiên là kiểm tra parity trên crop thật.
+
+## 2026-11-01 l1a-review-fixes · L1 giai đoạn A · info (sửa code sau review, chưa phải thí nghiệm)
+- **Mục đích:** sửa các lỗi review chỉ ra trước khi owner chạy với checkpoint thật (chi tiết trong `decisions.md`, cùng ngày).
+- **Lỗi nghiêm trọng đã xác nhận:** method5 (ViT-B/16, 157 key) bị load vào `FaceCNN` với `strict=False`, tức chạy bằng trọng số ngẫu nhiên. Mọi kết quả transfer sang method5 trước bản sửa này (nếu có) đều không dùng được.
+- **Đã kiểm tra:**
+  - Dựng lại `FaceViT_ArcFace` theo `training_max.ipynb`: state_dict có đúng **157 key**, tên key khớp (`backbone.cls_token`, `backbone.pos_embed`, `backbone.patch_embed.proj.weight`, …, `weight`).
+  - Load strict cho cả 4 bố cục (ViT, CNN+ArcFace, CNN+classifier, CNN triplet); key thiếu hoặc thừa thì dừng.
+  - Parity pipeline torch so với backend trên ViT (224, chuẩn hoá ImageNet), crop thật của owner: cosine nhỏ nhất **0.99999**.
+  - Max mềm mới: thêm 5 ảnh xấu làm điểm đổi < 0.001 (bản cũ đổi 0.035).
+  - `liveness_step` trả "Move closer" khi mặt quá nhỏ; cổng giai đoạn B là `null` khi không có liveness.
+  - Chạy thử optimize (4 bước) và evaluate có `--transfer method5=<ViT ngẫu nhiên>` trên CPU: chạy hết luồng; kết quả tách tầng thường và `@dim`. Trọng số ngẫu nhiên nên **không có ý nghĩa về hiệu quả**; đã xoá các thư mục kết quả chạy thử. `--liveness` dừng đúng với lỗi thiếu `liveness_best.pth` (môi trường này không có checkpoint thật).
+  - Test: 80 pass (venv innovation có timm); 60 pass, 4 skip (venv cơ bản, không có timm/av).
+- **Quyết định tiếp theo:** owner chạy `runbook_L1.md` (bản mới), bắt đầu bằng parity cho cả method3 và method5.
+

@@ -67,7 +67,7 @@ def test_coverage_grows_with_thickness():
 def test_torch_pipeline_matches_backend_embedding(monkeypatch, tmp_path):
     from backend.face_recognizer import FaceRecognizer
     torch.manual_seed(0)
-    rec = FaceRecognizer(ckpt_path=tmp_path / "missing.pth")   # random weights are enough for parity
+    rec = FaceRecognizer(ckpt_path=tmp_path / "missing.pth", strict=False)   # random weights are enough for parity
     pipe = pipeline.TorchPipeline(rec)
     rng = np.random.default_rng(0)
     crops = [cv2.GaussianBlur(rng.integers(0, 256, (int(rng.integers(90, 260)), int(rng.integers(90, 260)), 3), dtype=np.uint8), (0, 0), 2)
@@ -144,3 +144,102 @@ def test_frame_capture_needs_research_mode(monkeypatch, tmp_path):
     assert send(person="../etc").status_code == 400
     monkeypatch.delenv("INNOVATION_ENABLED")
     importlib.reload(main)
+
+
+# ── review fixes: model loading, soft max, liveness, gate ───────────────────
+
+def _save(state, path):
+    torch.save(state, path)
+    return path
+
+
+@pytest.mark.parametrize("cls,name", [("FaceCNN_ArcFace", "FaceCNN_ArcFace"),
+                                      ("FaceCNN_Classifier", "FaceCNN_Classifier"),
+                                      ("FaceCNN_Triplet", "FaceCNN_Triplet")])
+def test_cnn_checkpoints_load_strict_with_their_class(tmp_path, cls, name):
+    import backend.face_recognizer as fr
+    m = getattr(fr, cls)() if cls == "FaceCNN_Triplet" else getattr(fr, cls)(37)
+    rec = fr.FaceRecognizer(ckpt_path=_save(m.state_dict(), tmp_path / "m.pth"), strict=True)
+    assert rec.arch == name and rec.preprocess.size == 112
+    assert not rec.load_report["missing_keys"] and not rec.load_report["unexpected_keys"]
+
+
+def test_strict_load_stops_on_key_mismatch(tmp_path):
+    import backend.face_recognizer as fr
+    state = fr.FaceCNN_ArcFace(37).state_dict()
+    state.pop("backbone.emb_head.2.running_var")
+    state["extra.weight"] = torch.zeros(1)
+    path = _save(state, tmp_path / "bad.pth")
+    with pytest.raises(RuntimeError, match="missing"):
+        fr.FaceRecognizer(ckpt_path=path, strict=True)
+    with pytest.raises(FileNotFoundError):
+        fr.FaceRecognizer(ckpt_path=tmp_path / "none.pth", strict=True)
+    assert fr.FaceRecognizer(ckpt_path=path, strict=False).load_report["unexpected_keys"] == ["extra.weight"]
+
+
+def test_research_mode_makes_loading_strict(monkeypatch, tmp_path):
+    import backend.face_recognizer as fr
+    monkeypatch.setenv("INNOVATION_RESEARCH_MODE", "true")
+    with pytest.raises(FileNotFoundError):
+        fr.FaceRecognizer(ckpt_path=tmp_path / "none.pth")
+
+
+def test_vit_method5_loads_with_its_own_class_and_preprocessing(tmp_path):
+    pytest.importorskip("timm")
+    import backend.face_recognizer as fr
+    torch.manual_seed(0)
+    state = fr.FaceViT_ArcFace(37).state_dict()
+    assert len(state) == 157 and "backbone.cls_token" in state     # the layout of method5_best.pth
+    rec = fr.FaceRecognizer(ckpt_path=_save(state, tmp_path / "m5.pth"), strict=True)
+    assert rec.arch == "FaceViT_ArcFace"
+    assert rec.preprocess == fr.VIT_PREPROCESS and rec.preprocess.size == 224
+    # loading the ViT state into the CNN would have left every CNN weight random
+    with pytest.raises(RuntimeError):
+        fr.FaceCNN_ArcFace(37).load_state_dict(state)
+    rng = np.random.default_rng(0)
+    crops = [cv2.GaussianBlur(rng.integers(0, 256, (150, 130, 3), dtype=np.uint8), (0, 0), 2) for _ in range(3)]
+    assert pipeline.parity(pipeline.TorchPipeline(rec), crops).min() >= 0.999
+
+
+def test_soft_max_does_not_depend_on_image_count():
+    """Adding 5 poor images to an identity must not move its score (the old log(n) form dropped by tau*log 2)."""
+    torch.manual_seed(0)
+    nz = torch.nn.functional.normalize
+    base = torch.randn(16)
+    emb = nz(base + 0.3 * torch.randn(4, 16), dim=1)
+    E = nz(base + 0.8 * torch.randn(5, 16), dim=1)
+    low = nz(-base + 0.3 * torch.randn(5, 16), dim=1)          # far from every query
+    E10 = torch.cat([E, low])
+    s5, s10 = soft_max_cos(emb, E, 0.05), soft_max_cos(emb, E10, 0.05)
+    assert (s10 - s5).abs().max() < 1e-3
+    old = lambda E_: 0.05 * (torch.logsumexp(emb @ E_.T / 0.05, dim=1) - np.log(E_.shape[0]))
+    assert (old(E) - old(E10)).min() > 0.03                    # the bias this replaces
+
+
+def test_liveness_step_uses_the_distance_gate():
+    from innovation.attacks.adv_glasses.evaluate import liveness_step
+    from liveness.temporal import LivenessSmoother
+
+    class FakeLive:
+        config = {"gate": {"enabled": True, "min_ratio": 0.22, "max_ratio": 0.70}}
+
+        def check(self, frame):
+            return True, 0.99, "Real", [300, 200, 40, 40]   # a face 40 px wide in a 640 px frame
+
+    real, label, _ = liveness_step(FakeLive(), LivenessSmoother(), np.zeros((480, 640, 3), np.uint8), 0.0)
+    assert not real and label == "Move closer"
+
+
+def test_stage_b_gate_needs_liveness():
+    from innovation.attacks.adv_glasses.evaluate import stage_b_gate
+    res = {"method3/D": {"rate": 0.9}, "method3/control_random": {"rate": 0.1}, "method3/control_plain": {"rate": 0.0}}
+    assert stage_b_gate(res, liveness_gated=False)["pass"] is None
+    assert stage_b_gate(res, liveness_gated=True)["pass"] is True
+    assert stage_b_gate({}, True) is None
+
+
+def test_unseen_frame_distance_follows_eot_config():
+    from innovation.attacks.adv_glasses.evaluate import unseen_frame
+    img = np.full((240, 320, 3), 128, np.uint8)
+    out = unseen_frame(img, np.random.default_rng(0), crop_side=50)   # already below distance_px: no rescale
+    assert out.shape == img.shape
