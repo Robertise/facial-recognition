@@ -75,3 +75,38 @@ Mẫu:
 - **Quyết định tiếp theo:**
   - P1 đạt về kỹ thuật. Bảng điểm trên giọng **owner thật** vẫn cần làm khi owner enroll, ghi khoảng 20 clip ở buổi khác, rồi chạy `voice_scores`.
   - Bắt đầu P2: dùng sẵn AudioMNIST để đo độ chính xác ASR.
+
+## 2026-11-01 p0-owner-webcam · P0 · pass (có hạn chế)
+- **Giả thuyết:** webcam thật của owner (laptop Windows) đạt ≥ 20 fps thực khi ghi trong `/lab`.
+- **Cấu hình:** Chrome trên Windows, 640×480, clip 4 s, 3 lần:
+  1. đủ sáng, bật 3 tuỳ chọn xử lý âm thanh;
+  2. thiếu sáng, bật 3 tuỳ chọn;
+  3. đủ sáng, tắt cả 3.
+- **Kết quả:**
+  1. 119 frame, **29.9 fps**, audio 16 kHz −19.6 dBFS, decode 911 ms.
+  2. 60 frame, **15.0 fps** (trình duyệt vẫn báo 30), −18.7 dBFS, decode 489 ms.
+  3. 119 frame, **29.9 fps**, −20.3 dBFS, decode 889 ms.
+- **Phân tích:**
+  - Thiếu sáng thì driver kéo dài thời gian phơi sáng, fps thực giảm một nửa. Đây là rủi ro cho P3 (khớp môi cần khoảng 25 fps).
+  - Bật hay tắt xử lý âm thanh gần như không đổi mức âm lượng.
+  - Decode chiếm 0.5–0.9 s trên ngân sách 3 s của E4.
+- **Quyết định tiếp theo:** ở P3 xử lý trường hợp fps < 20: cảnh báo thiếu sáng trên giao diện, thử ép `frameRate.min`, hoặc nội suy theo timestamp. Ghi điều kiện ánh sáng vào mọi lần thu dữ liệu.
+
+## 2026-11-01 p1-owner-voice · P1 · pass (ngưỡng phải sửa)
+- **Giả thuyết:** giọng owner đã enroll (3 mẫu qua trình duyệt) tách được khỏi người khác ở ngưỡng tạm 0.40.
+- **Cấu hình:**
+  - 20 clip `.m4a` của owner (clip 2–6 cố ý đọc giọng cao hơn), so với 240 clip của 12 người AudioMNIST.
+  - Máy Windows của owner; `voice_scores` và `latency`.
+- **Kết quả:**
+  - `results/innovation/20261101_140348_voice_scores/`: EER **0.63%**, AUC 0.999. Genuine: trung bình 0.39, thấp nhất 0.20 (`huy-2`), cao nhất 0.60. Impostor: trung vị 0.04, cao nhất 0.23.
+  - **Ở ngưỡng 0.40: FAR 0%, FRR 65%.** Ở ngưỡng 0.25–0.30: FAR 0%, FRR 5%.
+  - `results/innovation/20261101_140519_latency/`:
+    - ECAPA 153 ms.
+    - Whisper tiny.en 314 ms, ra "7, 6, 0, 3, 8, 1.".
+    - Whisper base.en 612 ms, ra "760-381". Cả hai đúng chuỗi số.
+- **Phân tích:**
+  - Ngưỡng 0.40 (đặt từ AudioMNIST) quá chặt với giọng thật: AudioMNIST thu cùng buổi, cùng micro nên lạc quan.
+  - Điểm genuine thấp do lệch kênh thu: enroll bằng webm/opus qua trình duyệt, test bằng `.m4a`. Không phải do cao độ: 5 clip giọng cao có trung bình 0.39, bằng nhóm giọng thường.
+  - FAR 0% cũng lạc quan, vì impostor AudioMNIST khác hẳn kênh thu và ngôn ngữ.
+  - base.en viết chuỗi số kiểu "760-381", nên P2 cần chuẩn hoá chỉ lấy chữ số.
+- **Quyết định tiếp theo:** xem `decisions.md` (2026-11-01). Ngưỡng chốt trong prereg sau khi có impostor cùng kênh (người hỗ trợ, buổi 1 của L1).

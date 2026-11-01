@@ -120,6 +120,8 @@ Thời lượng tính theo ngày làm việc liên tục, với owner luôn sẵ
   - Tổng latency được đo. **Điểm dừng:** nếu vượt xa 3 s hoặc decode webm trên Windows không ổn định thì dừng lại bàn.
 
 ### P4. Tooling red-team offline (song song với P2–P3, dùng GPU)
+
+> 2026-11-01: owner chọn làm L1 (P4a) trước P2. Kế hoạch chi tiết ở [`plan_L1.md`](plan_L1.md).
 - **P4a. L1, kính adversarial**
   - Notebook hoặc script cho vast.ai: mask kính trên mặt 112×112, EOT, NPS, tối ưu theo embedding B.
   - Đo tầng D (digital) và D+EOT. Transfer sang method1/2/4/5 cùng một model public.
