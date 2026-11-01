@@ -115,3 +115,15 @@ export function submitVoiceSample(employeeId: string, challengeId: string, clip:
 }
 
 export const getVoiceStatusAll = () => call<VoiceStatusAll>("/api/voice/status");
+
+// ── Frame capture (research mode) ───────────────────────────────────────────
+
+export function saveFrame(person: string, session: string, index: number, frame: Blob, clientMs: number) {
+  const form = new FormData();
+  form.append("person", person);
+  form.append("session", session);
+  form.append("index", String(index));
+  form.append("client_ms", String(clientMs));
+  form.append("file", frame, `${index}.jpg`);
+  return call<{ saved: string }>("/api/innovation/frames", { method: "POST", body: form });
+}

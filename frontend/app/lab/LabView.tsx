@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleAlert, LoaderCircle, Mic } from "lucide-react";
 import WebcamCapture from "@/components/WebcamCapture";
+import FrameCapture from "@/components/FrameCapture";
 import { DEFAULT_PROCESSING, useAVRecorder, type AudioProcessing } from "@/lib/media";
 import { probeMedia, type MediaProbe } from "@/lib/innovation";
 
@@ -19,6 +20,10 @@ const PROCESSING_LABELS: Record<keyof AudioProcessing, string> = {
 export default function LabView() {
   const noSocket = useRef<WebSocket | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  // The latest frame WebcamCapture drew, reused by the frame capture.
+  const lastCanvas = useRef<HTMLCanvasElement | null>(null);
+  const onFrame = useCallback((c: HTMLCanvasElement) => { lastCanvas.current = c; }, []);
+  const getCanvas = useCallback(() => lastCanvas.current, []);
   const [processing, setProcessing] = useState<AudioProcessing>(DEFAULT_PROCESSING);
   const recorder = useAVRecorder(stream, processing);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -59,7 +64,10 @@ export default function LabView() {
 
   return (
     <div className="workbench lab-workbench">
-      <WebcamCapture wsRef={noSocket} onStream={setStream} />
+      <div className="lab-left">
+        <WebcamCapture wsRef={noSocket} onStream={setStream} onFrame={onFrame} />
+        <FrameCapture getCanvas={getCanvas} />
+      </div>
 
       <section className="panel" aria-labelledby="probe-title">
         <div className="panel-section">

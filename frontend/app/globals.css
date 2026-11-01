@@ -221,3 +221,4 @@ select.input { padding-right: var(--space-xl); }
 .issues svg { flex-shrink: 0; margin-top: var(--space-3xs); }
 .section-gap { margin-top: var(--space-xl); }
 .voice-cell { display: inline-flex; gap: var(--space-sm); align-items: center; white-space: nowrap; }
+.lab-left { display: grid; gap: var(--space-lg); align-content: start; min-width: 0; }

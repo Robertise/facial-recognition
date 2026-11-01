@@ -45,6 +45,9 @@ def main():
     ap.add_argument("--max-voice", type=int, default=3)
     ap.add_argument("--no-voice", action="store_true")
     ap.add_argument("--replace", action="store_true", help="re-create people that already exist")
+    ap.add_argument("--detector-model", type=int, choices=(0, 1), default=1,
+                    help="MediaPipe face detection model: 0 matches the backend (short range), "
+                         "1 (default, full range) finds smaller faces")
     args = ap.parse_args()
 
     import mediapipe as mp
@@ -56,7 +59,7 @@ def main():
     database.init_db()
     idb.init_innovation_db()
     recognizer = _get_recognizer()
-    detector = mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+    detector = mp.solutions.face_detection.FaceDetection(model_selection=args.detector_model, min_detection_confidence=0.5)
     encoder = None
     if not args.no_voice:
         from innovation.voice import get_encoder, quality

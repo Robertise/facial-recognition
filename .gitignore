@@ -77,3 +77,9 @@ CLAUDE.md
 
 # Hallmark design-skill run artefacts (screenshots, lint snapshots)
 .hallmark/
+
+# L1 adversarial textures and print sheets stay local (plan_L1.md §9)
+results/innovation/*advglasses*/texture*
+results/innovation/*advglasses*/print_*
+results/innovation/*advglasses*/mask.png
+results/innovation/_cache/

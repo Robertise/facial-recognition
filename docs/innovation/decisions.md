@@ -45,5 +45,10 @@ Trên 20 clip của owner (`results/innovation/20261101_140348_voice_scores/`), 
 
 Tạm thời chưa đổi giá trị trong `config.json`.
 
+## 2026-11-01. Độ phủ 15–30% không đạt được với gọng kính
+Đo trên ảnh webcam thật của owner (crop của backend nới 15%): gọng thường phủ khoảng **4%** ảnh crop 112×112; gọng dày khoảng 8%; gọng ngoại cỡ, dày gần che kín vùng quanh mắt, khoảng **12%**. Muốn 15–30% thì gọng phải che cả má và trán, tức thành mặt nạ chứ không còn là kính.
+
+Quyết định: độ phủ là tham số (`--thickness`, `--rim-scale`). Ablation 3 mức khoảng 4%, 8%, 12%; mặc định khoảng 8%. Mỗi lần chạy ghi độ phủ thật trong `attack.json`. Nếu owner vẫn muốn ≥ 15% thì phải đổi dạng phụ kiện (ví dụ kính kèm mặt nạ hoặc khẩu trang in), và đó là một thí nghiệm khác.
+
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).

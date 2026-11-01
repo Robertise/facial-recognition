@@ -104,12 +104,16 @@ class FaceCNN_Classifier(nn.Module):
 # ── Recognizer ─────────────────────────────────────────────────────────────────
 
 class FaceRecognizer:
-    def __init__(self, threshold: float = 0.5):
+    def __init__(self, threshold: float = 0.5, ckpt_path: str | Path | None = None):
         self.threshold = threshold
+        # ckpt_path lets research code load another method's weights side by side
+        # (e.g. the L1 transfer study); the backend uses CHECKPOINT_PATH as before.
+        self.ckpt_path = Path(ckpt_path) if ckpt_path else CKPT_PATH
         self._model    = None
         self._load_model()
 
     def _load_model(self):
+        CKPT_PATH = self.ckpt_path
         if not CKPT_PATH.exists():
             print(f"[FaceRecognizer] WARNING: No checkpoint found at {CKPT_PATH}. Using random weights.")
             self._model = FaceCNN_ArcFace(num_classes=4000, embed_dim=EMBED_DIM).to(DEVICE)
