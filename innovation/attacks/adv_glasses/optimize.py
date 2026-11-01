@@ -96,12 +96,17 @@ def prepare(frames: list[Path], detector, eyes_finder) -> tuple[list[dict], dict
 # ── losses ──────────────────────────────────────────────────────────────────
 
 def soft_max_cos(emb: torch.Tensor, E: torch.Tensor, tau: float) -> torch.Tensor:
-    """Smooth version of find_match's max over the enrolled angles.
+    """Smooth version of find_match's max over one identity's enrolled images.
 
-    tau * logsumexp(cos / tau) - tau * log(n) lies between the mean and the max
-    of the n cosines, so it never exceeds 1 and tends to the max as tau -> 0.
+    The softmax-weighted mean sum_i softmax(cos/tau)_i * cos_i: never above the
+    true max (so never above 1), tends to it as tau -> 0, and has no log(n) term,
+    so identities are not shifted by how many images they have (the earlier
+    tau * (logsumexp - log n) moved an identity with 10 images by tau*log 10 =
+    0.115 against tau*log 5 = 0.080 for one with 5, a 0.035 bias in the margin).
+    Galleries also hold 5 images per identity (faces.GALLERY_PER_ID).
     """
-    return tau * (torch.logsumexp(emb @ E.T / tau, dim=1) - np.log(E.shape[0]))
+    cos = emb @ E.T
+    return (torch.softmax(cos / tau, dim=1) * cos).sum(dim=1)
 
 
 def tv(t: torch.Tensor) -> torch.Tensor:
@@ -130,7 +135,8 @@ def main():
     ap.add_argument("--lambda-tv", type=float, default=2.5)
     ap.add_argument("--lambda-nps", type=float, default=0.5)
     ap.add_argument("--eval-sessions", nargs="*")
-    ap.add_argument("--max-gallery", type=int, default=10, help="images per identity in the gallery")
+    ap.add_argument("--max-gallery", type=int, default=faces.GALLERY_PER_ID,
+                    help="images per identity in the gallery (5 = the 5 Register angles)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--log-every", type=int, default=25)
@@ -141,15 +147,15 @@ def main():
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     from backend.face_recognizer import FaceRecognizer
-    recognizer = FaceRecognizer(ckpt_path=args.checkpoint)
-    if not Path(args.checkpoint).exists():
-        print("WARNING: random recogniser weights; this run only tests the code path")
+    recognizer = FaceRecognizer(ckpt_path=args.checkpoint, strict=True)   # stops on missing/unexpected keys
     pipe = pipeline.TorchPipeline(recognizer, args.device)
     detector, eyes_finder = faces.FaceDetector(), faces.EyeLandmarks()
 
     run = new_run(f"advglasses_{args.mode}", vars(args))
     gallery, g_report = faces.build_gallery(Path(args.gallery), recognizer, detector, args.max_gallery,
                                             cache_dir=run.parent / "_cache")
+    if g_report.get("uneven"):
+        print(f"WARNING: fewer than {args.max_gallery} usable images for {g_report['uneven']}")
     if args.attacker_id not in gallery.embeddings:
         raise SystemExit(f"attacker '{args.attacker_id}' has no usable images in the gallery")
     if args.mode == "impersonate" and args.victim not in gallery.embeddings:
@@ -231,7 +237,8 @@ def main():
     write_json(run / "split.json", split)
     write_json(run / "attack.json", {
         "mode": args.mode, "attacker_id": args.attacker_id, "victim": args.victim, "target": target,
-        "checkpoint": args.checkpoint, "gallery": args.gallery, "gallery_report": g_report,
+        "checkpoint": args.checkpoint, "model": recognizer.load_report,
+        "gallery": args.gallery, "gallery_per_id": args.max_gallery, "gallery_report": g_report,
         "identities": sorted(E), "frame_shape": vars(shape),
         "coverage_train": {"mean": float(np.mean(cover)), "min": float(np.min(cover)), "max": float(np.max(cover))},
         "prepare_report": p_report, "color_map_calibrated": cmap.calibrated,

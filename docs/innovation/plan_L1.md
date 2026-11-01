@@ -66,7 +66,7 @@ Backend ghi điểm danh ngay khi **một frame** khớp (Quick mode). Vì vậy
 Tham số là texture `T` của gọng, ở **không gian màu in** (qua sigmoid để giữ trong [0, 1]). Dùng Adam, khoảng 1–3 nghìn bước, mỗi bước một batch ảnh của kẻ tấn công nhân với các mẫu EOT.
 
 - **Chuỗi biến đổi trong mỗi bước:** `T` (màu in) → `M(T)` (ánh xạ in → màu camera thấy, lấy đạo hàm được) → warp theo landmark → dán lên ảnh → EOT → pipeline torch (§3) → embedding.
-- **Ký hiệu:** `E_B` là tập embedding đã enroll của nạn nhân (từng góc, như trong DB); `E_k` là tập của mỗi người khác `k`, gồm cả kẻ tấn công. `S(x, E) = τ · logsumexp(cos(f(x), e) / τ)` trên các `e ∈ E` (xấp xỉ mềm của max theo góc mà `find_match` dùng; τ khoảng 0.05–0.1).
+- **Ký hiệu:** `E_B` là tập embedding đã enroll của nạn nhân (từng góc, như trong DB); `E_k` là tập của mỗi người khác `k`, gồm cả kẻ tấn công. `S(x, E) = Σ softmax(cos/τ)_e · cos(f(x), e)` trên các `e ∈ E` (xấp xỉ mềm của max theo góc mà `find_match` dùng; τ khoảng 0.05–0.1). (Sửa 2026-11-01: bản `τ · logsumexp` cũ cộng thêm tới τ·log(n), lệch theo số ảnh mỗi người; bản mới luôn ≤ max và gần như không phụ thuộc số ảnh. Gallery cố định **5 ảnh mỗi người**, đúng 5 góc như Register. Xem `decisions.md`.)
 - **Hàm loss (impersonation):**
   - `1 − S(x ⊕ T, E_B)`.
   - Cộng hạng margin: `max(0, S(x ⊕ T, E_k) − S(x ⊕ T, E_B) + m)` với mọi người khác `k` trong danh sách. Hạng này để thắng ở top-1 (1:N). Theo dõi riêng hạng margin với kẻ tấn công, vì đó thường là đối thủ khó nhất.
@@ -82,7 +82,7 @@ Tham số là texture `T` của gọng, ở **không gian màu in** (qua sigmoid
   - ánh xạ `M`: "màu in" sang "màu camera thấy" (ví dụ ma trận 3×3 cộng offset, hoặc LUT nội suy; phải lấy đạo hàm được). `M` được áp **trong vòng tối ưu**, trước khi dán lên mặt.
   - Vì vậy `T` sau tối ưu **chính là file in**, không cần đảo ngược ánh xạ. Không áp `M` lên `T` trước khi in.
   - Kiểm tra: in một texture thử, chụp lại, so màu chụp được với `M(T)`; ghi sai số trung bình vào `experiment_log.md`.
-- **Tách tập:** ảnh kẻ tấn công chia thành tập tối ưu (khoảng 70%) và tập đánh giá (khoảng 30%, **khác buổi hoặc khác ánh sáng**). Mọi số báo cáo lấy trên tập đánh giá. Tổng cộng **khoảng 120–150 frame** cho mỗi kẻ tấn công (để tập đánh giá có ít nhất khoảng 40 frame). Báo cáo tỉ lệ thành công kèm khoảng tin cậy 95% (Wilson).
+- **Tách tập:** ảnh kẻ tấn công chia thành tập tối ưu (khoảng 70%) và tập đánh giá (khoảng 30%, **khác ngày, cùng ánh sáng bình thường**; sửa 2026-11-01). Frame tối (enhancer có tác động) là một tầng báo cáo riêng (`@dim`), không gộp vào tỉ lệ chính, vì enhancer làm thay đổi đầu vào. Mọi số báo cáo lấy trên tập đánh giá. Tổng cộng **khoảng 120–150 frame** cho mỗi kẻ tấn công (để tập đánh giá có ít nhất khoảng 40 frame). Báo cáo tỉ lệ thành công kèm khoảng tin cậy 95% (Wilson).
 
 ## 6. Đo lường
 
@@ -92,7 +92,7 @@ Tham số là texture `T` của gọng, ở **không gian màu in** (qua sigmoid
 | D | Dán texture lên ảnh giữ lại, qua đúng pipeline | Tỉ lệ thành công theo frame (E1a, ngưỡng ≥ 80%), điểm cosine với nạn nhân, kèm khoảng tin cậy |
 | **Control digital (giai đoạn A)** | Cùng mask, cùng vị trí, dán (1) texture ngẫu nhiên cùng dải màu và (2) gọng trơn (màu đều) | Tỉ lệ thành công của control. **Cổng sang B:** tầng D ≥ 80% và control ≤ 20% |
 | D+EOT | Như D, thêm biến đổi chưa dùng lúc tối ưu (góc lớn hơn, ánh sáng khác) | Độ rơi so với D |
-| Transfer | Texture tối ưu trên method3, thử trên method1/2/4/5 | Gọi đúng tên là **transfer cùng kiến trúc, khác cách train** (cả năm dùng chung backbone `FaceCNN`). Cần kiểm tra xem các method có chung dữ liệu train không, rồi ghi vào báo cáo |
+| Transfer | Texture tối ưu trên method3, thử trên method1/2/4/5 | (Sửa 2026-11-01.) method1/2/4 là **cùng kiến trúc `FaceCNN`, khác cách train**; **method5 là ViT-B/16 + ArcFace (224×224, chuẩn hoá ImageNet), tức khác kiến trúc**. Kết luận transfer khác kiến trúc chỉ dựa trên method5. Mỗi checkpoint load bằng đúng class và preprocessing của nó, kiểm tra strict key. Cần kiểm tra xem các method có chung dữ liệu train không, rồi ghi vào báo cáo |
 | Transfer khác kiến trúc (tùy chọn) | Một model public khác hẳn, ví dụ facenet-pytorch InceptionResnetV1 (kiểm chứng license trước, ghi vào `verification_log.md`) | Chỉ khi có model này mới được kết luận "khai thác điểm chung giữa các model" |
 | P (giai đoạn B) | Người hỗ trợ đeo kính in, trước webcam, qua backend thật | IAPMR (liveness real và match nạn nhân) theo frame và theo cửa sổ 3 s, ở 2 khoảng cách và 2 mức sáng (E1b). Tách theo `lighting_enhancement.applied` |
 | Control vật lý | Gọng in hoa văn ngẫu nhiên (cùng kích thước, cùng dải màu) và gọng trơn | Tách hiệu ứng "đeo kính" khỏi hiệu ứng adversarial |
@@ -107,7 +107,7 @@ Tham số là texture `T` của gọng, ở **không gian màu in** (qua sigmoid
 | `glasses.py` | Template gọng, mask, đặt lên mặt theo landmark FaceMesh, đo % diện tích |
 | `eot.py` | Các biến đổi EOT, JPEG kiểu BPDA, color scaling của enhancer (tùy chọn) |
 | `printability.py` | Tạo bảng màu để in, đọc ảnh chụp bảng màu, tính NPS, fit ánh xạ `M` (in → camera) lấy đạo hàm được |
-| `optimize.py` | Vòng tối ưu impersonation và dodging, loss theo logsumexp trên các góc; lưu texture (không gian màu in), log loss (tách theo từng hạng, cả margin với kẻ tấn công), config |
+| `optimize.py` | Vòng tối ưu impersonation và dodging, loss theo max mềm (softmax-weighted) trên các góc; lưu texture (không gian màu in), log loss (tách theo từng hạng, cả margin với kẻ tấn công), config |
 | `evaluate.py` | Đo các tầng baseline, D, control digital, D+EOT, transfer, P, control vật lý, liveness, **qua đúng code backend** (gồm lighting enhancer và `LivenessDetector`); log từng frame; ghi `results/innovation/<run>/` |
 | `export.py` | Xuất trực tiếp `T` ra ảnh in đúng kích thước (300 dpi) kèm thước đo để kiểm tra tỉ lệ khi in |
 

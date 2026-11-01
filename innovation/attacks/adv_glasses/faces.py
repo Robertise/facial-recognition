@@ -96,12 +96,18 @@ class Gallery:
         return sorted(self.embeddings)
 
 
-def build_gallery(root: Path, recognizer, detector: FaceDetector, max_per_id: int = 10,
+GALLERY_PER_ID = 5               # Register enrols 5 angles: front, left, right, up, down
+
+
+def build_gallery(root: Path, recognizer, detector: FaceDetector, max_per_id: int = GALLERY_PER_ID,
                   cache_dir: Optional[Path] = None) -> tuple[Gallery, dict]:
     """Embed every identity folder under `root` (root/<id>/*.jpg) through the backend path.
 
-    Returns the gallery and a report: images used and skipped (no face) per id.
-    Cached per checkpoint file so transfer runs do not recompute.
+    Each identity gets `max_per_id` embeddings (5, like the DB after Register), so
+    every identity is scored over the same number of images. Returns the gallery and
+    a report: images used and skipped (no face) per id, and `uneven`, the ids with
+    fewer usable images than `max_per_id`. Cached per checkpoint file so transfer
+    runs do not recompute.
     """
     root = Path(root)
     ckpt = getattr(recognizer, "ckpt_path", None)
@@ -130,6 +136,7 @@ def build_gallery(root: Path, recognizer, detector: FaceDetector, max_per_id: in
         if embs:
             embeddings[person.name] = np.stack(embs)
         report[person.name] = {"used": len(embs), "skipped_no_face": skipped}
+    report["uneven"] = sorted(k for k, v in report.items() if v["used"] < max_per_id)
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         np.savez(cache, embeddings=np.array(embeddings, dtype=object), report=np.array(report, dtype=object))

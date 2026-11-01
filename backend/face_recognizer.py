@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import cv2
+from dataclasses import dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -14,13 +15,31 @@ EMBED_DIM  = 512
 IMG_SIZE   = 112
 DEVICE     = torch.device("cpu")
 
-def _preprocess_face(face_bgr: np.ndarray) -> torch.Tensor:
-    resized = cv2.resize(face_bgr, (IMG_SIZE, IMG_SIZE))
-    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-    # (x / 255.0 - 0.5) / 0.5 => (x / 127.5) - 1.0
-    norm = (rgb.astype(np.float32) / 127.5) - 1.0
-    transposed = np.transpose(norm, (2, 0, 1))  # (3, 112, 112)
-    return torch.from_numpy(transposed).unsqueeze(0).to(DEVICE)
+
+@dataclass(frozen=True)
+class Preprocess:
+    """Input contract of a recogniser: square side and per-channel RGB normalisation on [0, 1]."""
+    size: int
+    mean: tuple[float, float, float]
+    std: tuple[float, float, float]
+
+
+# Methods 1-4 (FaceCNN): 112 x 112, (x/255 - 0.5)/0.5, i.e. [-1, 1] (training_max.ipynb val_transform).
+CNN_PREPROCESS = Preprocess(IMG_SIZE, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+# Method 5 (ViT-B/16): 224 x 224, ImageNet statistics (training_max.ipynb val_transform_vit).
+VIT_PREPROCESS = Preprocess(224, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+
+
+def _preprocess_face(face_bgr: np.ndarray, pre: Preprocess = CNN_PREPROCESS) -> torch.Tensor:
+    resized = cv2.resize(face_bgr, (pre.size, pre.size))        # INTER_LINEAR
+    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    norm = (rgb - np.array(pre.mean, np.float32)) / np.array(pre.std, np.float32)
+    transposed = np.transpose(norm, (2, 0, 1))                   # (3, size, size)
+    return torch.from_numpy(np.ascontiguousarray(transposed)).unsqueeze(0).to(DEVICE)
+
+
+def _research_mode() -> bool:
+    return os.environ.get("INNOVATION_RESEARCH_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ── CNN Architecture (same as Task 1) ────────────────────────────────────────
@@ -100,40 +119,118 @@ class FaceCNN_Classifier(nn.Module):
         return self.classifier(emb), emb
     def get_embedding(self, x): return self.backbone(x)
 
+class FaceCNN_Triplet(nn.Module):
+    """Methods 2 and 4: the backbone alone (triplet loss, no classification head)."""
+    def __init__(self, embed_dim=512):
+        super().__init__()
+        self.backbone = FaceCNN(embed_dim)
+    def forward(self, x): return self.backbone(x)
+    def get_embedding(self, x): return self.backbone(x)
+
+
+# ── ViT Architecture (Method 5, training_max.ipynb FaceViT_ArcFace) ────────────
+
+class FaceViT_ArcFace(nn.Module):
+    """ViT-B/16 (timm, no classifier) -> Linear(768, 512, no bias) -> BN -> L2; ArcFace weight.
+
+    Needs `timm` (innovation/requirements.txt). Built with pretrained=False:
+    every weight comes from the checkpoint.
+    """
+    def __init__(self, num_classes=4000, embed_dim=512):
+        super().__init__()
+        try:
+            import timm
+        except ImportError as e:
+            raise ImportError("method5 (ViT-B/16) needs timm: pip install -r innovation/requirements.txt") from e
+        self.backbone = timm.create_model("vit_base_patch16_224", pretrained=False, num_classes=0)
+        self.emb_head = nn.Sequential(nn.Linear(self.backbone.num_features, embed_dim, bias=False),
+                                      nn.BatchNorm1d(embed_dim))
+        self.weight = nn.Parameter(torch.empty(num_classes, embed_dim))
+        nn.init.xavier_uniform_(self.weight)
+    def get_embedding(self, x):
+        return F.normalize(self.emb_head(self.backbone(x)), p=2, dim=1)
+    def forward(self, x):
+        emb = self.get_embedding(x)
+        return F.linear(emb, F.normalize(self.weight, p=2, dim=1)), emb
+
+
+def _unwrap_state(obj) -> dict:
+    """A plain state_dict from a checkpoint file (also {'state_dict': ...} and DataParallel 'module.')."""
+    if isinstance(obj, dict):
+        for key in ("state_dict", "model_state_dict", "model"):
+            if key in obj and isinstance(obj[key], dict):
+                obj = obj[key]
+                break
+    state = dict(obj)
+    if state and all(k.startswith("module.") for k in state):
+        state = {k[len("module."):]: v for k, v in state.items()}
+    return state
+
+
+def build_model_for_state(state: dict) -> tuple[nn.Module, Preprocess, str]:
+    """The architecture a state_dict belongs to, its preprocessing and a short name."""
+    keys = set(state)
+    if {"backbone.cls_token", "backbone.pos_embed"} & keys:
+        return FaceViT_ArcFace(state["weight"].shape[0], EMBED_DIM), VIT_PREPROCESS, "FaceViT_ArcFace"
+    if "head.weight" in keys:
+        return FaceCNN_ArcFace(state["head.weight"].shape[0], EMBED_DIM), CNN_PREPROCESS, "FaceCNN_ArcFace"
+    if "classifier.weight" in keys:
+        return FaceCNN_Classifier(state["classifier.weight"].shape[0], EMBED_DIM), CNN_PREPROCESS, "FaceCNN_Classifier"
+    if any(k.startswith("backbone.features.") for k in keys):
+        return FaceCNN_Triplet(EMBED_DIM), CNN_PREPROCESS, "FaceCNN_Triplet"
+    raise ValueError(f"unknown checkpoint layout; first keys: {sorted(keys)[:8]}")
+
 
 # ── Recognizer ─────────────────────────────────────────────────────────────────
 
 class FaceRecognizer:
-    def __init__(self, threshold: float = 0.5, ckpt_path: str | Path | None = None):
+    def __init__(self, threshold: float = 0.5, ckpt_path: str | Path | None = None,
+                 strict: bool | None = None):
+        """
+        ckpt_path: another method's weights (e.g. the L1 transfer study); default CHECKPOINT_PATH.
+        strict: stop on a missing checkpoint or on any missing/unexpected key, instead of
+            running with partly random weights. Defaults to on in research mode
+            (INNOVATION_RESEARCH_MODE); research scripts always pass True.
+        """
         self.threshold = threshold
-        # ckpt_path lets research code load another method's weights side by side
-        # (e.g. the L1 transfer study); the backend uses CHECKPOINT_PATH as before.
         self.ckpt_path = Path(ckpt_path) if ckpt_path else CKPT_PATH
-        self._model    = None
+        self.strict = _research_mode() if strict is None else bool(strict)
+        self._model = None
+        self.preprocess = CNN_PREPROCESS
+        self.arch = None
+        self.load_report: dict = {}
         self._load_model()
 
     def _load_model(self):
-        CKPT_PATH = self.ckpt_path
-        if not CKPT_PATH.exists():
-            print(f"[FaceRecognizer] WARNING: No checkpoint found at {CKPT_PATH}. Using random weights.")
-            self._model = FaceCNN_ArcFace(num_classes=4000, embed_dim=EMBED_DIM).to(DEVICE)
-            self._model.eval()
+        if not self.ckpt_path.exists():
+            if self.strict:
+                raise FileNotFoundError(f"[FaceRecognizer] checkpoint not found: {self.ckpt_path}")
+            print(f"[FaceRecognizer] WARNING: No checkpoint found at {self.ckpt_path}. Using random weights.")
+            self._model = FaceCNN_ArcFace(num_classes=4000, embed_dim=EMBED_DIM).to(DEVICE).eval()
+            self.arch = "FaceCNN_ArcFace (random)"
+            self.load_report = {"random_weights": True}
             return
 
-        state = torch.load(str(CKPT_PATH), map_location=DEVICE, weights_only=False)
-        if any(k.startswith("head.") for k in state.keys()):
-            self._model = FaceCNN_ArcFace(num_classes=4000, embed_dim=EMBED_DIM).to(DEVICE)
-        else:
-            self._model = FaceCNN_Classifier(num_classes=4000, embed_dim=EMBED_DIM).to(DEVICE)
-
-        self._model.load_state_dict(state, strict=False)
-        self._model.eval()
-        print(f"[FaceRecognizer] Loaded checkpoint: {CKPT_PATH}")
+        state = _unwrap_state(torch.load(str(self.ckpt_path), map_location=DEVICE, weights_only=False))
+        model, self.preprocess, self.arch = build_model_for_state(state)
+        res = model.load_state_dict(state, strict=False)
+        self.load_report = {"arch": self.arch, "keys": len(state), "missing_keys": list(res.missing_keys),
+                            "unexpected_keys": list(res.unexpected_keys), "input_size": self.preprocess.size}
+        if res.missing_keys or res.unexpected_keys:
+            msg = (f"[FaceRecognizer] {self.ckpt_path} -> {self.arch}: "
+                   f"{len(res.missing_keys)} missing keys {res.missing_keys[:5]}, "
+                   f"{len(res.unexpected_keys)} unexpected keys {res.unexpected_keys[:5]}")
+            if self.strict:
+                raise RuntimeError(msg + " (strict load: stopping)")
+            print("WARNING: " + msg)
+        self._model = model.to(DEVICE).eval()
+        print(f"[FaceRecognizer] Loaded checkpoint: {self.ckpt_path} ({self.arch}, "
+              f"{self.preprocess.size}x{self.preprocess.size})")
 
     @torch.no_grad()
     def extract_embedding(self, face_bgr: np.ndarray) -> np.ndarray:
-        """Extract 512-dim L2-normalized embedding from face crop (BGR)."""
-        tensor = _preprocess_face(face_bgr)
+        """Extract 512-dim L2-normalized embedding from face crop (BGR), with this model's preprocessing."""
+        tensor = _preprocess_face(face_bgr, self.preprocess)
         emb    = self._model.get_embedding(tensor).cpu().numpy().squeeze()
         return emb  # shape (512,)
 

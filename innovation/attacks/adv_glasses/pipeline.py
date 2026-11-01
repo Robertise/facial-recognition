@@ -1,18 +1,18 @@
 """
 pipeline.py – the recognition step of check-in as a differentiable function:
-face crop (BGR, 0..255) -> 112 x 112 -> RGB -> [-1, 1] -> FaceCNN embedding.
+face crop (BGR, 0..255) -> side x side -> RGB -> normalise -> embedding.
 
-Mirrors backend.face_recognizer._preprocess_face (cv2.resize INTER_LINEAR,
-BGR->RGB, x/127.5 - 1) and uses the recogniser's own model weights.
-`parity` measures how close it is to the backend on real crops.
+Mirrors backend.face_recognizer._preprocess_face with the recogniser's own
+`preprocess` (cv2.resize INTER_LINEAR, BGR->RGB, (x/255 - mean)/std):
+112 and [-1, 1] for the FaceCNN methods 1-4, 224 and ImageNet statistics for
+the ViT method 5. Uses the recogniser's own weights. `parity` measures how
+close it is to the backend on real crops.
 """
 from __future__ import annotations
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-IMG_SIZE = 112
 
 
 class TorchPipeline:
@@ -22,12 +22,16 @@ class TorchPipeline:
         for p in self.model.parameters():
             p.requires_grad_(False)
         self.device = device
+        pre = recognizer.preprocess
+        self.size = pre.size
+        self.mean = torch.tensor(pre.mean, dtype=torch.float32, device=device).view(3, 1, 1)
+        self.std = torch.tensor(pre.std, dtype=torch.float32, device=device).view(3, 1, 1)
 
     def preprocess(self, crop_bgr: torch.Tensor) -> torch.Tensor:
-        """(3, h, w) BGR in 0..255 -> (3, 112, 112) RGB in [-1, 1]."""
-        x = F.interpolate(crop_bgr[None], size=(IMG_SIZE, IMG_SIZE), mode="bilinear",
+        """(3, h, w) BGR in 0..255 -> (3, side, side) RGB, normalised as the model was trained."""
+        x = F.interpolate(crop_bgr[None], size=(self.size, self.size), mode="bilinear",
                           align_corners=False, antialias=False)[0]
-        return x.flip(0) / 127.5 - 1.0
+        return (x.flip(0) / 255.0 - self.mean) / self.std
 
     def embed(self, crops_bgr: list[torch.Tensor]) -> torch.Tensor:
         """Embeddings (n, 512), L2-normalised, for crops of any sizes."""
@@ -64,7 +68,7 @@ def main():
     ap.add_argument("--checkpoint", default="checkpoints/method3_best.pth")
     ap.add_argument("--n", type=int, default=20)
     args = ap.parse_args()
-    rec = FaceRecognizer(ckpt_path=args.checkpoint)
+    rec = FaceRecognizer(ckpt_path=args.checkpoint, strict=True)
     det = faces.FaceDetector()
     crops = []
     for f in faces.list_images(Path(args.frames)):
@@ -76,7 +80,7 @@ def main():
         if len(crops) >= args.n:
             break
     cos = parity(TorchPipeline(rec), crops)
-    print(f"crops {len(cos)}  cosine min {cos.min():.5f}  mean {cos.mean():.5f}  pass {bool(cos.min() >= 0.999)}")
+    print(f"model {rec.arch} input {rec.preprocess.size}  crops {len(cos)}  cosine min {cos.min():.5f}  mean {cos.mean():.5f}  pass {bool(cos.min() >= 0.999)}")
 
 
 if __name__ == "__main__":
