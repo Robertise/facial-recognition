@@ -1,0 +1,17 @@
+{
+  "genuine": 20,
+  "impostor": 240,
+  "impostor_speakers": 12,
+  "genuine_mean": 0.39067775532603266,
+  "impostor_mean": 0.0377821574259239,
+  "impostor_max": 0.2325810045003891,
+  "eer": 0.00625,
+  "eer_threshold": 0.2006525844335556,
+  "auc": 0.999375,
+  "at_config_threshold": {
+    "threshold": 0.4,
+    "far": 0.0,
+    "frr": 0.65
+  },
+  "embed_ms_median": 73.88279999577207
+}

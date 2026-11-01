@@ -58,7 +58,7 @@ export default function LabView() {
   const error = recorder.error ?? failure;
 
   return (
-    <div className="workbench">
+    <div className="workbench lab-workbench">
       <WebcamCapture wsRef={noSocket} onStream={setStream} />
 
       <section className="panel" aria-labelledby="probe-title">

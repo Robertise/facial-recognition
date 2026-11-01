@@ -1,0 +1,28 @@
+{
+  "clip_s": 4.03,
+  "clip": "data/voices/huy-7.m4a",
+  "ecapa": {
+    "load_ms": 1419.4,
+    "dim": 192,
+    "median_ms": 152.9,
+    "min_ms": 150.1,
+    "max_ms": 157.7,
+    "runs": 5
+  },
+  "asr_tiny.en": {
+    "load_ms": 3413.5,
+    "text": "7, 6, 0, 3, 8, 1.",
+    "median_ms": 314.0,
+    "min_ms": 238.4,
+    "max_ms": 449.9,
+    "runs": 5
+  },
+  "asr_base.en": {
+    "load_ms": 5204.0,
+    "text": "760-381",
+    "median_ms": 612.1,
+    "min_ms": 560.6,
+    "max_ms": 661.8,
+    "runs": 5
+  }
+}

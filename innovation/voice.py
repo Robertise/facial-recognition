@@ -149,8 +149,13 @@ class VoiceEncoder:
             with self._lock:
                 if self._model is None:
                     from speechbrain.inference.speaker import EncoderClassifier
+                    from speechbrain.utils.fetching import LocalStrategy
                     self._model = EncoderClassifier.from_hparams(
-                        source=self.source, savedir=self.savedir, run_opts={"device": self.device})
+                        source=self.source,
+                        savedir=self.savedir,
+                        run_opts={"device": self.device},
+                        local_strategy=LocalStrategy.COPY,
+                    )
         return self._model
 
     def embed(self, audio: np.ndarray, sr: int = SR) -> np.ndarray:
