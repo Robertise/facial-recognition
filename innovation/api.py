@@ -4,9 +4,12 @@ only when INNOVATION_ENABLED=1.
 
 - P0: the read-only config, the attempts list and a media probe.
 - P1: voice enrolment (start, submit, status, reset).
+- L1: frame capture for the attack experiments (research mode only).
 """
 from __future__ import annotations
 
+import csv
+import re
 import time
 import uuid
 from pathlib import Path
@@ -24,6 +27,8 @@ from innovation.media import decode_media
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VOICE_AUDIO_DIR = PROJECT_ROOT / "data" / "innovation" / "voice"
+FRAMES_DIR = PROJECT_ROOT / "data" / "innovation" / "frames"
+SAFE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 router = APIRouter(prefix="/api", tags=["innovation"])
 
@@ -148,3 +153,35 @@ def voice_status(employee_id: str):
 @router.delete("/voice/{employee_id}")
 def voice_reset(employee_id: str):
     return {"employee_id": employee_id, "deleted": db.delete_voice(employee_id)}
+
+
+# ── Frame capture for the L1 experiments (research mode) ────────────────────
+
+@router.post("/innovation/frames")
+async def save_frame(person: str = Form(...), session: str = Form(...), index: int = Form(...),
+                     client_ms: float = Form(0.0), file: UploadFile = File(...)):
+    """Store one captured frame exactly as check-in would send it (640x480 JPEG q0.95).
+
+    Saved as data/innovation/frames/<person>/<session>/<index>.jpg with a
+    meta.csv row (index, client time in ms, bytes) so the sequence timing is kept.
+    """
+    if not cfg.research_mode():
+        raise HTTPException(403, "Frame capture needs INNOVATION_RESEARCH_MODE=1.")
+    if not SAFE_NAME.match(person) or not SAFE_NAME.match(session):
+        raise HTTPException(400, "Person and session may use letters, digits, '-' and '_' only.")
+    if not 0 <= index < 100000:
+        raise HTTPException(400, "Index out of range.")
+    data = await file.read()
+    if not data or len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "The frame is empty or larger than 5 MB.")
+    folder = FRAMES_DIR / person / session
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{index:04d}.jpg").write_bytes(data)
+    meta = folder / "meta.csv"
+    new = not meta.exists()
+    with open(meta, "a", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        if new:
+            w.writerow(["index", "client_ms", "bytes"])
+        w.writerow([index, round(client_ms, 1), len(data)])
+    return {"saved": f"{person}/{session}/{index:04d}.jpg"}

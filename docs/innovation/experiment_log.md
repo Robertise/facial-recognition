@@ -110,3 +110,16 @@ Mẫu:
   - FAR 0% cũng lạc quan, vì impostor AudioMNIST khác hẳn kênh thu và ngôn ngữ.
   - base.en viết chuỗi số kiểu "760-381", nên P2 cần chuẩn hoá chỉ lấy chữ số.
 - **Quyết định tiếp theo:** xem `decisions.md` (2026-11-01). Ngưỡng chốt trong prereg sau khi có impostor cùng kênh (người hỗ trợ, buổi 1 của L1).
+
+## 2026-11-01 l1a-tooling · L1 giai đoạn A · info (kiểm tra code, chưa phải thí nghiệm)
+- **Mục đích:** kiểm tra bộ công cụ tấn công chạy trọn từ đầu đến cuối trước khi owner chạy với checkpoint thật.
+- **Đã kiểm tra:**
+  - Pipeline torch so với backend (trọng số ngẫu nhiên, 20 crop thật cùng crop ngẫu nhiên): cosine nhỏ nhất **1.00000**.
+  - Crop khớp `crop_face_from_bbox` trên 200 bbox ngẫu nhiên.
+  - JPEG kiểu BPDA cho gradient bằng 1.
+  - Bảng màu chạy vòng tròn (giả lập chụp nghiêng, lệch màu, nhiễu): sai số fit khoảng 1/255.
+  - Gọng đặt đúng theo mắt trên ảnh webcam thật của owner.
+- **Độ phủ đo được** trên ảnh owner: gọng thường 3.7%; độ dày 35, `rim_scale` 1.1 cho 8.2%; độ dày 55, `rim_scale` 1.2 cho 11.6% (xem `decisions.md`).
+- **Chạy thử optimize, evaluate, export trên CPU bằng trọng số ngẫu nhiên:** chạy hết luồng, nhưng **không có ý nghĩa về hiệu quả**. Model ngẫu nhiên cho mọi ảnh cosine khoảng 0.98, gradient gần bằng 0, texture hội tụ về màu xám. Đã xoá các thư mục kết quả chạy thử.
+  - Phát hiện và sửa: logsumexp chưa trừ τ·log(n) nên hàm max mềm vượt quá 1.
+- **Quyết định tiếp theo:** owner chạy `runbook_L1.md` với checkpoint thật. Bước đầu tiên là kiểm tra parity trên crop thật.

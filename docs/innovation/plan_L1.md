@@ -55,7 +55,7 @@ Backend ghi điểm danh ngay khi **một frame** khớp (Quick mode). Vì vậy
 
 - **Template:** một ảnh gọng kính 2D chuẩn (khoảng 400×150 px), gồm hai vành mắt và cầu mũi. Vùng được tối ưu là chính phần gọng (mask), không phải tròng kính.
 - **Đặt lên mặt:** lấy landmark FaceMesh (khoé mắt, sống mũi, thái dương) trên từng ảnh, rồi warp template theo phép phối cảnh. Đầu xoay thì gọng xoay theo.
-- **Kích thước:** gọng chiếm **15–30% diện tích ảnh crop 112×112**. Có thể nới bản lề và độ dày gọng; >30% vẫn chấp nhận nếu cần (owner đồng ý). Lưu ý crop đã nới 15%, nên tỉ lệ so với khuôn mặt còn cao hơn con số này.
+- **Kích thước:** (sửa 2026-11-01 sau khi đo: gọng kính chỉ phủ tối đa khoảng 12% ảnh crop, xem `decisions.md`; ablation khoảng 4/8/12%.) Ban đầu đặt mục tiêu gọng chiếm **15–30% diện tích ảnh crop 112×112**. Có thể nới bản lề và độ dày gọng; >30% vẫn chấp nhận nếu cần (owner đồng ý). Lưu ý crop đã nới 15%, nên tỉ lệ so với khuôn mặt còn cao hơn con số này.
   - Luôn báo cáo % diện tích của từng texture.
   - **Ablation kích thước (nếu kịp):** 3 độ dày gọng (ví dụ 10%, 20%, 30% diện tích), mỗi mức tối ưu riêng. Vẽ đồ thị độ thành công tầng D theo diện tích.
 - **Ảnh ra để in:** PNG theo kích thước thật của gọng (mm, 300 dpi), kèm hướng dẫn cắt và dán lên gọng nhựa rẻ.
