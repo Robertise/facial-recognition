@@ -29,5 +29,21 @@ Thay cho việc chia tập theo người trong team: train và dev trên danh t�
 ## 2026-10-31. Cách bật feature flag
 `NEXT_PUBLIC_INNOVATION` nhận 1/true/yes/on (trước chỉ nhận "1", nên owner đặt `true` thì không thấy gì). Backend đọc `.env` ở thư mục gốc repo, vì cú pháp `KEY=1 python ...` không chạy được trên PowerShell hay cmd của Windows.
 
+## 2026-11-01. L1 làm bằng gọng kính, chia hai giai đoạn
+- **Dạng tấn công:** gọng kính in hoa văn (không dán thẳng lên mặt), gọng chiếm 15–30% diện tích ảnh crop mặt; lớn hơn vẫn chấp nhận nếu cần.
+- **Giai đoạn A:** owner là kẻ tấn công, nạn nhân là danh tính ảo (VoxCeleb1, hoặc phần verification của dataset môn học). Chỉ đo digital, để kiểm chứng phương pháp.
+- **Giai đoạn B:** người hỗ trợ là kẻ tấn công, owner là nạn nhân. Có đo vật lý, control và giọng.
+- **Thêm dodging** làm bài kiểm tra dễ hơn trước.
+- **Lịch người hỗ trợ:** buổi 1 chụp frame và ghi giọng cùng kênh; buổi 2 thử vật lý.
+- Chi tiết: `plan_L1.md`.
+
+## 2026-11-01. Ngưỡng giọng 0.40 sai với giọng thật của owner
+Trên 20 clip của owner (`results/innovation/20261101_140348_voice_scores/`), ngưỡng 0.40 cho FRR 65%; ngưỡng 0.25–0.30 cho FRR 5%, FAR 0%. Điểm genuine thấp chủ yếu vì **lệch kênh thu** (enroll qua trình duyệt, test bằng file .m4a), không phải vì cao độ: 5 clip owner cố ý đọc giọng cao có điểm trung bình 0.39, bằng 15 clip giọng thường (0.391). Hướng xử lý:
+- enroll 5 mẫu chia 2 buổi;
+- enroll và verify cùng kênh (trình duyệt);
+- chốt ngưỡng trong `prereg.md` sau khi có clip impostor cùng kênh từ người hỗ trợ.
+
+Tạm thời chưa đổi giá trị trong `config.json`.
+
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).
