@@ -111,17 +111,16 @@ def build_gallery(root: Path, recognizer, detector: FaceDetector, max_per_id: in
     """
     root = Path(root)
     ckpt = getattr(recognizer, "ckpt_path", None)
-    key = hashlib.sha1(f"{root.resolve()}|{ckpt}|{max_per_id}".encode()).hexdigest()[:12]
-    cache = (cache_dir / f"gallery_{key}.npz") if cache_dir else None
-    if cache and cache.exists() and Path(str(ckpt)).exists():
-        data = np.load(cache, allow_pickle=True)
-        return Gallery(dict(data["embeddings"].item())), dict(data["report"].item())
 
-    embeddings, report = {}, {}
-    for person in sorted(p for p in root.iterdir() if p.is_dir()):
-        embs, skipped = [], 0
+    # Collect the exact image files and face crops actually used for each person
+    candidates_by_person: dict[str, list[tuple[Path, np.ndarray]]] = {}
+    skipped_by_person: dict[str, int] = {}
+    used_records: list[str] = []
+
+    for person in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith("_")):
+        valid_items, skipped = [], 0
         for f in list_images(person)[:max_per_id * 3]:
-            if len(embs) >= max_per_id:
+            if len(valid_items) >= max_per_id:
                 break
             img = cv2.imread(str(f))
             bbox = detector.detect(img) if img is not None else None
@@ -132,10 +131,26 @@ def build_gallery(root: Path, recognizer, detector: FaceDetector, max_per_id: in
             if face.size == 0:
                 skipped += 1
                 continue
-            embs.append(recognizer.extract_embedding(face))
+            valid_items.append((f, face))
+            st = f.stat()
+            rel = f.relative_to(root).as_posix()
+            used_records.append(f"{rel}:{st.st_size}:{st.st_mtime_ns}")
+        candidates_by_person[person.name] = valid_items
+        skipped_by_person[person.name] = skipped
+
+    used_hash = hashlib.sha1("\n".join(used_records).encode()).hexdigest()[:12]
+    key = hashlib.sha1(f"{root.resolve()}|{ckpt}|{max_per_id}|{used_hash}".encode()).hexdigest()[:12]
+    cache = (cache_dir / f"gallery_{key}.npz") if cache_dir else None
+    if cache and cache.exists() and (ckpt is None or Path(str(ckpt)).exists()):
+        data = np.load(cache, allow_pickle=True)
+        return Gallery(dict(data["embeddings"].item())), dict(data["report"].item())
+
+    embeddings, report = {}, {}
+    for person_name, valid_items in candidates_by_person.items():
+        embs = [recognizer.extract_embedding(face) for _, face in valid_items]
         if embs:
-            embeddings[person.name] = np.stack(embs)
-        report[person.name] = {"used": len(embs), "skipped_no_face": skipped}
+            embeddings[person_name] = np.stack(embs)
+        report[person_name] = {"used": len(embs), "skipped_no_face": skipped_by_person[person_name]}
     report["uneven"] = sorted(k for k, v in report.items() if v["used"] < max_per_id)
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)

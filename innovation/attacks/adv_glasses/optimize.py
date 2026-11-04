@@ -38,7 +38,52 @@ import torch.nn.functional as F
 from innovation.attacks.adv_glasses import eot, faces, glasses, pipeline, printability
 from innovation.eval.runs import new_run, write_json
 
-TEX_H, TEX_W = 75, 200          # parameter resolution; upsampled to the 150 x 400 template
+TEX_H, TEX_W = 15, 40           # default parameter resolution; upsampled bicubic to 150 x 400 template
+
+
+def upsample_logits(logits: torch.Tensor, out_h: int = glasses.TEMPLATE_H, out_w: int = glasses.TEMPLATE_W) -> torch.Tensor:
+    """Upsample parameter logits to template resolution using bicubic interpolation."""
+    if logits.shape[-2:] == (out_h, out_w):
+        return logits
+    if logits.dim() == 3:
+        return F.interpolate(logits[None], size=(out_h, out_w), mode="bicubic", align_corners=False)[0]
+    return F.interpolate(logits, size=(out_h, out_w), mode="bicubic", align_corners=False)
+
+
+CONTROL_SEED = 0
+
+
+def permute_cells(logits: torch.Tensor, seed: int = CONTROL_SEED) -> torch.Tensor:
+    """Randomly permute spatial cells (H x W) of logits at parameter resolution,
+    preserving the 3 channels of each cell.
+    Works for (3, H, W) or (B, 3, H, W).
+    """
+    squeeze = False
+    if logits.dim() == 4:
+        logits = logits[0]
+        squeeze = True
+    c, h, w = logits.shape
+    rng = np.random.default_rng(seed)
+    perm = torch.from_numpy(rng.permutation(h * w)).to(logits.device)
+    flat = logits.reshape(c, h * w)
+    shuffled = flat[:, perm].reshape(c, h, w)
+    return shuffled[None] if squeeze else shuffled
+
+
+def control_random_texture(logits: torch.Tensor, seed: int = CONTROL_SEED,
+                           out_h: int = glasses.TEMPLATE_H,
+                           out_w: int = glasses.TEMPLATE_W) -> torch.Tensor:
+    """Generate control_random print texture:
+    Randomly permute spatial cells (H x W) of logits at parameter resolution (preserving 3 channels per cell),
+    then upsample bicubic to (out_h, out_w) and apply sigmoid, exactly like the real texture.
+    Returns T in print colours with shape (3, out_h, out_w) in [0, 1].
+    """
+    shuffled_logits = permute_cells(logits, seed=seed)
+    logits_full = upsample_logits(shuffled_logits, out_h=out_h, out_w=out_w)
+    return torch.sigmoid(logits_full)
+
+
+make_control_random = control_random_texture
 
 
 # ── frames and split ────────────────────────────────────────────────────────
@@ -127,6 +172,8 @@ def main():
     ap.add_argument("--chart", help="chart.json, for the NPS palette (default: the standard chart colours)")
     ap.add_argument("--thickness", type=float, default=35.0)
     ap.add_argument("--rim-scale", type=float, default=1.1)
+    ap.add_argument("--tex-res", type=int, nargs=2, default=[15, 40], metavar=("H", "W"),
+                    help="parameter grid resolution (H, W); upsampled bicubic to 150x400 (default: 15 40)")
     ap.add_argument("--steps", type=int, default=1500)
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--lr", type=float, default=0.01)
@@ -177,12 +224,14 @@ def main():
     palette = torch.tensor(json.loads(Path(args.chart).read_text())["colours_rgb"] if args.chart
                            else printability.chart_colours(), dtype=torch.float32, device=args.device)
 
-    logits = (0.5 * torch.randn(3, TEX_H, TEX_W, device=args.device)).requires_grad_(True)
+    tex_h, tex_w = args.tex_res[0], args.tex_res[1]
+    logits = (0.05 * torch.randn(3, tex_h, tex_w, device=args.device)).requires_grad_(True)
     opt = torch.optim.Adam([logits], lr=args.lr)
     log_rows, t0 = [], time.time()
 
     for step in range(1, args.steps + 1):
-        T = torch.sigmoid(logits)                      # print colours
+        logits_full = upsample_logits(logits)
+        T = torch.sigmoid(logits_full)                  # print colours
         seen = cmap(T)                                  # what the camera sees
         batch = [items[i] for i in rng.choice(len(items), size=min(args.batch, len(items)), replace=False)]
         crops = []
@@ -227,19 +276,19 @@ def main():
         w = csv.DictWriter(fh, fieldnames=list(log_rows[0]))
         w.writeheader(); w.writerows(log_rows)
 
-    T = torch.sigmoid(logits).detach().cpu()
-    T_full = F.interpolate(T[None], size=(glasses.TEMPLATE_H, glasses.TEMPLATE_W), mode="bilinear", align_corners=False)[0]
-    tex_bgr = (T_full.flip(0).permute(1, 2, 0).numpy() * 255).round().astype(np.uint8)
+    logits_full = upsample_logits(logits)
+    T = torch.sigmoid(logits_full).detach().cpu()
+    tex_bgr = (T.flip(0).permute(1, 2, 0).numpy() * 255).round().astype(np.uint8)
     cv2.imwrite(str(run / "texture_print.png"), tex_bgr)              # print colours: the file to print
     cv2.imwrite(str(run / "mask.png"), (shape.mask() * 255).astype(np.uint8))
-    torch.save({"logits": logits.detach().cpu(), "shape": vars(shape)}, run / "texture.pt")
+    torch.save({"logits": logits.detach().cpu(), "shape": vars(shape), "tex_res": [tex_h, tex_w]}, run / "texture.pt")
     cmap.save(run / "colormap.json")
     write_json(run / "split.json", split)
     write_json(run / "attack.json", {
         "mode": args.mode, "attacker_id": args.attacker_id, "victim": args.victim, "target": target,
         "checkpoint": args.checkpoint, "model": recognizer.load_report,
         "gallery": args.gallery, "gallery_per_id": args.max_gallery, "gallery_report": g_report,
-        "identities": sorted(E), "frame_shape": vars(shape),
+        "identities": sorted(E), "frame_shape": vars(shape), "tex_res": [tex_h, tex_w],
         "coverage_train": {"mean": float(np.mean(cover)), "min": float(np.min(cover)), "max": float(np.max(cover))},
         "prepare_report": p_report, "color_map_calibrated": cmap.calibrated,
         "final": log_rows[-1]})

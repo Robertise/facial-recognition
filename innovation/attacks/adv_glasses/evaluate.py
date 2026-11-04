@@ -38,8 +38,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from innovation.attacks.adv_glasses import eot, faces, glasses, pipeline, printability
+from innovation.attacks.adv_glasses.optimize import control_random_texture, upsample_logits
 from innovation.eval.runs import new_run, write_json
 
 WINDOW_S = 3.0
@@ -144,6 +146,7 @@ def main():
     ap.add_argument("--liveness", action="store_true", help="gate on the backend's smoothed liveness (needs its checkpoint)")
     ap.add_argument("--transfer", nargs="*", default=[], help="name=checkpoint pairs for the transfer study")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--control-seed", type=int, default=0, help="random seed for control_random spatial shuffling (default: 0)")
     args = ap.parse_args()
 
     src = Path(args.run)
@@ -158,12 +161,17 @@ def main():
     shape = glasses.FrameShape(**attack["frame_shape"])
     mask = torch.from_numpy(shape.mask())[None]
     cmap = printability.ColorMap.load(src / "colormap.json")
-    T = torch.sigmoid(torch.load(src / "texture.pt")["logits"])
+    tex_data = torch.load(src / "texture.pt", map_location="cpu")
+    logits_raw = tex_data["logits"]
+    tex_res = tex_data.get("tex_res") or attack.get("tex_res") or list(logits_raw.shape[-2:])
+    logits_full = upsample_logits(logits_raw)
+    T = torch.sigmoid(logits_full)
     seen = cmap(T)                                              # the camera's view of the printed frame
+    T_random = control_random_texture(logits_raw, seed=args.control_seed)
+    seen_random = cmap(T_random)
     flat = seen.reshape(3, -1)
-    shuffled = flat[:, torch.from_numpy(rng.permutation(flat.shape[1]))].reshape(seen.shape)
     plain = flat.mean(1, keepdim=True).expand_as(flat).reshape(seen.shape).clone()
-    colours = {"D": seen, "control_random": shuffled, "control_plain": plain, "D_EOT": seen}
+    colours = {"D": seen, "control_random": seen_random, "control_plain": plain, "D_EOT": seen}
 
     from backend.face_recognizer import FaceRecognizer
     detector, eyes_finder = faces.FaceDetector(), faces.EyeLandmarks()
@@ -242,7 +250,8 @@ def main():
         w.writeheader(); w.writerows(rows)
 
     summary = {"source_run": str(src), "mode": attack["mode"], "victim": attack.get("victim"),
-               "attacker": attack["attacker_id"], "liveness_gated": live is not None,
+               "attacker": attack["attacker_id"], "tex_res": tex_res, "control_seed": args.control_seed,
+               "liveness_gated": live is not None,
                "eval_frames": len(prepared), "coverage_train": attack.get("coverage_train"),
                "color_map_calibrated": attack.get("color_map_calibrated"),
                "gallery_per_id": attack.get("gallery_per_id"), "models": model_info, "results": {}}

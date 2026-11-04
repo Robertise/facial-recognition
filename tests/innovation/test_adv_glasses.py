@@ -21,7 +21,7 @@ pytest.importorskip("mediapipe")
 from backend.processing import crop_face_from_bbox
 from innovation.attacks.adv_glasses import eot, faces, glasses, pipeline, printability
 from innovation.attacks.adv_glasses.evaluate import wilson
-from innovation.attacks.adv_glasses.optimize import soft_max_cos
+from innovation.attacks.adv_glasses.optimize import soft_max_cos, tv, upsample_logits, control_random_texture, permute_cells
 
 
 def test_crop_window_matches_backend_crop():
@@ -243,3 +243,222 @@ def test_unseen_frame_distance_follows_eot_config():
     img = np.full((240, 320, 3), 128, np.uint8)
     out = unseen_frame(img, np.random.default_rng(0), crop_side=50)   # already below distance_px: no rescale
     assert out.shape == img.shape
+
+
+def test_gallery_cache_recomputed_when_image_changes(tmp_path):
+    import os
+    import time
+    gal = tmp_path / "gallery"
+    gal.mkdir()
+    p1 = gal / "p1"
+    p1.mkdir()
+    img_file = p1 / "1.jpg"
+    img_arr = np.full((100, 100, 3), 128, dtype=np.uint8)
+    cv2.imwrite(str(img_file), img_arr)
+
+    ckpt_file = tmp_path / "dummy_ckpt.pth"
+    ckpt_file.write_text("ckpt")
+
+    class DummyRecognizer:
+        def __init__(self):
+            self.ckpt_path = ckpt_file
+            self.call_count = 0
+        def extract_embedding(self, face):
+            self.call_count += 1
+            val = float(np.mean(face))
+            return np.full(512, val, dtype=np.float32)
+
+    class DummyDetector:
+        def detect(self, img):
+            return [10, 10, 50, 50]
+
+    cache_dir = tmp_path / "cache"
+    rec = DummyRecognizer()
+    det = DummyDetector()
+
+    # 1. Initial build: extracts embedding and saves to cache
+    g1, r1 = faces.build_gallery(gal, rec, det, max_per_id=1, cache_dir=cache_dir)
+    assert rec.call_count == 1
+    cache_files_1 = list(cache_dir.glob("gallery_*.npz"))
+    assert len(cache_files_1) == 1
+
+    # 2. Re-run without changes: hits cache, extract_embedding is NOT called
+    g2, r2 = faces.build_gallery(gal, rec, det, max_per_id=1, cache_dir=cache_dir)
+    assert rec.call_count == 1
+    assert np.allclose(g1.embeddings["p1"], g2.embeddings["p1"])
+
+    # 3. Change image: modify pixels and update mtime
+    time.sleep(0.01)
+    new_arr = np.full((100, 100, 3), 220, dtype=np.uint8)
+    cv2.imwrite(str(img_file), new_arr)
+    future_time = time.time() + 10
+    os.utime(str(img_file), (future_time, future_time))
+
+    # 4. Re-run: cache key must differ, cache must be recomputed
+    g3, r3 = faces.build_gallery(gal, rec, det, max_per_id=1, cache_dir=cache_dir)
+    assert rec.call_count == 2
+    cache_files_2 = list(cache_dir.glob("gallery_*.npz"))
+    assert len(cache_files_2) == 2
+    assert not np.allclose(g1.embeddings["p1"], g3.embeddings["p1"])
+
+
+# ── tex_res, smoothness (TV), camera preview, and multi-frame sheet ──────────
+
+def test_tex_res_saved_and_loaded_correctly(tmp_path):
+    from innovation.attacks.adv_glasses.export import load_run_data
+
+    # Case 1: Run with tex_res saved in texture.pt and attack.json
+    run1 = tmp_path / "run_new"
+    run1.mkdir()
+    shape = glasses.FrameShape()
+    mask = (shape.mask() * 255).astype(np.uint8)
+    cv2.imwrite(str(run1 / "mask.png"), mask)
+    tex = np.full((glasses.TEMPLATE_H, glasses.TEMPLATE_W, 3), 128, dtype=np.uint8)
+    cv2.imwrite(str(run1 / "texture_print.png"), tex)
+
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, run1 / "texture.pt")
+    (run1 / "attack.json").write_text(json.dumps({"frame_shape": vars(shape), "tex_res": [15, 40]}))
+
+    data1 = load_run_data(run1)
+    assert data1["tex_res"] == [15, 40]
+
+    # Case 2: Legacy run without tex_res -> defaults to [75, 200]
+    run_old = tmp_path / "run_legacy"
+    run_old.mkdir()
+    cv2.imwrite(str(run_old / "mask.png"), mask)
+    cv2.imwrite(str(run_old / "texture_print.png"), tex)
+    torch.save({"logits": torch.zeros(3, 75, 200), "shape": vars(shape)}, run_old / "texture.pt")
+    (run_old / "attack.json").write_text(json.dumps({"frame_shape": vars(shape)}))
+
+    data_old = load_run_data(run_old)
+    assert data_old["tex_res"] == [75, 200]
+
+
+def test_tv_smooth_tex_res_substantially_lower_than_legacy_noise():
+    torch.manual_seed(0)
+    # Legacy initialization: 75x200 grid with 0.5 * randn
+    logits_old = 0.5 * torch.randn(3, 75, 200)
+    T_old = torch.sigmoid(logits_old)
+    tv_old = float(tv(T_old))
+
+    # New initialization: 15x40 grid with 0.05 * randn + bicubic upsample
+    logits_new = (0.05 * torch.randn(3, 15, 40)).requires_grad_(True)
+    T_new = torch.sigmoid(upsample_logits(logits_new))
+    tv_new = float(tv(T_new).detach())
+
+    # Total variation must be substantially lower (>10x lower)
+    assert tv_new < 0.1 * tv_old
+    assert tv_new < 0.01 and tv_old > 0.05
+
+    # Gradient flows through upsample and tv
+    l_tv = tv(T_new)
+    l_tv.backward()
+    assert logits_new.grad is not None and logits_new.grad.abs().sum() > 0
+
+
+def test_export_sheet_creates_correct_number_of_frames(tmp_path):
+    from innovation.attacks.adv_glasses.export import export_sheet, make_camera_preview
+
+    # Setup two mock runs
+    shape = glasses.FrameShape()
+    mask = (shape.mask() * 255).astype(np.uint8)
+    tex = np.full((glasses.TEMPLATE_H, glasses.TEMPLATE_W, 3), 128, dtype=np.uint8)
+
+    runs = []
+    for i in range(2):
+        r = tmp_path / f"run_{i}"
+        r.mkdir()
+        cv2.imwrite(str(r / "mask.png"), mask)
+        cv2.imwrite(str(r / "texture_print.png"), tex)
+        torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, r / "texture.pt")
+        (r / "attack.json").write_text(json.dumps({"frame_shape": vars(shape), "tex_res": [15, 40]}))
+        runs.append(r)
+
+    # 1. Sheet without controls: 1 frame per run -> 2 frames
+    sheet_no_ctrl = tmp_path / "sheet_no_ctrl.png"
+    info1 = export_sheet(runs, out_path=sheet_no_ctrl, include_controls=False, preview=False)
+    assert info1["frames_count"] == 2
+    assert sheet_no_ctrl.exists()
+    assert sheet_no_ctrl.stat().st_size > 0
+
+    # 2. Sheet with controls: 3 frames per run (D, random, plain) -> 6 frames
+    sheet_ctrl = tmp_path / "sheet_ctrl.png"
+    info2 = export_sheet(runs, out_path=sheet_ctrl, include_controls=True, preview=False)
+    assert info2["frames_count"] == 6
+    assert sheet_ctrl.exists()
+    assert sheet_ctrl.stat().st_size > 0
+
+    # 3. Camera preview utility
+    preview_file = tmp_path / "preview.png"
+    out_preview = make_camera_preview(runs[0], out_path=preview_file)
+    assert out_preview.exists()
+    assert out_preview.stat().st_size > 0
+
+
+def test_control_random_multiset_and_tv():
+    from innovation.attacks.adv_glasses.optimize import (
+        control_random_texture,
+        permute_cells,
+        tv,
+        upsample_logits,
+    )
+
+    # 1. Multiset test at 15x40 and legacy 75x200
+    for h, w in [(15, 40), (75, 200)]:
+        torch.manual_seed(42)
+        logits = torch.randn(3, h, w)
+        shuffled = permute_cells(logits, seed=0)
+        assert shuffled.shape == (3, h, w)
+
+        # Same multiset of 3-channel values across cells
+        orig_cells = sorted([tuple(round(float(x), 5) for x in v) for v in logits.reshape(3, -1).T])
+        shuf_cells = sorted([tuple(round(float(x), 5) for x in v) for v in shuffled.reshape(3, -1).T])
+        assert orig_cells == shuf_cells
+
+        # Sorted channels match exactly
+        for c in range(3):
+            assert torch.allclose(torch.sort(logits[c].reshape(-1))[0], torch.sort(shuffled[c].reshape(-1))[0])
+
+    # 2. TV test: control_random has TV of the same order of magnitude as real texture,
+    # and significantly lower than pixel-shuffled texture
+    torch.manual_seed(0)
+    logits = 0.05 * torch.randn(3, 15, 40)
+    T_real = torch.sigmoid(upsample_logits(logits))
+    T_ctrl_cell = control_random_texture(logits, seed=0)
+
+    # Old-style pixel shuffle at 150x400
+    rng = np.random.default_rng(0)
+    T_ctrl_pixel = T_real.reshape(3, -1)[:, torch.from_numpy(rng.permutation(150 * 400))].reshape(3, 150, 400)
+
+    tv_real = float(tv(T_real).detach())
+    tv_ctrl_cell = float(tv(T_ctrl_cell).detach())
+    tv_ctrl_pixel = float(tv(T_ctrl_pixel).detach())
+
+    # control_random after upsample has TV of the same order of magnitude as T_real
+    assert 0.5 * tv_real < tv_ctrl_cell < 2.5 * tv_real
+    # And much lower than pixel-shuffled noise (which is ~10x higher)
+    assert tv_ctrl_pixel > 5.0 * tv_ctrl_cell
+
+
+def test_control_random_in_export_sheet_and_evaluate_labels(tmp_path):
+    from innovation.attacks.adv_glasses.export import export_sheet
+
+    shape = glasses.FrameShape()
+    mask = (shape.mask() * 255).astype(np.uint8)
+    tex = np.full((glasses.TEMPLATE_H, glasses.TEMPLATE_W, 3), 128, dtype=np.uint8)
+
+    r = tmp_path / "run_test"
+    r.mkdir()
+    cv2.imwrite(str(r / "mask.png"), mask)
+    cv2.imwrite(str(r / "texture_print.png"), tex)
+    torch.save({"logits": torch.randn(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, r / "texture.pt")
+    (r / "attack.json").write_text(json.dumps({"frame_shape": vars(shape), "tex_res": [15, 40]}))
+
+    sheet_path = tmp_path / "sheet.png"
+    info = export_sheet([r], out_path=sheet_path, include_controls=True, preview=False, control_seed=42)
+    assert info["frames_count"] == 3
+    assert info["control_seed"] == 42
+    # Check label of control_random contains res and seed
+    ctrl_item = next(it for it in info["frames"] if it["tier"] == "control_random")
+    assert "res 15x40" in ctrl_item["label"]
+    assert "seed 42" in ctrl_item["label"]
