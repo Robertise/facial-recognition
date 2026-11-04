@@ -15,11 +15,14 @@ enhancer changes the input the frame was optimised for (plan_L1.md §3).
         --liveness --transfer method1=checkpoints/method1_best.pth method2=checkpoints/method2_best.pth
 
 Tiers (plan_L1.md §6):
-  baseline        attacker without glasses (zero-effort)
-  D               the optimised frame
-  control_random  same mask, the frame's own colours shuffled (same palette, no structure)
-  control_plain   same mask, one flat colour (the frame's mean)
-  D_EOT           the optimised frame under unseen placement, light, blur, distance and JPEG
+  baseline              attacker without glasses (zero-effort)
+  D                     the optimised frame
+  control_random        same mask, random spatial cells at tex_res (same palette and smoothness)
+  control_plain         same mask, one flat colour (the frame's mean)
+  D_EOT                 the optimised frame under unseen placement, light, blur, distance and JPEG
+  baseline_EOT          attacker without glasses under unseen EOT transforms
+  control_random_EOT    control_random under unseen EOT transforms
+  control_plain_EOT     control_plain under unseen EOT transforms
 Transfer models run baseline and D with their own gallery embeddings.
 
 Writes frames.csv (one row per frame, tier and model) and summary.json with
@@ -142,7 +145,10 @@ def liveness_step(live, smoother, frame: np.ndarray, t: float) -> tuple[bool, st
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run", required=True, help="an optimize.py results folder")
-    ap.add_argument("--tiers", nargs="*", default=["baseline", "D", "control_random", "control_plain", "D_EOT"])
+    ap.add_argument("--tiers", nargs="*", default=[
+        "baseline", "D", "control_random", "control_plain",
+        "D_EOT", "baseline_EOT", "control_random_EOT", "control_plain_EOT"
+    ])
     ap.add_argument("--liveness", action="store_true", help="gate on the backend's smoothed liveness (needs its checkpoint)")
     ap.add_argument("--transfer", nargs="*", default=[], help="name=checkpoint pairs for the transfer study")
     ap.add_argument("--seed", type=int, default=1)
@@ -210,8 +216,11 @@ def main():
             for f, img, A, A_unseen, side, seed in prepared:
                 if tier == "baseline":
                     frame = img
-                elif tier == "D_EOT":
-                    frame = unseen_frame(paint(img, colours[tier], mask, A_unseen), np.random.default_rng(seed), side)
+                elif tier == "baseline_EOT":
+                    frame = unseen_frame(img, np.random.default_rng(seed), side)
+                elif tier.endswith("_EOT"):
+                    base_tier = tier[:-4]
+                    frame = unseen_frame(paint(img, colours[base_tier], mask, A_unseen), np.random.default_rng(seed), side)
                 else:
                     frame = paint(img, colours[tier], mask, A)
                 frame = jpeg(frame, 95)                          # what the frontend sends

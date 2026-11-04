@@ -1,0 +1,40 @@
+{
+  "run_id": "20261103_185645_advglasses_dodge",
+  "started": "2026-11-03T18:56:45",
+  "git_commit": "5de87c78fdfcef340da3f6b837624e651b620c89",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\attacks\\adv_glasses\\optimize.py --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --mode dodge --color-map data/innovation/chart/colormap.json --steps 300 --batch 6",
+  "args": {
+    "attacker_frames": "data/innovation/frames/owner",
+    "gallery": "data/innovation/gallery",
+    "attacker_id": "owner",
+    "victim": null,
+    "mode": "dodge",
+    "checkpoint": "checkpoints/method3_best.pth",
+    "color_map": "data/innovation/chart/colormap.json",
+    "chart": null,
+    "thickness": 35.0,
+    "rim_scale": 1.1,
+    "steps": 300,
+    "batch": 6,
+    "lr": 0.01,
+    "tau": 0.05,
+    "margin": 0.05,
+    "lambda_tv": 2.5,
+    "lambda_nps": 0.5,
+    "eval_sessions": null,
+    "max_gallery": 5,
+    "device": "cpu",
+    "seed": 0,
+    "log_every": 25
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}

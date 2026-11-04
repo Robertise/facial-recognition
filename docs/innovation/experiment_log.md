@@ -191,3 +191,25 @@ Mẫu:
 - **Kết quả:** Cả 2 run dừng ngay khi khởi động, không có kết quả (`meta.json` được ghi nhận nhưng script thoát vì FileNotFoundError do `data/innovation/chart/colormap.json` chưa tồn tại).
 - **Phân tích:** Tham số `--color-map data/innovation/chart/colormap.json` được truyền theo hướng dẫn cũ, trong khi ở giai đoạn A (kiểm chứng digital) bảng màu chưa được in và fit ánh xạ webcam thực tế.
 - **Quyết định tiếp theo:** Ở giai đoạn A, chạy tối ưu không cần `--color-map` (script tự động dùng $M = \text{identity}$ và ghi log `color_map_calibrated: false`, như đã cập nhật trong `runbook_L1.md`). Bảng màu chỉ in và fit trước giai đoạn B.
+
+
+## 2026-11-04 20261104_121206 / 20261104_122938 · advglasses_dodge + eval · info (chưa hội tụ)
+- **Mục tiêu:** Kiểm chứng digital (giai đoạn A) tấn công dodging với gọng kính đối kháng ở lưới tham số mới `--tex-res 15 40`, không dùng `--color-map` ($M = \text{identity}$).
+- **Cấu hình:**
+  - Tối ưu (`20261104_121206_advglasses_dodge`): `--attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --mode dodge --steps 300 --batch 6`. Lưới $15 \times 40$, 300 bước, CPU Intel Windows 11.
+  - Đánh giá (`20261104_122938_advglasses_eval_dodge`): `--run results/innovation/20261104_121206_advglasses_dodge --liveness`, tập test là `s2_day2` (75 frame).
+- **Kết quả:**
+  - Tối ưu: chạy 300 bước mất 59.0 s trên CPU; loss giảm từ 0.650 xuống 0.396; độ tương đồng với owner (`target_cos`) giảm từ 0.656 xuống 0.365; mô hình đang trên đà giảm nhưng **chưa hội tụ** hoàn toàn.
+  - Đánh giá trên tập test (normal light):
+    - `baseline`: 0/54 thành công (0.0%, Wilson [0.00, 0.07]) — đúng mong đợi, kẻ tấn công chưa đeo gì thì luôn bị nhận diện là chính mình.
+    - `D`: 28/63 thành công (44.4%, Wilson [0.33, 0.57]) — gọng kính đối kháng giúp né nhận diện thành công 44% số frame.
+    - `control_random` (xáo theo ô $15 \times 40$): 0/60 thành công (0.0%, Wilson [0.00, 0.06]).
+    - `control_plain` (màu trung bình): 0/59 thành công (0.0%, Wilson [0.00, 0.06]).
+    - `D_EOT`: 39/61 thành công (63.9%, Wilson [0.51, 0.75]).
+    - Liveness pass: đạt $\sim 97\%$ trên mọi tầng (baseline 96.3%, D 96.8%, control_random 96.7%, control_plain 96.6%, D_EOT 98.4%).
+    - Lighting enhancer: tự động kích hoạt trên 21/75 frame của session `s2_day2` (các frame này được tách riêng sang các tầng `@dim`, ví dụ `baseline@dim` 21 frame, `D@dim` 12 frame; không gộp vào tỉ lệ normal light).
+- **Phân tích:**
+  - Cả hai tầng control (`control_random` và `control_plain`) đều đạt 0%, chứng minh hiệu ứng dodging không phải do việc đeo một vật thể che mắt bất kỳ mà do pattern đối kháng tạo ra.
+  - Tỉ lệ thành công của `D_EOT` (64%) cao hơn `D` (44%): Hiện tượng này có thể do các biến đổi xuống cấp ảnh của EOT (mờ quang học, khoảng cách xa, nén JPEG, gain màu) tự nó làm giảm điểm nhận diện khuôn mặt dẫn đến né nhận diện (false dodging).
+- **Ghi chú kỹ thuật:** Chưa thể kết luận kính chịu EOT tốt hay do suy giảm chất lượng ảnh tự gây dodge cho đến khi có tầng đối chứng `baseline_EOT` (đã bổ sung vào `evaluate.py`).
+- **Quyết định tiếp theo:** Chạy lại `evaluate.py` với bộ tầng EOT đầy đủ (`baseline_EOT`, `control_random_EOT`, `control_plain_EOT`) để so sánh chuẩn xác; tăng số bước tối ưu lên 1000–1500 bước để hội tụ sâu hơn.

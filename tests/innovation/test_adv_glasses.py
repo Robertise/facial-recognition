@@ -462,3 +462,49 @@ def test_control_random_in_export_sheet_and_evaluate_labels(tmp_path):
     ctrl_item = next(it for it in info["frames"] if it["tier"] == "control_random")
     assert "res 15x40" in ctrl_item["label"]
     assert "seed 42" in ctrl_item["label"]
+
+
+def test_baseline_eot_and_d_eot_receive_same_unseen_transforms():
+    """For the same frame, baseline_EOT and D_EOT receive the exact same image transform (differing only in glasses)."""
+    from innovation.attacks.adv_glasses.evaluate import paint, unseen_frame
+
+    rng = np.random.default_rng(42)
+    img = rng.integers(60, 200, (480, 640, 3), dtype=np.uint8)
+    eyes = np.array([[280.0, 190.0], [360.0, 190.0]], dtype=np.float32)
+    A = glasses.similarity(eyes)
+    A_unseen = glasses.jitter(A, eot.UNSEEN.shift_px, eot.UNSEEN.rot_deg, eot.UNSEEN.scale, rng)
+
+    shape = glasses.FrameShape(35.0, 1.1)
+    mask = torch.from_numpy(shape.mask())[None]
+    tex_D = torch.full((3, 150, 400), 0.8)
+
+    seed = 987654321
+    side = 112.0
+
+    # 1. With empty mask, paint leaves img untouched; unseen_frame with the same seed is bit-for-bit identical
+    zero_mask = torch.zeros_like(mask)
+    painted_zero = paint(img, tex_D, zero_mask, A_unseen)
+    np.testing.assert_array_equal(painted_zero, img)
+
+    f_base_eot = unseen_frame(img, np.random.default_rng(seed), side)
+    f_zero_eot = unseen_frame(painted_zero, np.random.default_rng(seed), side)
+    np.testing.assert_array_equal(f_base_eot, f_zero_eot)
+
+    # 2. With real mask, baseline_EOT and D_EOT receive the exact same transform pipeline
+    painted_D = paint(img, tex_D, mask, A_unseen)
+    f_d_eot = unseen_frame(painted_D, np.random.default_rng(seed), side)
+
+    # Must differ strongly in the glasses region
+    assert not np.array_equal(f_base_eot, f_d_eot)
+    glasses_diff = np.mean(np.abs(f_base_eot[160:220, 260:380].astype(float) - f_d_eot[160:220, 260:380].astype(float)))
+    corner_diff = np.mean(np.abs(f_base_eot[:20, :20].astype(float) - f_d_eot[:20, :20].astype(float)))
+    assert glasses_diff > 10.0
+    assert corner_diff <= 4.0
+
+    # 3. control_random_EOT and control_plain_EOT also receive the exact same transform
+    tex_ctrl = torch.full((3, 150, 400), 0.2)
+    painted_ctrl = paint(img, tex_ctrl, mask, A_unseen)
+    f_ctrl_eot = unseen_frame(painted_ctrl, np.random.default_rng(seed), side)
+    assert not np.array_equal(f_d_eot, f_ctrl_eot)
+    corner_ctrl_diff = np.mean(np.abs(f_base_eot[:20, :20].astype(float) - f_ctrl_eot[:20, :20].astype(float)))
+    assert corner_ctrl_diff <= 4.0

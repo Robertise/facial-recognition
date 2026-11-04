@@ -1,0 +1,191 @@
+{
+  "source_run": "results\\innovation\\20261104_121206_advglasses_dodge",
+  "mode": "dodge",
+  "victim": null,
+  "attacker": "owner",
+  "tex_res": [
+    15,
+    40
+  ],
+  "control_seed": 0,
+  "liveness_gated": true,
+  "eval_frames": 75,
+  "coverage_train": {
+    "mean": 0.07902948628619032,
+    "min": 0.043852727860212326,
+    "max": 0.11273206770420074
+  },
+  "color_map_calibrated": false,
+  "gallery_per_id": 5,
+  "models": {
+    "method3": {
+      "arch": "FaceCNN_ArcFace",
+      "keys": 74,
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "input_size": 112
+    }
+  },
+  "results": {
+    "method3/baseline": {
+      "frames": 54,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        6.47804125077782e-18,
+        0.06641586678100189
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9629629629629629,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": null,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/baseline@dim": {
+      "frames": 21,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.15464382326420195
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": null,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/D": {
+      "frames": 63,
+      "success": 28,
+      "rate": 0.4444444444444444,
+      "wilson95": [
+        0.3284690053363268,
+        0.5668057935912871
+      ],
+      "match_ignoring_liveness": 0.47619047619047616,
+      "liveness_pass": 0.9682539682539683,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": null,
+      "windows_3s": 5,
+      "windows_with_success": 0.6
+    },
+    "method3/D@dim": {
+      "frames": 12,
+      "success": 1,
+      "rate": 0.08333333333333333,
+      "wilson95": [
+        0.014864709450773488,
+        0.35388592179859524
+      ],
+      "match_ignoring_liveness": 0.08333333333333333,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": null,
+      "windows_3s": 2,
+      "windows_with_success": 0.5
+    },
+    "method3/control_random": {
+      "frames": 60,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        -6.521353384539763e-18,
+        0.060173930477932895
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9666666666666667,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": null,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/control_random@dim": {
+      "frames": 15,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        -2.2096511667503485e-17,
+        0.20388926630434784
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": null,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain": {
+      "frames": 59,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.061131479784092065
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9661016949152542,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": null,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain@dim": {
+      "frames": 16,
+      "success": 4,
+      "rate": 0.25,
+      "wilson95": [
+        0.10181901984237347,
+        0.4949876892939865
+      ],
+      "match_ignoring_liveness": 0.25,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": null,
+      "windows_3s": 2,
+      "windows_with_success": 0.5
+    },
+    "method3/D_EOT": {
+      "frames": 61,
+      "success": 39,
+      "rate": 0.639344262295082,
+      "wilson95": [
+        0.5139167326739972,
+        0.7482606349418545
+      ],
+      "match_ignoring_liveness": 0.6557377049180327,
+      "liveness_pass": 0.9836065573770492,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": null,
+      "windows_3s": 5,
+      "windows_with_success": 1.0
+    },
+    "method3/D_EOT@dim": {
+      "frames": 14,
+      "success": 7,
+      "rate": 0.5,
+      "wilson95": [
+        0.2679886791947528,
+        0.7320113208052473
+      ],
+      "match_ignoring_liveness": 0.5714285714285714,
+      "liveness_pass": 0.9285714285714286,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": null,
+      "windows_3s": 4,
+      "windows_with_success": 0.75
+    }
+  }
+}
