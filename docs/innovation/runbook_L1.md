@@ -39,24 +39,37 @@ Frame được lưu ở `data/innovation/frames/<person>/<session>/`. Folder `da
 
 ## 2. Gallery (những người "đã enroll")
 
-Tạo `data/innovation/gallery/`, **mỗi người một folder, đúng 5 ảnh có mặt**, giống DB sau khi Register (5 góc: front, left, right, up, down). Ảnh toàn khung cũng được, code tự phát hiện mặt. Code chỉ lấy 5 ảnh đầu theo tên file; người nào có ít hơn 5 ảnh dùng được sẽ bị in cảnh báo và ghi vào `attack.json` → `gallery_report.uneven`.
+Tạo `data/innovation/gallery/` bằng tool `innovation.tools.build_gallery`. Gallery gồm 3 loại người:
+1. `owner/`: kẻ tấn công (đã có sẵn: 5 ảnh chụp từ `data/innovation/frames/owner_enroll/s0/`).
+2. `LFW_victim/`: nạn nhân ảo chính, lấy từ LFW, có độ tương đồng baseline với owner gần trung vị nhất (và tuỳ chọn `LFW_victim_easy`, `LFW_victim_hard`).
+3. `LFW_0001/` ... `LFW_0050/`: lớp mô phỏng (50 người từ LFW), để bài toán nhận diện là 1:N thực tế.
+
+Mỗi người đúng 5 ảnh có mặt (giống 5 góc trong DB khi Register). Các ứng viên đã được sàng lọc không trùng với tập train của method3 (qua đối chiếu tên VGGFace2 nếu có meta và hiệu chỉnh tâm ArcFace trên miền 64×64).
 
 ```
 data/innovation/gallery/
   owner/            <- 5 ảnh từ data/innovation/frames/owner_enroll/s0/: 1_front 2_left 3_right 4_up 5_down
-  VER_victim/       <- nạn nhân ảo (5 ảnh mặt)
-  VER_0001/ ...     <- khoảng 50 người của lớp mô phỏng, mỗi người 5 ảnh
+  LFW_victim/       <- nạn nhân ảo chính (5 ảnh LFW)
+  LFW_victim_easy/  <- (tuỳ chọn) nạn nhân gần p90
+  LFW_victim_hard/  <- (tuỳ chọn) nạn nhân gần p10
+  LFW_0001/ ...     <- 50 người của lớp mô phỏng, mỗi người 5 ảnh LFW
 ```
 
-Vì sao đúng 5: số ảnh mỗi người phải bằng nhau và bằng DB thật, để điểm tối ưu (max mềm theo ảnh) và điểm `find_match` (max theo góc) so sánh công bằng giữa các người.
-
-- **Nạn nhân ảo và lớp mô phỏng: lấy trực tiếp từ `verification_data`** của dataset môn học. Lý do: ID trong `classification_data/train_data` đã ẩn danh, nên không so tên được để biết một người có nằm trong tập train hay không; còn `verification_data` là ảnh của người ngoài tập train (dùng để đánh giá verification), nên không trùng với tập train của method3.
-  - Nếu ảnh trong `verification_data` không nhóm theo người, chọn theo các cặp "same" trong `verification_pairs_val.txt` để có đủ 5 ảnh cùng một người. Không đủ 5 thì lấy người khác.
-  - VoxCeleb1 chỉ là phương án dự phòng; khi đó ghi rõ là chưa kiểm tra trùng với tập train.
-- Ghi lựa chọn (ID nạn nhân, cách lấy 5 ảnh) vào `experiment_log.md`.
-- Tên folder chính là ID xuất hiện trong kết quả.
+Lệnh dựng gallery:
+```bash
+python -m innovation.tools.build_gallery \
+    --gallery data/innovation/gallery \
+    --owner-frames data/innovation/frames/owner/s1_day1 \
+    --train-ids data/dataset_original/classification_data/train_data \
+    --members-calib data/dataset_original/classification_data/test_data \
+    --pairs data/dataset_original/verification_pairs_val.txt \
+    --n-class 50 --seed 0 --extra-victims
+```
+Tool tự động tải và giải nén LFW nếu chưa có, không bao giờ đụng vào `owner/`, và xuất báo cáo `_build_report.json`, danh sách ứng viên `_candidates.csv`. Dùng thêm `--replace` nếu cần ghi đè các folder `LFW_*` cũ.
 
 ## 3. Bảng màu (ánh xạ in sang camera)
+
+> **Lưu ý quy trình:** Giai đoạn A (kiểm chứng digital) chạy không cần `--color-map` (khi bỏ qua cờ này, code tự đặt $M = \text{identity}$ và ghi vào log `attack.json` với `color_map_calibrated: false`). Bảng màu chỉ bắt buộc in và fit ánh xạ trước giai đoạn B (thử nghiệm vật lý).
 
 1. Tạo bảng màu:
 
@@ -85,7 +98,8 @@ Phải ra `pass True` (cosine ≥ 0.999). Chạy thêm một lần với `--chec
 ## 5. Dodging trước (bài kiểm tra dễ, chạy được trên CPU)
 
 ```bash
-python -m innovation.attacks.adv_glasses.optimize --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --mode dodge --color-map data/innovation/chart/colormap.json --steps 300 --batch 6
+# Giai đoạn A: có thể bỏ qua --color-map (mặc định M = identity)
+python -m innovation.attacks.adv_glasses.optimize --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --mode dodge --steps 300 --batch 6
 ```
 
 ```bash
@@ -97,7 +111,8 @@ python -m innovation.attacks.adv_glasses.evaluate --run results/innovation/<thư
 Chạy trên GPU nếu có. Trên CPU vẫn được, nhưng 1500 bước sẽ lâu.
 
 ```bash
-python -m innovation.attacks.adv_glasses.optimize --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --victim VER_victim --mode impersonate --color-map data/innovation/chart/colormap.json --steps 1500 --batch 8
+# Giai đoạn A: chạy không có --color-map (M = identity, ghi vào log); lưới mặc định --tex-res 15 40
+python -m innovation.attacks.adv_glasses.optimize --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --victim LFW_victim --mode impersonate --steps 1500 --batch 8
 ```
 
 ```bash
@@ -118,13 +133,29 @@ Lặp lại bước 6 với ba cấu hình gọng:
 
 Độ phủ đúng của từng lần chạy nằm trong `attack.json` → `coverage_train`.
 
-## 8. In ra (chỉ khi cần thử vật lý)
+## 8. In ra (chuẩn bị cho giai đoạn B)
+
+Để tiện một lần ra tiệm in đủ mọi thứ, dùng chế độ `--sheet` để in nhiều gọng trên một tờ A4 kèm controls và thước chuẩn 50 mm:
 
 ```bash
+# In một run kèm control_random và control_plain
+python -m innovation.attacks.adv_glasses.export --sheet results/innovation/<run_impersonate> --controls --ipd-mm <IPD của người đeo>
+
+# Hoặc in nhiều run cùng lúc trên 1 tờ A4
+python -m innovation.attacks.adv_glasses.export --sheet results/innovation/<run1> results/innovation/<run2> --controls --ipd-mm <IPD của người đeo>
+
+# Xuất riêng lẻ từng run (cũ)
 python -m innovation.attacks.adv_glasses.export --run results/innovation/<run tối ưu> --ipd-mm <IPD của người đeo>
 ```
 
-In ở tỉ lệ 100%, kiểm tra thước 50 mm trên tờ in, cắt theo viền xám, dán lên gọng nhựa.
+Tiện ích cũng tự động xuất ảnh preview "camera thấy" tại `results/<run>/camera_preview.png` (render gọng lên frame thật của owner ở kích thước webcam từ IPD rồi phóng 4x) để xem trước mức độ rõ nét.
+
+**Dặn kỹ khi ra tiệm in:**
+1. **Tỉ lệ 100%:** Chọn "Actual Size" (100%), tuyệt đối **tắt "fit to page" / "shrink to fit"**. Sau khi in xong, dùng thước kẻ thật đo vạch 50 mm trên tờ in: phải chính xác đúng 50 mm.
+2. **Tắt tự chỉnh màu:** Yêu cầu tiệm in **tắt toàn bộ tính năng tự động nâng cấp ảnh/chỉnh màu** (disable auto color enhancement / photo enhance / Vivid).
+3. **Giấy mờ (matte paper):** Bắt buộc in trên giấy mờ hoặc bìa mờ, **tuyệt đối không dùng giấy bóng (glossy)** để tránh hiện tượng lóa sáng phản chiếu vào webcam làm hỏng nhận diện và liveness.
+4. **Ghi lại thiết bị:** Ghi lại tên model máy in và loại giấy tiệm sử dụng.
+5. **Cùng máy in, cùng giấy:** Bảng màu (`chart.png`) và kính thật **bắt buộc phải in trên cùng một máy in và cùng một loại giấy**.
 
 ## Gửi lại cho Claude
 

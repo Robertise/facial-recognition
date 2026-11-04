@@ -99,6 +99,9 @@ Tham số là texture `T` của gọng, ở **không gian màu in** (qua sigmoid
 | Liveness | Anti-spoofing trên các frame đeo kính (adversarial, control, không kính) | Giấy in trên mặt có làm model nghi là giả không. Đã nằm trong IAPMR, nhưng vẫn báo cáo riêng |
 | Giọng (E1c) | Người hỗ trợ đọc challenge, giọng so với giọng owner đã enroll | IAPMR sau fusion R3 ≤ 5%, BPCER tăng ≤ 5 điểm % |
 
+**Ablation độ phân giải lưới texture (`--tex-res`, tùy chọn):**
+So sánh độ phân giải lưới tối ưu mặc định `15×40` (mảng màu loang mượt mà sau upsample bicubic, TV thấp, thích hợp với độ phân giải thực của webcam và khả năng in của tiệm) với lưới độ phân giải cao hơn `40×107` (tỉ lệ tương đương template 150×400). Đánh giá sự đánh đổi giữa tỉ lệ thành công kỹ thuật số (tầng D) và độ bền vững trước cảm biến camera thật (tầng P).
+
 ## 7. Code sẽ viết (`innovation/attacks/adv_glasses/`)
 
 | File | Việc |
@@ -121,10 +124,10 @@ Chạy được trên CPU để thử nhanh. Lần tối ưu chính chạy trên
 - [ ] Checkpoint thật `method3_best.pth` (và method1, 2, 4, 5 cho transfer), đặt trong `checkpoints/`.
 - [ ] Owner enroll mặt vào DB (5 góc, qua trang Register như người dùng thật).
 - [ ] Owner chụp **khoảng 120–150 frame** qua chế độ chụp của Lab: 2 buổi hoặc 2 mức sáng, nhiều góc đầu. Kiểm tra lighting enhancer bypass trên tập tối ưu (§3).
-- [ ] Nạn nhân ảo: vài ảnh mặt của 1–3 người từ VoxCeleb1 test (owner tải; trang tải bị chặn từ môi trường cloud của Claude).
-  - Kiểm tra trước: những người này **không được nằm trong tập train của method3**. Nếu dataset môn học lấy từ VGGFace2 thì có thể trùng người với VoxCeleb.
-  - Dự phòng: lấy danh tính từ phần `verification_data` của dataset môn học (người mà model chưa thấy lúc train).
-- [ ] Lớp mô phỏng: khoảng 50 danh tính public enroll bằng `enroll_public` (detector `model_selection=0`, §3), để điều kiện top-1 là 1:N thật.
+- [x] Nạn nhân ảo và lớp mô phỏng: lấy từ dataset public LFW qua tool `build_gallery` (thay thế VoxCeleb1 và `verification_data` sau khi khảo sát ngày 2026-11-03).
+  - Nạn nhân ảo: `LFW_victim` (gần trung vị $s_{\text{baseline}}$), và tuỳ chọn `LFW_victim_easy` (p90), `LFW_victim_hard` (p10).
+  - Kiểm tra chưa thấy lúc train: qua đối chiếu tên VGGFace2 nếu có meta và hiệu chỉnh ngưỡng tâm ArcFace ($T = 0.4783$, $\text{AUC} = 0.8061$).
+  - Lớp mô phỏng: 50 danh tính `LFW_0001` ... `LFW_0050` (mỗi người đúng 5 ảnh có mặt, sàng lọc tâm bbox trong phạm vi $\le 20\%$ từ tâm ảnh).
 - [ ] In bảng màu và chụp lại bằng webcam (cần cho `M` ngay ở giai đoạn A, để texture của A in được).
 
 **Giai đoạn B:**

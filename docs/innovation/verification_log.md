@@ -52,3 +52,14 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 - `timm==1.0.11` cài trên torch 2.2.2 / torchvision 0.17.2 (đúng bản trong `requirements.txt`), không kéo torch mới. `vit_base_patch16_224` với `pretrained=False, num_classes=0` cho 768 chiều; cùng phần đầu chiếu của method5 thì đủ 157 key như checkpoint.
 - Chỉ cần cho transfer sang method5; backend mặc định (method3) không import timm.
 
+
+## 2026-11-03. LFW (tải, điều khoản) và VGGFace2 meta
+
+- **LFW (Labeled Faces in the Wild):**
+  - **Nguồn tải:** mirror Figshare của scikit-learn (`https://ndownloader.figshare.com/files/5976015`, file `lfw-funneled.tgz`, 243 MB, 5 760 người).
+  - **Kiểm chứng tải:** tải thành công khi đặt User-Agent `Mozilla/5.0` cho urllib opener (không có User-Agent bị AWS S3 chặn 403). Giải nén đầy đủ 5 760 thư mục vào `data/public/lfw/lfw_home/lfw_funneled`.
+  - **Điều khoản:** Dataset học thuật của Đại học UMass Amherst (Huang et al., 2007), cung cấp phi thương mại cho mục đích nghiên cứu nhận diện khuôn mặt, không có license thương mại.
+- **VGGFace2 metadata (`identity_meta.csv`):**
+  - **Nguồn:** Hugging Face `ProgramComputer/VGGFace2` (gated repo), owner tải tay file `identity_meta.csv` (335 KB, 9 131 ID, lưu tại `data/vggface2/identity_meta.csv`).
+  - **Kiểm chứng nạp:** File chứa 9 131 ID (dạng `n000001` ... `n009297`). Cột `Class_ID, Name, Sample_Num, Flag, Gender`. Có khoảng trắng sau dấu phẩy và một số tên có dấu phẩy trong ngoặc kép nên đọc bằng `csv.reader(..., skipinitialspace=True)`.
+  - Khớp thành công 100% với 4 000 ID tập train của method3 (nhận diện qua `test_data`), nạp được 4 000 tên chuẩn hóa và loại chính xác 37 ứng viên LFW trùng tên.

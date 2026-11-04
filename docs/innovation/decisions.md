@@ -62,5 +62,38 @@ Quyết định: độ phủ là tham số (`--thickness`, `--rim-scale`). Ablat
 - **Nạn nhân và lớp mô phỏng lấy từ `verification_data`**: ID trong tập train đã ẩn danh nên không kiểm tra trùng theo tên được.
 - **Khoảng cách trong D_EOT** lấy từ `eot.UNSEEN.distance_px` (cạnh crop 60–120 px), giống `eot.photometric`, thay cho hệ số co cứng 0.5–0.8.
 
+
+## 2026-11-03. Dựng gallery từ LFW, chọn nạn nhân theo trung vị
+
+- **verification_data không dùng được:** Khảo sát tập HW2P2 (CMU 11-785) cho thấy các nhóm trong `verification_pairs_val.txt` đều chỉ có đúng 2 ảnh, không ai có đủ 5 ảnh; ảnh 64×64 crop sát mặt khiến MediaPipe khó bắt và khác hẳn phân bố webcam backend.
+- **Chọn LFW:** Dataset public chuẩn, ảnh 250×250, lọc lấy ứng viên có ≥ 5 ảnh hợp lệ (tâm bbox lệch không quá 20% tâm ảnh).
+- **Kiểm tra chưa thấy lúc train:**
+  - Đối chiếu tên với VGGFace2 (tập train gốc của method3): lần chạy đầu không có đối chiếu tên (thiếu meta); lần chạy lại có đối chiếu tên với 4000 ID train qua identity_meta.csv (nạp thành công 4 000 tên và loại 37 ứng viên LFW trùng tên).
+  - Hiệu chỉnh tâm ArcFace trên miền 64×64: đo trên 200 ID member (`test_data`) và 200 cặp non-member (`verification_pairs_val.txt`), xác định ngưỡng $T$ tại phân vị 5% của member ($T = 0.4783$, $\text{AUC} = 0.8061$). Loại các ứng viên có `agree ≥ 3` và `med_top1 ≥ T`.
+- **Luật chọn nạn nhân:** Chọn `LFW_victim` có điểm tương đồng baseline với frame của owner (`s1_day1`, unenhanced) gần trung vị nhất ($s = 0.0648$, p50.13%). Tránh chọn người quá giống (tấn công dễ bất thường) hoặc quá khác (khó bất thường).
+- **Lớp mô phỏng:** 50 người ngẫu nhiên `LFW_0001` ... `LFW_0050` (seed 0) từ các ứng viên còn lại, không đụng vào `owner/`.
+
+## 2026-11-03. Đổi lưới texture mặc định 75×200 → 15×40 + upsample mượt
+
+- **Vấn đề với lưới 75×200 cũ:** Khởi tạo nhiễu ngẫu nhiên `0.5 * randn` trên lưới 75×200 tạo ra các chấm nhiễu tần số cao. Tuy nhiên, trên ảnh webcam 640×480, gọng kính chỉ rộng khoảng 100–120 px. Chi tiết nhỏ hơn độ phân giải camera sẽ bị cảm biến webcam làm nhòe/mất chi tiết, khiến pattern tối ưu kỹ thuật số bị vô hiệu hóa khi thử vật lý. Ngoài ra, máy in tiệm không thể in chính xác nhiễu hạt rời rạc.
+- **Quyết định:**
+  - Thêm cờ `--tex-res H W` với mặc định `15 40`.
+  - Tối ưu logits ở lưới thô 15×40, khởi tạo `logits = 0` (màu xám) cộng nhiễu nhỏ (`std = 0.05`) thay cho `0.5 * randn`.
+  - Phóng lên template 150×400 bằng nội suy bicubic mượt ngay trong vòng tối ưu để gradient chảy qua bước phóng.
+  - Tổng biến thiên (TV) giảm mạnh từ ~0.080 xuống ~0.0028 (>28 lần), tạo thành các mảng màu loang mượt in được và camera thấy rõ.
+  - Lưu `tex_res` vào `attack.json` và `texture.pt`. `evaluate.py` và `export.py` đọc lại `tex_res` (mặc định `[75, 200]` cho run cũ để tương thích ngược).
+  - Xuất ảnh preview "camera thấy" (`results/<run>/camera_preview.png`) để xem gọng ở độ phân giải webcam và phóng to 4x kiểm tra.
+  - Hỗ trợ in nhiều gọng trên một tờ A4 (`export.py --sheet`) kèm controls và thước chuẩn 50 mm.
+  - Yêu cầu in tiệm: Cùng máy in và cùng loại giấy cho cả bảng màu và kính thật.
+
+## 2026-11-03. control_random xáo theo ô ở tex_res thay vì xáo pixel ở 150×400
+
+- **Vấn đề:** Bản `control_random` ban đầu xáo độc lập từng pixel ở độ phân giải template 150×400 (60 000 pixel). Khi texture adversarial chuyển sang mảng loang mượt (lưới `tex_res 15×40` phóng bicubic lên 150×400), việc xáo pixel tạo ra nhiễu hạt siêu mịn. Khi qua webcam (với độ mờ quang học và kích thước gọng thực chỉ ~100–120 px), toàn bộ nhiễu mịn này bị cảm biến hòa trộn quang học thành một màu trung bình đồng nhất, khiến `control_random` có hành vi gần như trùng lặp với `control_plain`. Do đó, control không còn giữ được cùng thang độ loang không gian với texture thật.
+- **Quyết định:**
+  - Viết hàm dùng chung `control_random_texture(logits, seed)`: nhận `logits` ở độ phân giải tham số `tex_res` (15×40 hoặc 75×200 đối với run cũ), hoán vị ngẫu nhiên vị trí các ô không gian ($H 	imes W$ ô, giữ nguyên toàn vẹn 3 kênh màu của từng ô) với seed cố định (mặc định 0), sau đó mới phóng bicubic lên 150×400 và áp dụng sigmoid, hoàn toàn tương đồng với chuỗi xử lý của texture thật.
+  - Cả `evaluate.py` và `export.py` dùng chung hàm này để tạo `control_random`. `control_plain` giữ nguyên (màu trung bình không gian).
+  - Ghi rõ `tex_res` và `control_seed` vào `summary.json` (đánh giá số) và nhãn dưới mỗi gọng trên tờ in A4 (`export.py --sheet`).
+  - Kết quả: `control_random` giữ nguyên chính xác multiset màu sắc ô ở `tex_res` và có cùng bậc biến thiên toàn phần (TV) với texture đối kháng thật (~0.0028 thay vì tăng vọt lên ~0.025 khi xáo pixel).
+
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).

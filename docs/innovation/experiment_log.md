@@ -137,3 +137,57 @@ Mẫu:
   - Test: 80 pass (venv innovation có timm); 60 pass, 4 skip (venv cơ bản, không có timm/av).
 - **Quyết định tiếp theo:** owner chạy `runbook_L1.md` (bản mới), bắt đầu bằng parity cho cả method3 và method5.
 
+
+## 2026-11-03 build-gallery · L1 gallery construction · pass
+- **Giả thuyết:** LFW cung cấp đủ ứng viên không trùng tập train để dựng gallery chuẩn 5 ảnh/người (1 nạn nhân trung vị, 50 người lớp mô phỏng) cho bài toán 1:N của L1.
+- **Cấu hình:**
+  - LFW Funneled (5 760 người, 250×250).
+  - Detector MediaPipe `model_selection=0`, lọc tâm bbox lệch ≤ 20% tâm ảnh.
+  - ArcFace calibration: 200 members từ `test_data` (4 000 ID, 2 ảnh/ID), 200 non-member pairs từ `verification_pairs_val.txt`.
+  - Baseline frame owner: 53 frame hợp lệ (unenhanced) từ `data/innovation/frames/owner/s1_day1`.
+  - Máy chạy: Windows 11, Intel Core, Python 3.12 (`swin` env).
+- **Kết quả:**
+  - Hiệu chỉnh ArcFace: ngưỡng $T = 0.4783$ (phân vị 5% member), phân tách member/non-member đạt $\text{AUC} = 0.8061$.
+  - 420 người trong LFW có đủ 5 ảnh hợp lệ qua detector backend.
+  - 35 người bị loại do nghi ngờ trùng tập train (`agree ≥ 3` và `med_top1 ≥ T`); 385 người đủ điều kiện (yêu cầu tối thiểu 53).
+  - Nạn nhân chính `LFW_victim`: Yashwant_Sinha ($s_{\text{baseline}} = 0.0648$, phân vị 50.13%).
+  - Nạn nhân phụ (extra victims): `LFW_victim_easy`: Yoko_Ono ($s_{\text{baseline}} = 0.1986$, phân vị 90.13%); `LFW_victim_hard`: William_Donaldson ($s_{\text{baseline}} = -0.0355$, phân vị 10.13%).
+  - Lớp mô phỏng: 50 người `LFW_0001` ... `LFW_0050` được chọn ngẫu nhiên (seed 0).
+  - Folder `owner/` được giữ nguyên vẹn 100%. Báo cáo lưu tại `_build_report.json` và `_candidates.csv`.
+- **Phân tích:** Phân bố $s_{\text{baseline}}$ tập trung quanh 0.065, cho thấy nạn nhân trung vị được chọn có khoảng cách đặc trưng tự nhiên với owner, không quá dễ cũng không quá khó. Tầng lọc ArcFace loại bỏ chính xác 35 trường hợp có đặc trưng quá khớp với tập train.
+- **Quyết định tiếp theo:** Tiến hành chạy dodging và impersonation (runbook §5 và §6).
+
+## 2026-11-03 build-gallery-rerun · L1 gallery construction (with VGGFace2 meta) · pass
+- **Mục tiêu:** Chạy lại `build_gallery` có đối chiếu tên với metadata VGGFace2 (`data/vggface2/identity_meta.csv`), loại bỏ triệt để các danh tính LFW trùng với 4 000 class tập train của method3.
+- **Cấu hình:**
+  - LFW Funneled (5 749 người đã xét, 250×250).
+  - Detector MediaPipe `model_selection=0`, lọc tâm bbox lệch ≤ 20% tâm ảnh (`center_tol=0.20`), seed 0.
+  - Cờ bổ sung: `--vggface2-meta data/vggface2/identity_meta.csv --replace --extra-victims`.
+  - ArcFace calibration: 200 members từ `test_data` (4 000 ID, 2 ảnh/ID), 200 non-member pairs từ `verification_pairs_val.txt`.
+  - Baseline frame owner: 53 frame hợp lệ (unenhanced) từ `data/innovation/frames/owner/s1_day1`.
+- **Kết quả:**
+  - Nạp thành công 4 000 tên train từ `identity_meta.csv` (đọc qua `csv.reader(..., skipinitialspace=True)`).
+  - 420 người trong LFW có đủ ≥ 5 ảnh hợp lệ qua detector backend.
+  - Phân loại loại trừ:
+    - 37 người bị loại vì `name_in_train` (trùng tên với tập train VGGFace2; run 1 là 0).
+    - 15 người bị loại vì `arcface_member` (`agree ≥ 3` và `med_top1 ≥ T`; run 1 là 35 do chưa lọc theo tên trước).
+    - 3 người bị loại vì `fewer_than_5_valid`.
+    - Tổng còn 368 người đủ điều kiện (n_eligible; yêu cầu tối thiểu 53).
+  - Nạn nhân chính `LFW_victim`: Yashwant_Sinha ($s_{\text{baseline}} = 0.0648$, phân vị 50.0%) — **không đổi so với run 1**.
+  - Nạn nhân phụ:
+    - `LFW_victim_easy`: Scott_McClellan ($s_{\text{baseline}} = 0.1991$, phân vị 89.95%, target p90 là 0.1997) — thay cho Yoko_Ono (do Yoko_Ono trùng tên train VGGFace2).
+    - `LFW_victim_hard`: Wayne_Ferreira ($s_{\text{baseline}} = -0.0390$, phân vị 10.33%, target p10 là -0.0393) — thay cho William_Donaldson (do William_Donaldson trùng tên train VGGFace2).
+  - Lớp mô phỏng: 50 người `LFW_0001` ... `LFW_0050` (49/50 người đổi danh tính so với run 1 do pool ứng viên thay đổi từ 385 xuống 368; chỉ LFW_0002 Alastair_Campbell giữ nguyên).
+  - Cache gallery (`faces.build_gallery`) được bổ sung hash danh sách file ảnh thực tế (đường dẫn tương đối, size, mtime), đảm bảo cache tự động bị vô hiệu hóa khi thay đổi ảnh hoặc dựng lại gallery.
+- **Ghi chú kỹ thuật:** `test_data` chỉ có 2 ảnh/ID nên lúc hiệu chỉnh agree tối đa là 2; điều kiện "agree ≥ 3" chưa được hiệu chỉnh, chỉ có T được hiệu chỉnh ($T = 0.4783$, $\text{AUC} = 0.8061$).
+- **Quyết định tiếp theo:** Tiến hành chạy dodging và impersonation trên gallery mới.
+
+
+## 2026-11-03 20261103_185645 / 20261103_185805 · advglasses_dodge · aborted
+- **Mục tiêu:** Chạy thử nghiệm dodging L1 giai đoạn A (`--mode dodge --steps 300 --batch 6`).
+- **Cấu hình:**
+  - Lệnh: `python -m innovation.attacks.adv_glasses.optimize --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --mode dodge --color-map data/innovation/chart/colormap.json --steps 300 --batch 6`
+  - Checkpoint: `checkpoints/method3_best.pth`, máy Windows owner CPU.
+- **Kết quả:** Cả 2 run dừng ngay khi khởi động, không có kết quả (`meta.json` được ghi nhận nhưng script thoát vì FileNotFoundError do `data/innovation/chart/colormap.json` chưa tồn tại).
+- **Phân tích:** Tham số `--color-map data/innovation/chart/colormap.json` được truyền theo hướng dẫn cũ, trong khi ở giai đoạn A (kiểm chứng digital) bảng màu chưa được in và fit ánh xạ webcam thực tế.
+- **Quyết định tiếp theo:** Ở giai đoạn A, chạy tối ưu không cần `--color-map` (script tự động dùng $M = \text{identity}$ và ghi log `color_map_calibrated: false`, như đã cập nhật trong `runbook_L1.md`). Bảng màu chỉ in và fit trước giai đoạn B.

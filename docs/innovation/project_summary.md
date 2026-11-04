@@ -52,8 +52,9 @@ Tài liệu gốc để tra chi tiết:
 
 ### 1.2 Quy tắc owner đặt ra (áp dụng suốt dự án)
 - **Git:**
-  - Claude chỉ làm và push trên nhánh `claude/relaxed-thompson-0br7xw`. Owner review rồi merge vào `master` (PR #1 đến #7).
-  - Trước khi viết code: kiểm tra master có ahead không. Nếu có thì pull/merge về nhánh trước rồi mới code.
+  - **Từ 2026-11-03 (flow mới):** Claude (claude.ai) đọc repo và output thật, review, viết plan/spec vào `docs/innovation/`. Agent code viết code theo plan **trên working tree, không commit, không push**. Owner verify lần cuối và tự commit lên `master`.
+  - Claude verify bằng `git diff` trên working tree và file kết quả thật, không dựa vào log của agent.
+  - Trước đó (đến PR #8): agent làm và push trên nhánh `claude/relaxed-thompson-0br7xw`, owner review rồi merge. Quy tắc này **không còn áp dụng**.
 - **Báo cáo:**
   - Mỗi phần làm xong báo theo thứ tự: phần đó nhắm vào cái gì → đã làm gì → kết quả → bước tiếp theo cụ thể. Owner yêu cầu từ 2026-10-31.
   - Khi owner nói "chỉ báo cáo, khoan làm" thì không sang bước tiếp theo.
