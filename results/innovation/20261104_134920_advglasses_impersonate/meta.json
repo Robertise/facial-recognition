@@ -1,0 +1,46 @@
+{
+  "run_id": "20261104_134920_advglasses_impersonate",
+  "started": "2026-11-04T13:49:20",
+  "git_commit": "c2e43ef5a6c833c91a1eeac88ec64268cfac26f7",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\attacks\\adv_glasses\\optimize.py --attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --victim LFW_victim --mode impersonate --checkpoint checkpoints/method3_best.pth --thickness 55.0 --rim-scale 1.2 --tex-res 30 80 --steps 3000 --lr 0.03 --dev-frac 0.2 --seed 0 --device cpu",
+  "args": {
+    "attacker_frames": "data/innovation/frames/owner",
+    "gallery": "data/innovation/gallery",
+    "attacker_id": "owner",
+    "victim": "LFW_victim",
+    "mode": "impersonate",
+    "checkpoint": "checkpoints/method3_best.pth",
+    "color_map": null,
+    "chart": null,
+    "thickness": 55.0,
+    "rim_scale": 1.2,
+    "tex_res": [
+      30,
+      80
+    ],
+    "steps": 3000,
+    "batch": 8,
+    "lr": 0.03,
+    "tau": 0.05,
+    "margin": 0.05,
+    "lambda_tv": 2.5,
+    "lambda_nps": 0.5,
+    "eval_sessions": null,
+    "dev_frac": 0.2,
+    "no_eot": false,
+    "max_gallery": 5,
+    "device": "cpu",
+    "seed": 0,
+    "log_every": 25
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
