@@ -919,3 +919,286 @@ def test_dev_block_smoother_warmup_exits_checking_and_excludes_warmup_from_csv(t
     assert summary["smoother_warmup_frames"] == 3
 
 
+def test_evaluate_eval_session_override_and_summary_keys(tmp_path, monkeypatch):
+    """(a) --eval-session NAME overrides frames with all images in that session folder,
+    records eval_session_override and eval_session_names in summary.json, and default (no override)
+    records null for eval_session_override and lists split sessions in eval_session_names.
+    """
+    import csv
+    import sys
+    import backend.face_recognizer as fr_mod
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    root = tmp_path / "frames" / "owner"
+    s_train = root / "s_train"
+    s_dev = root / "s_dev"
+    s_eval = root / "s_eval"
+    s_new = root / "s_new"
+    for s, n in [(s_train, 2), (s_dev, 2), (s_eval, 2), (s_new, 3)]:
+        s.mkdir(parents=True)
+        with open(s / "meta.csv", "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(["index", "client_ms", "bytes"])
+            for i in range(n):
+                w.writerow([i, i * 200.0, 50000])
+                img = np.full((240, 320, 3), 100 + i * 10, dtype=np.uint8)
+                cv2.imwrite(str(s / f"{i:03d}.jpg"), img)
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    shape = glasses.FrameShape(55.0, 1.2)
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, opt_run / "texture.pt")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    (opt_run / "split.json").write_text(json.dumps({
+        "how": "test",
+        "sessions": {"s_train": 2, "s_dev": 2, "s_eval": 2},
+        "train": [str(s_train / f"{i:03d}.jpg") for i in range(2)],
+        "dev": [str(s_dev / f"{i:03d}.jpg") for i in range(2)],
+        "eval": [str(s_eval / f"{i:03d}.jpg") for i in range(2)],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "target": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+        "gallery_per_id": 1,
+        "frame_shape": vars(shape),
+        "tex_res": [15, 40],
+        "attacker_frames": str(root),
+    }), encoding="utf-8")
+
+    class FakeDetector:
+        def detect(self, img):
+            return [80, 60, 120, 120]
+
+    class FakeEyes:
+        def eyes(self, img):
+            return np.array([[110.0, 100.0], [170.0, 100.0]], dtype=np.float32)
+
+    class FakeRecognizer:
+        def __init__(self, *a, **kw):
+            self.load_report = {"arch": "fake"}
+
+        def extract_embedding(self, face):
+            v = np.zeros(16, dtype=np.float32)
+            v[0] = 1.0
+            return v
+
+        def find_match(self, emb, db):
+            return {"matched": True, "employee_id": "LFW_victim", "similarity": 0.85}
+
+    class FakeGallery:
+        def __init__(self):
+            v = np.zeros((1, 16), dtype=np.float32)
+            v[0, 0] = 1.0
+            self.embeddings = {"LFW_victim": v, "owner": v}
+
+        def as_db(self):
+            return {}
+
+    eval_out = tmp_path / "eval_out"
+    eval_out.mkdir()
+
+    monkeypatch.setattr(faces, "FaceDetector", FakeDetector)
+    monkeypatch.setattr(faces, "EyeLandmarks", FakeEyes)
+    monkeypatch.setattr(faces, "build_gallery", lambda *a, **kw: (FakeGallery(), {}))
+    monkeypatch.setattr(faces, "enhance", lambda crop: (crop, {"applied": False}))
+    monkeypatch.setattr(fr_mod, "FaceRecognizer", FakeRecognizer)
+    monkeypatch.setattr(eval_mod, "new_run", lambda name, args: eval_out)
+
+    # 1. Test with --eval-session s_new
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--eval-session", "s_new", "--tiers", "baseline", "D"],
+    )
+    eval_mod.main()
+
+    with open(eval_out / "frames.csv", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    # s_new has 3 images * 2 tiers = 6 rows
+    assert len(rows) == 6
+    assert all(r["session"] == "s_new" for r in rows)
+    recorded_names = {Path(r["frame"]).name for r in rows}
+    assert recorded_names == {"000.jpg", "001.jpg", "002.jpg"}
+
+    summary = json.loads((eval_out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["eval_session_override"] == "s_new"
+    assert summary["eval_session_names"] == ["s_new"]
+
+    # 2. Test without --eval-session (default behavior unchanged)
+    eval_out_default = tmp_path / "eval_out_default"
+    eval_out_default.mkdir()
+    monkeypatch.setattr(eval_mod, "new_run", lambda name, args: eval_out_default)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--tiers", "baseline", "D"],
+    )
+    eval_mod.main()
+
+    with open(eval_out_default / "frames.csv", encoding="utf-8") as fh:
+        rows_def = list(csv.DictReader(fh))
+    assert len(rows_def) == 4
+    assert all(r["session"] == "s_eval" for r in rows_def)
+
+    summary_def = json.loads((eval_out_default / "summary.json").read_text(encoding="utf-8"))
+    assert summary_def["eval_session_override"] is None
+    assert summary_def["eval_session_names"] == ["s_eval"]
+
+
+def test_evaluate_eval_session_fails_on_leak_with_train_or_dev(tmp_path, monkeypatch):
+    """(b) --eval-session stops with SystemExit if any frame in that session is in split train or dev."""
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    root = tmp_path / "frames" / "owner"
+    s_train = root / "s_train"
+    s_dev = root / "s_dev"
+    s_train.mkdir(parents=True)
+    s_dev.mkdir(parents=True)
+
+    img = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.imwrite(str(s_train / "000.jpg"), img)
+    cv2.imwrite(str(s_dev / "000.jpg"), img)
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    shape = glasses.FrameShape(55.0, 1.2)
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, opt_run / "texture.pt")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    (opt_run / "split.json").write_text(json.dumps({
+        "how": "test",
+        "sessions": {"s_train": 1, "s_dev": 1},
+        "train": [str(s_train / "000.jpg")],
+        "dev": [str(s_dev / "000.jpg")],
+        "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "target": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+        "gallery_per_id": 1,
+        "frame_shape": vars(shape),
+        "tex_res": [15, 40],
+        "attacker_frames": str(root),
+    }), encoding="utf-8")
+
+    # Override with s_train -> must raise SystemExit
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--eval-session", "s_train"],
+    )
+    with pytest.raises(SystemExit) as exc1:
+        eval_mod.main()
+    assert "train or dev" in str(exc1.value)
+
+    # Override with s_dev -> must raise SystemExit
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--eval-session", "s_dev"],
+    )
+    with pytest.raises(SystemExit) as exc2:
+        eval_mod.main()
+    assert "train or dev" in str(exc2.value)
+
+
+def test_evaluate_eval_session_fails_when_split_is_dev(tmp_path, monkeypatch):
+    """(c) --eval-session stops with SystemExit when used with --split dev."""
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    shape = glasses.FrameShape(55.0, 1.2)
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, opt_run / "texture.pt")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    (opt_run / "split.json").write_text(json.dumps({
+        "how": "test",
+        "train": [],
+        "dev": [],
+        "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "target": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+        "gallery_per_id": 1,
+        "frame_shape": vars(shape),
+        "tex_res": [15, 40],
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--split", "dev", "--eval-session", "s_new"],
+    )
+    with pytest.raises(SystemExit) as exc:
+        eval_mod.main()
+    assert "--split eval" in str(exc.value)
+
+
+def test_evaluate_eval_session_fails_on_missing_or_empty_folder(tmp_path, monkeypatch):
+    """Verify --eval-session stops with SystemExit if folder does not exist or has no images."""
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    root = tmp_path / "frames" / "owner"
+    root.mkdir(parents=True)
+    s_train = root / "s_train"
+    s_train.mkdir()
+    img = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.imwrite(str(s_train / "000.jpg"), img)
+
+    s_empty = root / "s_empty"
+    s_empty.mkdir()
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    shape = glasses.FrameShape(55.0, 1.2)
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(shape), "tex_res": [15, 40]}, opt_run / "texture.pt")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    (opt_run / "split.json").write_text(json.dumps({
+        "how": "test",
+        "train": [str(s_train / "000.jpg")],
+        "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "target": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+        "gallery_per_id": 1,
+        "frame_shape": vars(shape),
+        "tex_res": [15, 40],
+        "attacker_frames": str(root),
+    }), encoding="utf-8")
+
+    # Non-existent session folder
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--eval-session", "nonexistent"],
+    )
+    with pytest.raises(SystemExit) as exc1:
+        eval_mod.main()
+    assert "does not exist" in str(exc1.value)
+
+    # Empty session folder
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--eval-session", "s_empty"],
+    )
+    with pytest.raises(SystemExit) as exc2:
+        eval_mod.main()
+    assert "no images found" in str(exc2.value)
+
+
+

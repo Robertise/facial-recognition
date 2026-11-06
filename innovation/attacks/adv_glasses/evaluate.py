@@ -153,6 +153,8 @@ def main():
     ap.add_argument("--transfer", nargs="*", default=[], help="name=checkpoint pairs for the transfer study")
     ap.add_argument("--split", choices=("eval", "dev"), default="eval",
                     help="split to evaluate on from split.json (default: eval)")
+    ap.add_argument("--eval-session", default=None,
+                    help="override eval frames with all images in <session_parent>/<NAME>")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--control-seed", type=int, default=0, help="random seed for control_random spatial shuffling (default: 0)")
     args = ap.parse_args()
@@ -160,11 +162,77 @@ def main():
     src = Path(args.run)
     attack = json.loads((src / "attack.json").read_text())
     split = json.loads((src / "split.json").read_text())
-    if args.split not in split:
-        raise SystemExit(f"split '{args.split}' not found in {src / 'split.json'}")
-    files = [Path(f) for f in split[args.split]]
-    if not files:
-        raise SystemExit(f"split '{args.split}' has 0 frames in {src / 'split.json'}")
+    if args.eval_session is not None:
+        if args.split != "eval":
+            raise SystemExit(f"--eval-session can only be used with --split eval, got --split {args.split}")
+
+        sessions_parent = None
+        all_split_frames = []
+        for k in ("train", "eval", "dev"):
+            all_split_frames.extend(split.get(k, []))
+
+        for sf in all_split_frames:
+            p = Path(sf)
+            known = split.get("sessions")
+            if known and isinstance(known, dict) and p.parent.name in known:
+                sessions_parent = p.parent.parent
+                break
+            elif p.parent.parent != p.parent and p.parent.name:
+                sessions_parent = p.parent.parent
+                break
+
+        session_dir = None
+        if sessions_parent is not None:
+            cand = sessions_parent / args.eval_session
+            if cand.exists():
+                session_dir = cand
+            elif attack.get("attacker_frames"):
+                alt = Path(attack["attacker_frames"]) / args.eval_session
+                if alt.exists():
+                    session_dir = alt
+                else:
+                    session_dir = cand
+            else:
+                session_dir = cand
+        elif attack.get("attacker_frames"):
+            session_dir = Path(attack["attacker_frames"]) / args.eval_session
+        else:
+            session_dir = Path(args.eval_session)
+
+        if not session_dir.exists() or not session_dir.is_dir():
+            raise SystemExit(f"eval session folder does not exist: {session_dir}")
+
+        files = faces.list_images(session_dir)
+        if not files:
+            raise SystemExit(f"no images found in eval session: {session_dir}")
+
+        leak_set = set()
+        for s_name in ("train", "dev"):
+            for p_str in split.get(s_name, []):
+                p = Path(p_str)
+                leak_set.add(str(p))
+                leak_set.add(str(p.as_posix()))
+                try:
+                    leak_set.add(str(p.resolve()))
+                except Exception:
+                    pass
+
+        for f in files:
+            f_vars = {str(f), str(f.as_posix())}
+            try:
+                f_vars.add(str(f.resolve()))
+            except Exception:
+                pass
+            if any(v in leak_set for v in f_vars):
+                raise SystemExit(
+                    f"eval session '{args.eval_session}' contains frame '{f}' which is in split train or dev"
+                )
+    else:
+        if args.split not in split:
+            raise SystemExit(f"split '{args.split}' not found in {src / 'split.json'}")
+        files = [Path(f) for f in split[args.split]]
+        if not files:
+            raise SystemExit(f"split '{args.split}' has 0 frames in {src / 'split.json'}")
     dev_mode = split.get("dev_mode") or attack.get("dev_mode", "random")
     use_smoother = (args.split != "dev" or dev_mode == "block")
     if args.split == "dev" and not use_smoother and args.liveness:
@@ -319,6 +387,8 @@ def main():
     summary = {"source_run": str(src), "mode": attack["mode"], "victim": attack.get("victim"),
                "attacker": attack["attacker_id"], "tex_res": tex_res, "control_seed": args.control_seed,
                "split": args.split, "dev_mode": dev_mode if args.split == "dev" else None,
+               "eval_session_override": args.eval_session,
+               "eval_session_names": sorted({f.parent.name for f in files}),
                "liveness_mode": "smooth" if use_smoother else "raw_per_frame",
                "liveness_gated": live is not None,
                "smoother_warmup_frames": sum(len(v) for v in warmup_by_session.values()),

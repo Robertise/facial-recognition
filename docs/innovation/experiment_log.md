@@ -329,3 +329,40 @@ Mẫu:
 - **Sửa:** khi `evaluate.py --split dev` với `dev_mode == "block"` và `--liveness`, smoother của mỗi session được làm nóng bằng `max(2, min_frames)` frame liền ngay trước frame dev đầu tiên (frame train, đi qua đúng đường của tầng: vẽ gọng/EOT, JPEG 95). Các frame này **không** ghi vào frames.csv và không tính điểm. Số frame làm nóng ghi ở `summary.json` → `smoother_warmup_frames`. Mô phỏng socket check-in chạy liên tục. Không đổi hành vi `--split eval`.
 - Kèm theo: `optimize.py` dừng (`SystemExit`) nếu session trong `--eval-sessions` không tồn tại, để không chạy ladder khi chưa chụp `s3_vary`.
 - Luật chọn, cấu hình R2a–R2c và cổng giữ nguyên như mục 2026-11-05.
+
+## 2026-11-06 20261106_130834_ladder · L1 vòng 2, thang R2a–R2c trên dev block · info (ghi TRƯỚC khi chấm `s3_vary`)
+
+- Split (kiểm tra trên `split.json` cả 3 run): train s1 60 + s2 60, dev block 15 + 15 (20% cuối mỗi session), eval `s3_vary` 75; không trùng frame giữa train/dev/eval. Tối ưu chỉ dùng 78/120 frame train (42 frame enhancer bật bị loại). Warmup smoother 6 frame (3/session), liveness_pass tầng D = 1.00.
+- Dev (method3, ánh sáng thường, thành công đầy đủ):
+  - R2a (15×40, phủ TB 11.6%): D 21/30 = 70% [0.52, 0.83], cos nạn nhân 0.57; D_EOT 13/30.
+  - **R2b** (15×40, phủ TB 15.5%, max 21.7%): **D 28/30 = 93%** [0.79, 0.98], cos 0.68; D_EOT 22/30.
+  - R2c (30×80, phủ TB 15.5%): D 29/30 = 97% [0.83, 0.99], cos 0.67; D_EOT 22/30.
+  - Mọi cấu hình: baseline 0/29, control random 0/30, control plain 0/30 (cả bản EOT).
+- **Luật chọn:** R2a < 80% → R2b là cấu hình đầu tiên theo thứ tự ưu tiên đạt ≥ 80% → **chọn R2b** (`20261106_132526_advglasses_impersonate`). R2c cao hơn 1 frame nhưng luật ưu tiên lưới thô hơn (in được) nên không chọn.
+- Nhận xét trước khi có số s3: dev cùng ngày và cùng điều kiện với train nên lạc quan (vòng 1: dev 85% → s2 60%). Lưới 15×40 không mất năng lực so với 30×80 (93% so với 97%), khớp kết quả vòng 1: độ phủ là nút thắt, độ phân giải texture thì không.
+- Bước tiếp: chấm R2b **một lần** trên `s3_vary` với `--liveness` và transfer method1/2/4/5, cổng giữ nguyên.
+
+## 2026-11-06 20261106_143847 · advglasses_eval_impersonate (E1a vòng 2, R2b trên `s3_vary`) · không hợp lệ (session nằm ngoài vùng hoạt động của hệ thống)
+
+- Chạy đúng một lần, cùng tham số E1a (`--liveness`, transfer method1/2/4/5, seed 1, control seed 0). Cổng: `pass False` (D 0/75).
+- **Nguyên nhân:** cả 75/75 frame ở **mọi tầng, kể cả baseline** đều mang nhãn liveness `Move closer`: distance gate (`min_ratio` 0.22, tức mặt rộng < ~141 px trên khung 640) chặn trước smoother. Model liveness thô vẫn thấy mặt thật (p_live trung vị 1.0). Nghĩa là chính mặt thật của owner cũng không check-in được trong session này. Kết quả 0% **không đo tấn công**, chỉ đo việc session được chụp quá xa.
+- **Đo tấn công bỏ qua liveness (thông tin phụ, không phải cổng):** method3 D khớp nạn nhân 71/75 = 95% (cos TB 0.69; cos với owner 0.22); D_EOT 85%; baseline, control random và control plain đều 0. Tức là hoa văn R2b vẫn giả danh được ở khoảng cách xa hơn và điều kiện khác train, nhưng đây là vùng hệ thống từ chối.
+- Transfer (match bỏ qua liveness): method1 11%, method2 11% (cos nạn nhân 0.76 nhưng hiếm top-1), method4 1%, method5 ViT 0% (cos 0.15). Khớp xu hướng E1a vòng 1.
+- **Lỗi thiết kế luật (Claude):** luật vòng 2 không có điều kiện hợp lệ cho session đánh giá (ví dụ baseline phải qua liveness), và hướng dẫn chụp `s3_vary` không nhắc vùng khoảng cách của distance gate.
+- Quyết định tiếp theo: chờ owner (xem bên dưới nếu có).
+
+## 2026-11-06 Luật đặt trước: đánh giá lại R2b đã đóng băng trên `s4_vary` (ghi TRƯỚC khi chạy bất kỳ eval nào trên s4)
+
+- **Quyết định của owner:** thay session không hợp lệ `s3_vary` bằng session mới `s4_vary` (75 frame, chụp 2026-11-06 sau khi có kết quả s3). Texture R2b (`20261106_132526_advglasses_impersonate`) **giữ nguyên, không tối ưu lại**. Kết quả s3 vẫn được báo cáo nguyên trạng.
+- **Bước A: kiểm tra hợp lệ, không nhìn tấn công.** Chạy eval trên s4 với **chỉ tầng `baseline`** (`--tiers baseline --liveness`, không transfer). Session hợp lệ khi đồng thời: (1) method3/baseline (ánh sáng thường) có `liveness_pass ≥ 0.80`; (2) `no_face ≤ 0.10`; (3) số frame ánh sáng thường ≥ 50/75. Bước A không chứa bất kỳ tầng nào có gọng, nên không lộ kết quả tấn công.
+- Nếu bước A trượt: được chụp lại (s5) và lặp bước A, vì chưa nhìn tấn công. Tối đa 2 lần chụp lại; sau đó dừng, E1a vòng 2 báo "không có session hợp lệ".
+- **Bước B: chấm một lần.** Chỉ khi bước A đạt: eval đầy đủ (mọi tầng, `--liveness`, transfer method1/2/4/5, seed 1, control seed 0) trên đúng session đó. Cổng giữ nguyên: D ≥ 80% và cả hai control ≤ 20%, ánh sáng thường, có liveness. Không có lần chấm thứ hai.
+- Ghi chú minh bạch: đây là lần đánh giá thứ hai của R2b trên dữ liệu mới; đã biết từ s3 (bỏ qua liveness) rằng hoa văn khớp 95% ở khoảng cách xa. Report phải nêu cả s3 và s4.
+
+## 2026-11-06 20261106_164210 · bước A trên `s4_vary` (chỉ baseline) · không hợp lệ
+
+- Code `--eval-session` (agent) đã verify trên diff: chỉ thêm, chặn trùng train/dev, summary ghi `eval_session_override` + `eval_session_names`. Run chỉ có tầng `baseline`, model method3, không transfer: không lộ tấn công.
+- method3/baseline: liveness_pass **0.49** (< 0.80) → **trượt điều kiện hợp lệ (1)**. no_face 0.00, 75/75 frame ánh sáng thường (enhancer 0%). Nhận dạng mặt thật vẫn đúng: owner 73/75.
+- Phân rã nhãn liveness theo thời gian: Real 37, `Move closer` 17 (t ≈ 2.0–4.2 s và 13.8–14.8 s, mặt nhỏ hơn 22% khung), **Fake 17 liên tục (t ≈ 4.6–7.8 s, p_live trung vị 0.001)**, Checking 4 (smoother reset sau mỗi lần qua cổng khoảng cách).
+- Diễn giải: session vẫn ra ngoài vùng khoảng cách ở hai đoạn, và có một đoạn ~3 s model liveness (run3) chắc chắn coi mặt thật là giả, nhiều khả năng do điều kiện ánh sáng đoạn đó (giới hạn đã biết của texture cue). Đây là giới hạn của hệ thống gốc, không liên quan tấn công.
+- Theo luật: được chụp lại `s5_vary` (lần chụp lại 1/2) rồi lặp bước A.
