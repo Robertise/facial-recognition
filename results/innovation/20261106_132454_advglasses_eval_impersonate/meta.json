@@ -1,0 +1,35 @@
+{
+  "run_id": "20261106_132454_advglasses_eval_impersonate",
+  "started": "2026-11-06T13:24:54",
+  "git_commit": "c9e17d7f37008a00c6e562558ee00ec4f339271f",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\attacks\\adv_glasses\\evaluate.py --run C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\results\\innovation\\20261106_130837_advglasses_impersonate --split dev --liveness --seed 1",
+  "args": {
+    "run": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\results\\innovation\\20261106_130837_advglasses_impersonate",
+    "tiers": [
+      "baseline",
+      "D",
+      "control_random",
+      "control_plain",
+      "D_EOT",
+      "baseline_EOT",
+      "control_random_EOT",
+      "control_plain_EOT"
+    ],
+    "liveness": true,
+    "transfer": [],
+    "split": "dev",
+    "seed": 1,
+    "control_seed": 0,
+    "source_run": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\results\\innovation\\20261106_130837_advglasses_impersonate"
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
