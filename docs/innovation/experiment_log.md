@@ -213,3 +213,119 @@ Mẫu:
   - Tỉ lệ thành công của `D_EOT` (64%) cao hơn `D` (44%): Hiện tượng này có thể do các biến đổi xuống cấp ảnh của EOT (mờ quang học, khoảng cách xa, nén JPEG, gain màu) tự nó làm giảm điểm nhận diện khuôn mặt dẫn đến né nhận diện (false dodging).
 - **Ghi chú kỹ thuật:** Chưa thể kết luận kính chịu EOT tốt hay do suy giảm chất lượng ảnh tự gây dodge cho đến khi có tầng đối chứng `baseline_EOT` (đã bổ sung vào `evaluate.py`).
 - **Quyết định tiếp theo:** Chạy lại `evaluate.py` với bộ tầng EOT đầy đủ (`baseline_EOT`, `control_random_EOT`, `control_plain_EOT`) để so sánh chuẩn xác; tăng số bước tối ưu lên 1000–1500 bước để hội tụ sâu hơn.
+
+
+## 2026-11-04 20261104_123824 / 20261104_124845 · advglasses_impersonate (E1a run 1) · fail (trượt cổng E1a & kích hoạt ladder)
+- **Mục tiêu:** Kiểm chứng digital (giai đoạn A) tấn công mạo danh (impersonation) L1 nhắm vào nạn nhân ảo `LFW_victim` (Yashwant Sinha) trên mô hình mục tiêu `method3_best.pth`.
+- **Cấu hình:**
+  - Tối ưu (`20261104_123824_advglasses_impersonate`): `--attacker-frames data/innovation/frames/owner --gallery data/innovation/gallery --attacker-id owner --victim LFW_victim --mode impersonate --steps 1500 --batch 8 --lr 0.01`. Gọng chuẩn (`thickness 35`, `rim-scale 1.1`, lưới $15 \times 40$), $M = \text{identity}$, 1500 bước trên CPU Windows 11.
+  - Đánh giá (`20261104_124845_advglasses_eval_impersonate`): `--run results/innovation/20261104_123824_advglasses_impersonate --liveness --transfer method1=checkpoints/method1_best.pth method2=checkpoints/method2_best.pth method4=checkpoints/method4_best.pth method5=checkpoints/method5_best.pth`. Tập kiểm thử là session `s2_day2` (75 frame).
+- **Kết quả:**
+  - Quá trình tối ưu: 1500 bước mất 528.9 s; `loss = 0.9511`; `main = 0.6243`; `margin = 0.2081`; `margin_vs_attacker = 0.1532`; `target_cos = 0.3978`; `batch_success = 0.0` (loss **chưa hội tụ** sau 1500 bước). Độ phủ gọng trên ảnh crop: trung bình 7.9% (min 4.4%, max 11.3%).
+  - Đánh giá trên session `s2_day2` (normal light, 62–65 frame hợp lệ):
+    - `baseline`: 0/54 thành công (0.0%, Wilson [0.00, 0.07]), cosine với nạn nhân 0.0717, cosine với attacker 0.6559.
+    - `D`: 0/62 thành công (0.0%, Wilson [0.00, 0.06]), cosine với nạn nhân tăng từ 0.0717 lên 0.2946, nhưng chưa đủ vượt ngưỡng 0.50 để khớp nạn nhân; `margin_vs_attacker` = 0.15 (hệ thống vẫn nhận diện là attacker).
+    - `control_random`: 0/65 thành công (0.0%, Wilson [0.00, 0.06]), cosine nạn nhân 0.0503.
+    - `control_plain`: 0/60 thành công (0.0%, Wilson [0.00, 0.06]), cosine nạn nhân 0.0713.
+    - `D_EOT`: 0/59 thành công (0.0%, Wilson [0.00, 0.06]), cosine nạn nhân 0.2244.
+    - `baseline_EOT`: 0/59 thành công (0.0%, Wilson [0.00, 0.06]), cosine nạn nhân 0.0219.
+    - Cổng sang giai đoạn B (`gate_to_stage_B`): **TRƯỢT** (`D_rate` = 0.0, yêu cầu $\ge 80\%$).
+    - Liveness pass: $\sim 95\% - 97\%$ trên mọi tầng (baseline 96.3%, D 96.8%, control_random 96.9%, control_plain 96.7%, D_EOT 94.9%).
+    - Lighting enhancer: tự động kích hoạt trên 13–21 frame của `s2_day2` (tách sang các tầng `@dim`).
+  - Transfer sang các mô hình khác (tầng D so với baseline):
+    - `method2` (Triplet): cosine nạn nhân tăng từ 0.3822 lên 0.5224 (+0.1402); 0/62 frame match.
+    - `method4` (Triplet): cosine nạn nhân tăng từ 0.2841 lên 0.4597 (+0.1756); 0/62 frame match.
+    - `method1` (Classifier): cosine nạn nhân 0.0441 → 0.0679 (không đổi đáng kể); 0/62 frame match.
+    - `method5` (ViT-B/16 + ArcFace): cosine nạn nhân 0.0685 → 0.0666 (không đổi); 0/62 frame match.
+    - Không có bất kỳ frame nào match được nạn nhân trên các model transfer.
+- **Phân tích:**
+  - Vòng tối ưu 1500 bước với learning rate 0.01 chưa đủ để hội tụ; loss còn ở mức 0.9511 và cosine mục tiêu mới đạt 0.3978 trong train và 0.2946 trên test.
+  - Vùng gọng kính ban đầu tương đối mảnh (độ phủ 7.9%), kết hợp với EOT ngẫu nhiên và độ phân giải lưới thấp $15 \times 40$ làm hạn chế capacity của bề mặt đối kháng trong số bước có hạn.
+- **Áp dụng dự phòng (1) và Luật đặt trước (Preregistered rule):**
+  - Kích hoạt phương án dự phòng (1) theo `plan.md` §6: tăng số bước tối ưu lên 3000 bước, tăng learning rate lên 0.03, tăng diện tích gọng (`thickness 55`, `rim-scale 1.2`), và khảo sát thang cấu hình (ladder) 5 mức để cách ly từng yếu tố ràng buộc:
+    - `C0`: `--tex-res 75 200 --no-eot --thickness 55 --rim-scale 1.2` (kỹ thuật số không ràng buộc)
+    - `C1`: `--tex-res 75 200 --thickness 55 --rim-scale 1.2` (lưới mịn + EOT)
+    - `C2`: `--tex-res 30 80 --thickness 55 --rim-scale 1.2` (lưới trung bình + EOT)
+    - `C3`: `--tex-res 15 40 --thickness 55 --rim-scale 1.2` (lưới in được $15 \times 40$ + EOT, gọng to)
+    - `C4`: `--tex-res 15 40 --thickness 35 --rim-scale 1.1` (lưới in được $15 \times 40$ + EOT, gọng chuẩn E1a ban đầu)
+  - Toàn bộ thang cấu hình C0–C4 được chọn lọc và đánh giá trên tập `dev` (tách ngẫu nhiên 20% từ `s1_day1`), tuyệt đối KHÔNG chạy và không tinh chỉnh trên `s2_day2`.
+  - **Luật đặt trước (Preregistered selection rule):**
+    - Chọn cấu hình có ràng buộc nhiều nhất (thứ tự ràng buộc tăng dần: $C0 < C1 < C2 < C3 < C4$) đạt tỉ lệ thành công trên tập dev $\ge 80\%$.
+    - Cấu hình được chọn sẽ được chạy đúng 1 lần duy nhất trên session kiểm thử `s2_day2` với `--liveness` và `--transfer` làm kết quả chính thức của thí nghiệm E1a.
+    - Nếu không cấu hình nào đạt dev $\ge 80\%$ nhưng C0 đạt: kết luận ràng buộc vật lý (in ấn, EOT, kích thước gọng thực tế) làm mất năng lực tấn công, chuyển sang phương án dự phòng (2) (phụ kiện lớn hơn kiểu AdvHat).
+    - Nếu ngay cả C0 cũng không đạt dev $\ge 80\%$: kết luận vùng gọng kính hoàn toàn không đủ capacity để mạo danh trên hệ thống này, chuyển sang phương án dự phòng (2).
+
+## 2026-11-04 20261104_131718_ladder · L1 thang cấu hình C0–C4 trên dev · info + sửa đổi luật đo (ghi TRƯỚC khi chạy s2)
+
+- **Dữ liệu:** dev = 15 frame ngẫu nhiên (20%) của `s1_day1`, 13 frame ánh sáng bình thường (2 frame `@dim`). 3000 bước, lr 0.03, seed 0, `LFW_victim`.
+- **Lỗi đo phát hiện khi đọc `frames.csv`:** trên dev, `liveness_pass` chỉ 0.20–0.25 ở **mọi** tầng, kể cả `baseline` (không kính), trong khi `live_score` thô ≈ 1.0. Nhãn hầu hết là `Checking`. Nguyên nhân: smoother liveness (cửa sổ 1.5 s) cần frame liên tiếp ở ~5 fps; dev là 15 frame lấy ngẫu nhiên rải trên ~15 s nên smoother không bao giờ tích đủ cửa sổ. Đây là lỗi của cách lấy mẫu dev, không phải liveness từ chối gọng kính. Vì vậy cột `dev_success_frames` trong `ladder.csv` (yêu cầu liveness Real) **không dùng được** để chọn cấu hình.
+- **Kết quả đúng trên dev** (match 1:N: top-1 = `LFW_victim`, cosine ≥ 0.5, bỏ qua liveness), method3, 13 frame thường:
+
+| Cấu hình | Lưới | EOT | Độ phủ | D match | D_EOT match | Control (random / plain) | Baseline | Cos nạn nhân D (TB) | Cos train cuối |
+|---|---|---|---|---|---|---|---|---|---|
+| C0 | 75×200 | không | 11.1% | 1/13 | 1/15 | 0 / 0 | 0 | 0.33 | 0.68 |
+| C1 | 75×200 | có | 11.1% | 10/13 | 8/15 | 0 / 0 | 0 | 0.59 | 0.54 |
+| C2 | 30×80 | có | 11.1% | 12/13 | 8/15 | 0 / 0 | 0 | 0.61 | 0.55 |
+| C3 | 15×40 | có | 11.1% | **11/13 (85%)** | 7/15 | 0 / 0 | 0 | 0.61 | 0.57 |
+| C4 | 15×40 | có | 7.8% | 0/13 | 0/15 | 0 / 0 | 0 | 0.38 | 0.33 |
+
+- **Nhận xét:**
+  - C0 (không EOT) đạt cos 0.68 trên ảnh train nhưng chỉ 1/13 trên dev: quá khớp vào đúng các frame train. EOT cần thiết để tổng quát hoá ngay cả giữa các frame cùng buổi, không chỉ cho môi trường vật lý.
+  - Ép texture mượt (75×200 → 30×80 → 15×40) gần như không làm mất năng lực (10, 12, 11 trên 13; khác biệt nằm trong nhiễu với n = 13). Texture in được không phải trả giá.
+  - Độ phủ là yếu tố quyết định: 7.8% → 0/13; 11.1% → 11/13.
+  - Control luôn 0 ở mọi cấu hình: hiệu ứng đến từ hoa văn tối ưu, không phải việc đeo gọng.
+- **Sửa đổi luật đo (ghi trước khi chạy s2, lý do ở trên):** tiêu chí chọn cấu hình trên dev dùng **match 1:N bỏ qua liveness** (`match_ignoring_liveness`), vì liveness đã smooth không đo được trên frame rời rạc. Liveness được đánh giá trên s2, nơi frame liên tục (75 frame, 0.2 s/frame) và smoother hoạt động đúng như backend. Ngưỡng 80% và thứ tự ràng buộc giữ nguyên.
+- **Áp dụng luật:** cấu hình ràng buộc nhiều nhất đạt dev ≥ 80% là **C3** (11/13 = 85%, Wilson 95% ≈ [0.58, 0.96]; khoảng tin cậy rộng vì n nhỏ). C4 không đạt. → Chạy **C3 đúng một lần** trên `s2_day2` với `--liveness` và transfer; đó là kết quả E1a chính thức (cổng: D ≥ 80% và cả hai control ≤ 20%, ánh sáng thường, có liveness).
+- **Việc cần sửa (không chặn):** `evaluate.py --split dev` nên báo liveness ở dạng thô theo frame hoặc ghi `null`, và `ladder.py` nên chọn theo `match_ignoring_liveness`.
+
+## 2026-11-04 20261104_181712 · advglasses_eval_impersonate (E1a chính thức, C3 trên s2) · fail (trượt cổng 80%)
+
+- **Cấu hình:** C3 (`20261104_140557_advglasses_impersonate`): lưới 15×40, EOT, `--thickness 55 --rim-scale 1.2` (độ phủ TB 11.1%), 3000 bước, lr 0.03, `LFW_victim`. Chạy đúng một lần trên `s2_day2`, `--liveness`, transfer method1/2/4/5. Màu: M = identity (chưa có bảng màu).
+- **method3, s2, ánh sáng thường:**
+
+| Tầng | Thành công (liveness Real + top-1 nạn nhân, cos ≥ 0.5) | Wilson 95% | Match bỏ qua liveness | Liveness pass | Cos nạn nhân TB | Cửa sổ 3 s có ≥ 1 frame thành công |
+|---|---|---|---|---|---|---|
+| baseline | 0/54 | [0, 0.07] | 0.00 | 0.96 | 0.07 | 0/5 |
+| **D** | **36/60 (60%)** | **[0.47, 0.71]** | 0.67 | 0.93 | 0.56 | **4/5 (80%)** |
+| control_random | 0/72 | [0, 0.05] | 0.00 | 0.97 | 0.06 | 0 |
+| control_plain | 0/62 | [0, 0.06] | 0.00 | 0.68 | 0.14 | 0 |
+| D_EOT | 27/62 (44%) | [0.32, 0.56] | 0.45 | 0.94 | 0.50 | 4/5 |
+| baseline_EOT | 0/59 | [0, 0.06] | 0.00 | 0.98 | 0.02 | 0 |
+
+- **Cổng sang giai đoạn B:** D = 0.60 < 0.80, control max = 0.00 → `pass False`. **E1a trượt theo luật đặt trước.**
+- **Ghi nhận (không đổi kết luận):**
+  - Theo frame thì trượt, nhưng theo đơn vị vận hành của Quick mode (backend ghi điểm danh khi một frame khớp), 4/5 cửa sổ 3 s có ít nhất một frame giả danh thành công.
+  - Dev (C3) 11/13 = 85% so với s2 60%: khoảng cách dev→s2 dù s2 cùng setup; dev chỉ 13 frame nên ước lượng dev lạc quan.
+  - Ánh sáng tối (`@dim`, enhancer bật): D 0/15, match 4/15, liveness pass 0.47 (nhãn Fake xuất hiện). Lighting enhancer và liveness cùng làm hỏng tấn công khi tối.
+  - Control trơn làm liveness pass giảm còn 0.68 (thường) và 0.00 (`@dim`): gọng dán digital một màu có thể trông "giả" với model liveness. Cần đo lại ở giai đoạn vật lý.
+  - Transfer (cùng texture, model khác): method1 (FaceCNN + classifier) 9/60 = 15%; method2 1/60, method4 3/60 (cos nạn nhân tăng mạnh 0.38→0.70 và 0.28→0.63 nhưng hiếm khi top-1); method5 (ViT) 0/60, cos không đổi (0.07→0.08).
+
+## 2026-11-05 Quyết định sau E1a + luật đặt trước cho vòng 2 (ghi TRƯỚC khi có dữ liệu `s3_vary`)
+
+- **Quyết định của owner:** tiếp tục cải thiện (vòng 2). Dù vòng 2 có đạt cổng 80% hay không, **vẫn chuyển sang giai đoạn B**. Lý do: mục tiêu chính của L1 là E1c (kênh giọng chặn tấn công), chỉ cần tấn công có lúc thành công; ở Quick mode một frame khớp là đủ ghi điểm danh. Kết quả E1a (vòng 1 và vòng 2) vẫn được báo cáo đúng như đo, kể cả khi trượt.
+- **Nút thắt đã đo (ladder + E1a vòng 1):** độ phủ gọng (7.8% → 0/13 dev; 11.1% → 11/13 dev) và lượng/độ đa dạng dữ liệu tối ưu (chỉ ~60 frame, cùng setup; dev 85% → s2 60%).
+- **Dữ liệu vòng 2:**
+  - Tối ưu trên `s1_day1` + `s2_day2` (s2 đã dùng xong cho E1a vòng 1, giờ được phép làm dữ liệu train). Chỉ frame enhancer bỏ qua.
+  - Dev: **khối liên tục** 20% cuối của mỗi session train (không lấy ngẫu nhiên), để smoother liveness hoạt động như backend. Tiêu chí dev = thành công đầy đủ (liveness Real + top-1 nạn nhân, cos ≥ 0.5).
+  - Đánh giá: session mới `s3_vary` (≈75 frame liên tục, chụp sau khi ghi mục này), cố ý thay đổi khoảng cách (±10–15 cm), vị trí ngồi lệch trái/phải, nguồn đèn; giữ mức sáng thường, cùng kính và kiểu tóc. Chạy đúng một lần.
+- **Cấu hình vòng 2** (3000 bước, lr 0.03, seed 0, `LFW_victim`, EOT bật):
+  - R2a: lưới 15×40, `--thickness 55 --rim-scale 1.2` (độ phủ TB đo trên s1: 11.24%, như C3).
+  - R2b: lưới 15×40, `--thickness 85 --rim-scale 1.42` (đo độ phủ trên 53 frame s1 thường: trung bình **15.02%**, min 8.37%, max 21.38%; đạt yêu cầu ≈15% và không quá 16%).
+  - R2c: lưới 30×80, `--thickness 85 --rim-scale 1.42` (cùng gọng với R2b, độ phủ TB 15.02%).
+  - Bảng khảo sát đo độ phủ trên 53 frame s1 thường (`python -m innovation.attacks.adv_glasses.ladder --measure-coverage`):
+    - `thickness 55, rim-scale 1.20`: 11.24% [6.27%, 16.05%] (R2a)
+    - `thickness 65, rim-scale 1.30`: 12.95% [7.22%, 18.49%]
+    - `thickness 75, rim-scale 1.35`: 14.12% [7.86%, 20.12%]
+    - `thickness 80, rim-scale 1.40`: 14.80% [8.24%, 21.06%]
+    - `thickness 80, rim-scale 1.42`: 14.92% [8.32%, 21.26%]
+    - **`thickness 85, rim-scale 1.42`**: **15.02%** [8.37%, 21.38%] (cặp đã chọn cho R2b và R2c)
+    - `thickness 100, rim-scale 1.40`: 15.00% [8.34%, 21.36%]
+- **Luật chọn:** chọn cấu hình ràng buộc nhiều nhất (thứ tự: độ phủ nhỏ hơn trước, rồi lưới thô hơn: R2a < R2b... cụ thể ưu tiên R2a, rồi R2b, rồi R2c) có dev ≥ 80%. Không cấu hình nào đạt thì chọn cấu hình có dev cao nhất. Cấu hình được chọn chạy **một lần** trên `s3_vary` với `--liveness` và transfer.
+- **Cổng (giữ nguyên):** D ≥ 80% và cả hai control ≤ 20%, ánh sáng thường, có liveness. Ghi `pass/fail`. Báo thêm tỉ lệ cửa sổ 3 s có ít nhất một frame thành công. Không có vòng 3 tối ưu trên dữ liệu đánh giá.
+
+## 2026-11-06 Sửa đổi luật đo dev vòng 2: làm nóng smoother (ghi TRƯỚC khi chạy ladder vòng 2, chưa có số)
+
+- **Vấn đề:** smoother liveness cần `min_frames` frame mới thoát trạng thái `Checking`. Trong frames.csv của E1a (`20261104_181712`), frame 0000 và 0001 luôn là `Checking` (`is_real=0`); ở tầng D hai frame này có `match_ok=1` nhưng vẫn bị tính thất bại. Dev block chỉ có ~15 frame/session nên mất 2/15 mỗi session: trần dev ≈ 26/30 = 87%, trong khi eval 75 frame chỉ mất ~3%. Sai lệch ~13 điểm phần trăm, đủ đảo luật chọn R2a/R2b/R2c và thiên về cấu hình phủ to hơn.
+- **Sửa:** khi `evaluate.py --split dev` với `dev_mode == "block"` và `--liveness`, smoother của mỗi session được làm nóng bằng `max(2, min_frames)` frame liền ngay trước frame dev đầu tiên (frame train, đi qua đúng đường của tầng: vẽ gọng/EOT, JPEG 95). Các frame này **không** ghi vào frames.csv và không tính điểm. Số frame làm nóng ghi ở `summary.json` → `smoother_warmup_frames`. Mô phỏng socket check-in chạy liên tục. Không đổi hành vi `--split eval`.
+- Kèm theo: `optimize.py` dừng (`SystemExit`) nếu session trong `--eval-sessions` không tồn tại, để không chạy ladder khi chưa chụp `s3_vary`.
+- Luật chọn, cấu hình R2a–R2c và cổng giữ nguyên như mục 2026-11-05.

@@ -88,29 +88,102 @@ make_control_random = control_random_texture
 
 # ── frames and split ────────────────────────────────────────────────────────
 
-def split_frames(root: Path, eval_sessions: list[str] | None, seed: int) -> tuple[list[Path], list[Path], dict]:
+def sort_session_frames_by_time(session_folder: Path, fs: list[Path]) -> list[Path]:
+    """Sort session frames by timestamp in meta.csv if available, else numeric stem or filename."""
+    meta_path = session_folder / "meta.csv"
+    ms: dict[int, float] = {}
+    if meta_path.exists():
+        try:
+            with open(meta_path, encoding="utf-8") as fh:
+                for row in csv.DictReader(fh):
+                    if "index" in row and "client_ms" in row:
+                        ms[int(row["index"])] = float(row["client_ms"])
+        except Exception:
+            pass
+
+    def sort_key(p: Path):
+        try:
+            idx = int(p.stem)
+            return (0, ms.get(idx, float(idx)))
+        except ValueError:
+            return (1, p.name)
+
+    return sorted(fs, key=sort_key)
+
+
+def split_frames(root: Path, eval_sessions: list[str] | None, seed: int, dev_frac: float = 0.0,
+                 dev_mode: str = "random") -> tuple[list[Path], list[Path], dict]:
     sessions = sorted(p for p in Path(root).iterdir() if p.is_dir())
     if not sessions:  # a flat folder of frames
         sessions = [Path(root)]
     by = {s.name: faces.list_images(s) for s in sessions}
     if eval_sessions:
-        held = set(eval_sessions)
-    elif len(by) >= 2:
-        held = {sorted(by)[-1]}
-    else:
-        held = set()
-    if held:
+        missing = sorted(set(eval_sessions) - set(by))
+        if missing:
+            raise SystemExit(f"eval session(s) not found in {root}: {', '.join(missing)}")
+    if len(by) >= 2 or eval_sessions:
+        if eval_sessions is not None:
+            held = set(eval_sessions)
+        else:
+            held = {sorted(by)[-1]}
         train = [f for s, fs in by.items() if s not in held for f in fs]
         test = [f for s, fs in by.items() if s in held for f in fs]
         how = f"held-out sessions: {sorted(held)}"
+        is_multi_session = True
     else:
+        held = set()
         fs = list(next(iter(by.values())))
         rng = np.random.default_rng(seed)
         rng.shuffle(fs)
         k = int(round(len(fs) * 0.7))
         train, test, how = sorted(fs[:k]), sorted(fs[k:]), "single session, random 70/30"
-    return train, test, {"how": how, "sessions": {s: len(fs) for s, fs in by.items()},
-                         "train": [str(f) for f in train], "eval": [str(f) for f in test]}
+        is_multi_session = False
+
+    dev: list[Path] = []
+    if dev_frac > 0:
+        if dev_mode == "block":
+            if is_multi_session:
+                train_sessions = [s for s in sessions if s.name not in held]
+                dev_collected: list[Path] = []
+                train_collected: list[Path] = []
+                for s in train_sessions:
+                    fs = by[s.name]
+                    fs_sorted = sort_session_frames_by_time(s, fs)
+                    k_dev = int(round(len(fs_sorted) * dev_frac))
+                    if k_dev > 0:
+                        dev_collected.extend(fs_sorted[-k_dev:])
+                        train_collected.extend(fs_sorted[:-k_dev])
+                    else:
+                        train_collected.extend(fs_sorted)
+                dev = dev_collected
+                train = train_collected
+            else:
+                train_sorted = sort_session_frames_by_time(sessions[0], train)
+                k_dev = int(round(len(train_sorted) * dev_frac))
+                dev = train_sorted[-k_dev:] if k_dev > 0 else []
+                train = train_sorted[:-k_dev] if k_dev > 0 else train_sorted
+        else:
+            rng_dev = np.random.default_rng(seed)
+            train_list = list(train)
+            perm = rng_dev.permutation(len(train_list))
+            k_dev = int(round(len(train_list) * dev_frac))
+            dev_set = {train_list[i] for i in perm[:k_dev]}
+            dev = sorted([f for f in train_list if f in dev_set])
+            train = sorted([f for f in train_list if f not in dev_set])
+
+    split_dict = {
+        "how": how,
+        "sessions": {s: len(fs) for s, fs in by.items()},
+        "train": [str(f) for f in train],
+        "eval": [str(f) for f in test],
+        "dev_mode": dev_mode,
+    }
+    if dev_frac > 0:
+        split_dict["dev"] = [str(f) for f in dev]
+        split_dict["train"] = [str(f) for f in train]
+        split_dict["how"] += f", dev fraction {dev_frac:.2f} ({len(dev)} frames, mode={dev_mode})"
+
+    return train, test, split_dict
 
 
 def prepare(frames: list[Path], detector, eyes_finder) -> tuple[list[dict], dict]:
@@ -182,6 +255,12 @@ def main():
     ap.add_argument("--lambda-tv", type=float, default=2.5)
     ap.add_argument("--lambda-nps", type=float, default=0.5)
     ap.add_argument("--eval-sessions", nargs="*")
+    ap.add_argument("--dev-frac", type=float, default=0.0,
+                    help="fraction of training frames held out for dev validation (default: 0.0)")
+    ap.add_argument("--dev-mode", choices=("random", "block"), default="random",
+                    help="how to split dev frames: 'random' (default) or 'block' (last continuous chunk per session)")
+    ap.add_argument("--no-eot", action="store_true",
+                    help="disable EOT during optimization (no jitter, no photometric transforms)")
     ap.add_argument("--max-gallery", type=int, default=faces.GALLERY_PER_ID,
                     help="images per identity in the gallery (5 = the 5 Register angles)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -208,7 +287,8 @@ def main():
     if args.mode == "impersonate" and args.victim not in gallery.embeddings:
         raise SystemExit(f"victim '{args.victim}' has no usable images in the gallery")
 
-    train_files, _, split = split_frames(Path(args.attacker_frames), args.eval_sessions, args.seed)
+    train_files, _, split = split_frames(Path(args.attacker_frames), args.eval_sessions, args.seed,
+                                         args.dev_frac, args.dev_mode)
     items, p_report = prepare(train_files, detector, eyes_finder)
     if len(items) < 4:
         raise SystemExit(f"only {len(items)} usable training frames: {p_report}")
@@ -236,9 +316,14 @@ def main():
         batch = [items[i] for i in rng.choice(len(items), size=min(args.batch, len(items)), replace=False)]
         crops = []
         for it in batch:
-            A = glasses.jitter(it["A"], eot.TRAIN.shift_px, eot.TRAIN.rot_deg, eot.TRAIN.scale, rng)
-            out = glasses.render(it["region"].to(args.device), seen, mask, A, it["window"])
-            crops.append(eot.photometric(out, eot.TRAIN, rng))
+            if args.no_eot:
+                A = it["A"]
+                out = glasses.render(it["region"].to(args.device), seen, mask, A, it["window"])
+                crops.append(out)
+            else:
+                A = glasses.jitter(it["A"], eot.TRAIN.shift_px, eot.TRAIN.rot_deg, eot.TRAIN.scale, rng)
+                out = glasses.render(it["region"].to(args.device), seen, mask, A, it["window"])
+                crops.append(eot.photometric(out, eot.TRAIN, rng))
         emb = pipe.embed(crops)
 
         s_target = soft_max_cos(emb, E[target], args.tau)
@@ -289,6 +374,7 @@ def main():
         "checkpoint": args.checkpoint, "model": recognizer.load_report,
         "gallery": args.gallery, "gallery_per_id": args.max_gallery, "gallery_report": g_report,
         "identities": sorted(E), "frame_shape": vars(shape), "tex_res": [tex_h, tex_w],
+        "dev_frac": args.dev_frac, "dev_mode": args.dev_mode, "no_eot": args.no_eot,
         "coverage_train": {"mean": float(np.mean(cover)), "min": float(np.min(cover)), "max": float(np.max(cover))},
         "prepare_report": p_report, "color_map_calibrated": cmap.calibrated,
         "final": log_rows[-1]})

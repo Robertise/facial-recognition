@@ -151,6 +151,8 @@ def main():
     ])
     ap.add_argument("--liveness", action="store_true", help="gate on the backend's smoothed liveness (needs its checkpoint)")
     ap.add_argument("--transfer", nargs="*", default=[], help="name=checkpoint pairs for the transfer study")
+    ap.add_argument("--split", choices=("eval", "dev"), default="eval",
+                    help="split to evaluate on from split.json (default: eval)")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--control-seed", type=int, default=0, help="random seed for control_random spatial shuffling (default: 0)")
     args = ap.parse_args()
@@ -158,7 +160,21 @@ def main():
     src = Path(args.run)
     attack = json.loads((src / "attack.json").read_text())
     split = json.loads((src / "split.json").read_text())
-    files = [Path(f) for f in split["eval"]]
+    if args.split not in split:
+        raise SystemExit(f"split '{args.split}' not found in {src / 'split.json'}")
+    files = [Path(f) for f in split[args.split]]
+    if not files:
+        raise SystemExit(f"split '{args.split}' has 0 frames in {src / 'split.json'}")
+    dev_mode = split.get("dev_mode") or attack.get("dev_mode", "random")
+    use_smoother = (args.split != "dev" or dev_mode == "block")
+    if args.split == "dev" and not use_smoother and args.liveness:
+        import warnings
+        warnings.warn(
+            f"split='dev' with dev-mode '{dev_mode}': frames are not contiguous in time, "
+            f"so temporal smoother cannot accumulate 1.5s window. "
+            f"Reporting raw per-frame liveness (smoother bypassed).",
+            UserWarning, stacklevel=2
+        )
     times = frame_times(files)
     files.sort(key=lambda f: (f.parent.name, times[str(f)]))
     run = new_run(f"advglasses_eval_{attack['mode']}", {**vars(args), "source_run": str(src)})
@@ -202,6 +218,32 @@ def main():
         side = float(max(bbox0[2], bbox0[3]) * (1 + 2 * faces.CROP_PAD)) if bbox0 is not None else float(max(img.shape[:2]))
         prepared.append((f, img, A, A_unseen, side, int(rng.integers(1 << 30))))
 
+    warmup_by_session: dict[str, list] = {}
+    if args.split == "dev" and dev_mode == "block" and live is not None:
+        smoothing_cfg = (getattr(live, "config", None) or {}).get("smoothing") or {}
+        n_warmup = max(2, int(smoothing_cfg.get("min_frames", 3)))
+        for session in sorted({f.parent for f in files}, key=lambda p: p.name):
+            session_all = sorted(faces.list_images(session), key=lambda p: (times[str(p)], p.name))
+            session_dev = sorted([f for f in files if f.parent == session], key=lambda p: (times[str(p)], p.name))
+            if not session_dev:
+                continue
+            first_dev = session_dev[0]
+            first_resolved = first_dev.resolve()
+            idx0 = next((i for i, p in enumerate(session_all) if p.resolve() == first_resolved), None)
+            prior = session_all[:idx0] if idx0 is not None else [p for p in session_all if times[str(p)] < times[str(first_dev)]]
+            w_items = []
+            for wf in prior[-n_warmup:]:
+                img = cv2.imread(str(wf))
+                eyes = eyes_finder.eyes(img) if img is not None else None
+                if eyes is None:
+                    continue
+                A = glasses.similarity(eyes)
+                A_unseen = glasses.jitter(A, eot.UNSEEN.shift_px, eot.UNSEEN.rot_deg, eot.UNSEEN.scale, rng)
+                bbox0 = detector.detect(img)
+                side = float(max(bbox0[2], bbox0[3]) * (1 + 2 * faces.CROP_PAD)) if bbox0 is not None else float(max(img.shape[:2]))
+                w_items.append((wf, img, A, A_unseen, side, int(rng.integers(1 << 30))))
+            warmup_by_session[session.name] = w_items
+
     rows, model_info = [], {}
     for model, ckpt in models.items():
         recognizer = FaceRecognizer(threshold=0.5, ckpt_path=ckpt, strict=True)  # stops on key mismatch
@@ -232,9 +274,25 @@ def main():
                 if bbox is not None:
                     row["face"] = 1
                     if live is not None:
-                        if f.parent.name not in smoothers:      # one smoother per session, like one check-in socket
-                            smoothers[f.parent.name] = make_smoother(live.config)
-                        real, label, p = liveness_step(live, smoothers[f.parent.name], frame, times[str(f)])
+                        if use_smoother:
+                            if f.parent.name not in smoothers:      # one smoother per session, like one check-in socket
+                                smoothers[f.parent.name] = make_smoother(live.config)
+                                for wf, wimg, wA, wA_unseen, wside, wseed in warmup_by_session.get(f.parent.name, []):
+                                    if tier == "baseline":
+                                        wframe = wimg
+                                    elif tier == "baseline_EOT":
+                                        wframe = unseen_frame(wimg, np.random.default_rng(wseed), wside)
+                                    elif tier.endswith("_EOT"):
+                                        base_tier = tier[:-4]
+                                        wframe = unseen_frame(paint(wimg, colours[base_tier], mask, wA_unseen), np.random.default_rng(wseed), wside)
+                                    else:
+                                        wframe = paint(wimg, colours[tier], mask, wA)
+                                    wframe = jpeg(wframe, 95)
+                                    liveness_step(live, smoothers[f.parent.name], wframe, times[str(wf)])
+                            smoother_obj = smoothers[f.parent.name]
+                        else:
+                            smoother_obj = None
+                        real, label, p = liveness_step(live, smoother_obj, frame, times[str(f)])
                         row.update(live_label=label, live_score=round(p, 4), is_real=int(real))
                     face, meta = faces.enhance(faces.crop(frame, bbox))
                     row["enhancer_applied"] = int(bool(meta and meta.get("applied")))
@@ -260,7 +318,10 @@ def main():
 
     summary = {"source_run": str(src), "mode": attack["mode"], "victim": attack.get("victim"),
                "attacker": attack["attacker_id"], "tex_res": tex_res, "control_seed": args.control_seed,
+               "split": args.split, "dev_mode": dev_mode if args.split == "dev" else None,
+               "liveness_mode": "smooth" if use_smoother else "raw_per_frame",
                "liveness_gated": live is not None,
+               "smoother_warmup_frames": sum(len(v) for v in warmup_by_session.values()),
                "eval_frames": len(prepared), "coverage_train": attack.get("coverage_train"),
                "color_map_calibrated": attack.get("color_map_calibrated"),
                "gallery_per_id": attack.get("gallery_per_id"), "models": model_info, "results": {}}
@@ -287,11 +348,16 @@ def main():
                     "windows_3s": len(windows), "windows_with_success": sum(any(v) for v in windows.values()) / max(1, len(windows)),
                 }
     if attack["mode"] == "impersonate":
-        g = stage_b_gate(summary["results"], live is not None)
-        if g is not None:
-            summary["gate_to_stage_B"] = g
+        if args.split == "dev":
+            summary["gate_to_stage_B"] = None
+        else:
+            g = stage_b_gate(summary["results"], live is not None)
+            if g is not None:
+                summary["gate_to_stage_B"] = g
     write_json(run / "summary.json", summary)
     print(f"results: {run}")
+    if args.split == "dev" and not use_smoother:
+        print("  [NOTICE] dev-mode is 'random': liveness reported as raw per-frame (temporal smoother bypassed).")
     for k, v in summary["results"].items():
         lo, hi = v["wilson95"]
         print(f"  {k:<26} success {v['success']}/{v['frames']} = {v['rate']:.2f} [{lo:.2f}, {hi:.2f}]  "
