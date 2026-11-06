@@ -366,3 +366,41 @@ Mẫu:
 - Phân rã nhãn liveness theo thời gian: Real 37, `Move closer` 17 (t ≈ 2.0–4.2 s và 13.8–14.8 s, mặt nhỏ hơn 22% khung), **Fake 17 liên tục (t ≈ 4.6–7.8 s, p_live trung vị 0.001)**, Checking 4 (smoother reset sau mỗi lần qua cổng khoảng cách).
 - Diễn giải: session vẫn ra ngoài vùng khoảng cách ở hai đoạn, và có một đoạn ~3 s model liveness (run3) chắc chắn coi mặt thật là giả, nhiều khả năng do điều kiện ánh sáng đoạn đó (giới hạn đã biết của texture cue). Đây là giới hạn của hệ thống gốc, không liên quan tấn công.
 - Theo luật: được chụp lại `s5_vary` (lần chụp lại 1/2) rồi lặp bước A.
+
+## 2026-11-06 20261106_170156 · bước A trên `s5_vary` (lần chụp lại 1/2, chỉ baseline) · không hợp lệ
+
+- method3/baseline (ánh sáng thường, 72 frame): liveness_pass **0.62** (< 0.80) → trượt điều kiện (1). no_face 0, 3 frame `@dim`. Nhận dạng owner 75/75.
+- Lỗi khoảng cách đã hết (không còn `Move closer`/`Move back`). Toàn bộ frame bị từ chối là **Fake** trên mặt thật, ba đoạn: t ≈ 3.4–4.6 s (7), 6.4–7.4 s (6), 12.6–14.8 s (12). Ngay cả đoạn Real, điểm smoothed chủ yếu chỉ 0.12–0.29, sát ngưỡng `t_on` 0.2 / `t_off` 0.05: model liveness run3 kém tự tin với mặt thật của owner trong điều kiện s5.
+- Phát hiện phụ cho report (giới hạn hệ thống gốc): tỉ lệ chấp nhận mặt thật của liveness giảm khi điều kiện thay đổi trong vùng khoảng cách hợp lệ: s1/s2 (tĩnh) ~0.97 → s4 0.49 (gồm lỗi khoảng cách) → s5 0.62.
+- Theo luật: còn đúng một lần chụp lại (`s6_vary`, 2/2). Nếu s6 trượt bước A: dừng, E1a vòng 2 báo "không có session hợp lệ", vẫn sang giai đoạn B theo quyết định đã có.
+
+## 2026-11-06 So sánh điều kiện chụp s1–s6 (đo trên ảnh, TRƯỚC bước A/B của `s6_vary`)
+
+- Owner chụp `s6_vary` (lần chụp lại 2/2) theo hướng: tránh quay đầu mạnh và tránh đèn hắt sáng mạnh lên da (hai nguyên nhân owner nghi gây Fake ở s4/s5). Owner đặt thêm điều kiện: chỉ chạy eval khi s6 tương đồng s1/s2 về độ ổn định, ánh sáng và góc đầu.
+- Đo bằng MediaPipe (face detection `model_selection=0` như backend + face mesh), script tạm ngoài repo. Chỉ số: bề rộng mặt / bề rộng khung (cổng 22–70%), yaw proxy (độ lệch mũi theo trục mắt / khoảng cách hai mắt), pitch proxy, |roll| p95 (độ), độ sáng TB vùng mặt (0–255), glare = % pixel mặt ≥ 245, dịch chuyển tâm mặt giữa 2 frame / bề rộng mặt (p95), biên độ ngang của tâm mặt (tỉ lệ khung).
+
+| session | mặt rộng % p5/TV/p95 | yaw p5/TV/p95 | pitch TV | roll p95 | sáng mặt TV/p95 | glare % TV/p95 | rung p95 | biên độ ngang |
+|---|---|---|---|---|---|---|---|---|
+| s1 | 23.4/24.9/26.8 | −0.49/−0.04/0.19 | 1.19 | 5.8 | 105/126 | 0.00/0.06 | 0.06 | 0.08 |
+| s2 | 24.0/26.0/27.7 | −0.51/−0.02/0.15 | 1.24 | 11.4 | 109/122 | 0.00/0.06 | 0.05 | 0.07 |
+| s3 | 16.2/19.1/21.5 | −0.29/0.06/0.55 | 1.02 | 5.5 | 127/132 | 0.50/1.81 | 0.08 | 0.07 |
+| s4 | 19.6/25.0/28.7 | −0.31/0.01/0.39 | 1.01 | 4.2 | 90/98 | 0.99/2.38 | 0.07 | 0.07 |
+| s5 | 24.0/27.8/29.5 | −0.40/0.03/0.33 | 1.11 | 15.3 | 110/124 | 0.00/0.10 | 0.08 | 0.06 |
+| **s6** | 25.1/28.5/29.5 | −0.28/0.00/0.16 | 1.20 | 6.5 | 100/111 | 0.03/0.22 | 0.07 | 0.05 |
+
+- Kết luận: s6 nằm trong vùng của s1/s2 ở mọi chỉ số (mặt gần hơn ~2–3 điểm %, tối hơn nhẹ, quay đầu và dịch ngang ít hơn s1/s2). → Đạt điều kiện tương đồng của owner.
+- Hệ quả diễn giải: s6 **không** phải session "thay đổi điều kiện" như thiết kế `s3_vary`; nó là session mới, khác thời điểm, cùng loại điều kiện với dữ liệu train. Bước B trên s6 đo khả năng tổng quát sang session mới cùng điều kiện, so sánh trực tiếp được với E1a vòng 1 (C3 trên s2: 60%). Độ bền theo khoảng cách chỉ có bằng chứng phụ từ s3 (bỏ qua liveness 95%).
+- Quan sát phụ: s3 và s4 có glare cao hơn hẳn (0.5–1.0% TV, p95 ~2%), khớp giả thuyết của owner về hắt sáng; s5 glare thấp nhưng roll p95 15.3° (nghiêng đầu nhiều nhất), khớp giả thuyết quay/nghiêng đầu. Chỉ là tương quan trên vài session, không phải phép thử.
+
+## 2026-11-06 20261106_191956 (bước A) / 20261106_192143 (bước B) · E1a vòng 2: R2b đóng băng trên `s6_vary` · **pass**
+
+- **Bước A** (chỉ baseline): liveness_pass **0.97** (73 Real, 2 Checking đầu session), no_face 0, 75/75 ánh sáng thường → session hợp lệ.
+- **Bước B** (chạy đúng một lần, mọi tầng, `--liveness`, transfer method1/2/4/5, seed 1, control seed 0):
+  - method3 baseline 0/75; **D 62/75 = 82.7% [0.73, 0.90]**; control random 0/75; control plain 0/75 → `gate_to_stage_B.pass = True` (D ≥ 80%, control max 0).
+  - Bỏ qua liveness: D khớp nạn nhân 74/75 = 99%, cos nạn nhân TB 0.71 (cos với owner 0.24). D_EOT 52/75 = 69% (khớp 89%). Cửa sổ 3 s có ≥ 1 frame thành công: 5/5.
+  - **Toàn bộ 13 frame D thất bại là do liveness, không phải nhận dạng:** 12 frame đầu (t < 2.4 s) đã khớp nạn nhân nhưng smoother ở Checking/Fake; điểm smoothed của D bắt đầu ~0.00–0.02 rồi tăng dần, qua `t_on` 0.2 ở frame ~12, sau đó giữ Real nhờ hysteresis (`t_off` 0.05). Baseline, control random (cùng màu, xáo ô) và control plain cùng thời điểm đều ~1.00. → Liveness run3 phản ứng với **hoa văn adversarial dán digital** ở đầu session, không phải với gọng. Chưa biết có xảy ra với kính in thật hay không (có thể là dấu vết ghép ảnh digital).
+  - Nhận xét thẳng: điểm ước lượng qua cổng nhưng cận dưới Wilson 0.73 < 0.80; con số 82.7% phụ thuộc phần nào vào hysteresis của smoother (một khi đã Real thì khó rơi về Fake).
+- Transfer (thành công đầy đủ): method1 0/75, method2 3/75, method4 2/75, method5 ViT 0/75. Cos nạn nhân method2/method4 cao (0.71/0.69) nhưng hiếm top-1. Transfer method1 giảm so với vòng 1 (15% → 0%): hoa văn R2b chuyên biệt hơn cho method3.
+- So với E1a vòng 1 (C3 trên s2, cùng loại điều kiện "session mới, cùng điều kiện"): 60% [0.47, 0.71] → 82.7% [0.73, 0.90]. Hai thay đổi cùng lúc (độ phủ 11% → 15.5% và dữ liệu s1 + s2); dev vòng 2 (R2a 70% so với R2b 93%, cùng dữ liệu) cho thấy độ phủ là phần chính.
+- Chuỗi đánh giá đầy đủ phải nêu trong report: s3 không hợp lệ (quá xa; bỏ qua liveness 95%), s4 trượt bước A (0.49), s5 trượt bước A (0.62), s6 hợp lệ và pass. Tấn công chỉ được chấm trên s3 và s6.
+- Bước tiếp: E1a vòng 2 đóng. Sang bảng màu + giai đoạn B (kính R2b in thật, người hỗ trợ), song song đo khả thi chữ ký S1/S2 trên frame D của R2b.
