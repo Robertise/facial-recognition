@@ -404,3 +404,52 @@ Mẫu:
 - So với E1a vòng 1 (C3 trên s2, cùng loại điều kiện "session mới, cùng điều kiện"): 60% [0.47, 0.71] → 82.7% [0.73, 0.90]. Hai thay đổi cùng lúc (độ phủ 11% → 15.5% và dữ liệu s1 + s2); dev vòng 2 (R2a 70% so với R2b 93%, cùng dữ liệu) cho thấy độ phủ là phần chính.
 - Chuỗi đánh giá đầy đủ phải nêu trong report: s3 không hợp lệ (quá xa; bỏ qua liveness 95%), s4 trượt bước A (0.49), s5 trượt bước A (0.62), s6 hợp lệ và pass. Tấn công chỉ được chấm trên s3 và s6.
 - Bước tiếp: E1a vòng 2 đóng. Sang bảng màu + giai đoạn B (kính R2b in thật, người hỗ trợ), song song đo khả thi chữ ký S1/S2 trên frame D của R2b.
+
+## 2026-11-06 Phát hiện sau E1a vòng 2: hình dạng gọng R2b gần như kín, không còn tròng kính
+
+- Kiểm tra `mask.png` của các run (template 400×150, tâm mắt cách 180 px ≈ IPD): theo `glasses.FrameShape.mask`, tròng trong = elip (rx·rim_scale − thickness, ry·rim_scale − thickness), với `RIM_RX, RIM_RY = 80, 58`.
+  - C3 / R2a (`--thickness 55 --rim-scale 1.2`): tròng mở ≈ 82×29 template px mỗi bên (≈ 29×10 mm với IPD 63 mm); phần gọng chiếm 67% template; tròng 1897 px/bên.
+  - **R2b / R2c (`--thickness 85 --rim-scale 1.42`): bán trục dọc tròng trong = 58·1.42 − 85 = −2.6 → kẹp về 1 px.** Tròng chỉ còn một khe ngang ~57×2 px (108 px/bên, 0.4% template); gọng chiếm 89% template và tràn hết chiều cao template. Về thực chất R2b là **một dải che kín hai mắt có khe hẹp**, không phải kính.
+- Hệ quả:
+  - Bảng khảo sát độ phủ (ghi 2026-11-05) bão hoà quanh 15%: 80/1.42 → 14.92%, 85/1.42 → 15.02%, 100/1.40 → 15.00%. Độ phủ ngừng tăng chính vì tròng đã đóng. Mức "≈15%" đạt được bằng cách bịt tròng, không phải bằng gọng to hơn.
+  - Kết luận "độ phủ là nút thắt" bị lẫn yếu tố: từ R2a lên R2b vừa tăng diện tích, vừa **che hẳn hai mắt** (vùng mang nhiều thông tin danh tính nhất) của kẻ tấn công. Không tách được hai phần này từ dữ liệu hiện có.
+  - Kết quả E1a vòng 2 (82.7% trên s6) vẫn đúng như đo, nhưng phải được mô tả là "dải che mắt adversarial (khe hẹp)", không phải "kính adversarial". Về vật lý, người đeo gần như không nhìn thấy, và người quan sát sẽ dễ nhận ra.
+- **Lỗi review (Claude):** luật vòng 2 chỉ ràng buộc độ phủ (≈15%, ≤16%), không có ràng buộc tròng phải mở; Claude đã duyệt cặp tham số mà không xem hình gọng. Code đúng theo tham số, lỗi nằm ở đặc tả.
+- Quyết định về hình dạng gọng cho giai đoạn B: chờ owner. Lưu ý: giai đoạn B vốn phải tối ưu lại (có `--color-map` đã hiệu chỉnh), nên chọn lại hình dạng không tốn thêm một vòng riêng.
+
+## 2026-11-06 Luật đặt trước: khả thi chữ ký S1/S2/S3 (ghi TRƯỚC khi có code/số; plan: `docs/innovation/plan_signatures.md`)
+
+- Mục đích: kiểm tra rẻ (không train) xem hướng phòng thủ dựa trên chữ ký của phụ kiện adversarial có nền không.
+- Chỉ số quyết định cho mỗi họ chữ ký (S1, S2, S3) = AUC tốt nhất trong các biến thể của họ đó, trên **so sánh chính** (tấn công gộp EOT so với âm tính gộp), lấy **min giữa `A_C3` và `A_R2b`** (chữ ký phải chạy được trên cả gọng tròng mở và dải kín mắt).
+  - AUC ≥ 0.90: họ chữ ký **có nền**, đưa vào detector/fusion làm đặc trưng chính.
+  - 0.75 ≤ AUC < 0.90: giữ làm đặc trưng phụ cho fusion, không đứng một mình.
+  - AUC < 0.75: **bỏ** họ chữ ký đó, ghi lý do vào `decisions.md`.
+- Nếu không họ nào ≥ 0.75: hướng "phòng thủ dựa trên chữ ký" không có nền với dữ liệu hiện có; quay lại cân nhắc hướng (model làm sạch / adversarial training) trước khi xây tiếp.
+- Hạn chế biết trước, phải nêu kèm kết quả: chỉ có một kẻ tấn công (owner), nên S1 có thể học "dấu vết owner" thay vì "dấu vết tấn công" (so sánh phụ với `R_lfw` và `R_owner_controls` để soi); chưa có âm tính đeo phụ kiện thật (kính cận, kính râm, khẩu trang); tấn công chưa thích ứng (không biết phòng thủ), nên AUC là cận trên.
+
+## 2026-11-06 Quyết định hình dạng gọng cho giai đoạn tiếp theo (owner)
+
+- Owner chọn phương án (b): ràng buộc tròng phải mở. Việc in bảng màu tạm hoãn (lý do ngoài kỹ thuật); làm phần digital trước.
+- Owner chỉ ra khuôn elip (từ P0, chưa từng được biện minh) là lựa chọn kém: làm dày thì tròng đóng theo chiều dọc trước, diện tích hữu ích ít. Gọng demo owner có sẵn là kiểu vuông/wayfarer (thanh mày dày, tròng gần chữ nhật).
+- Hướng đã thống nhất: tạo mask từ **ảnh chụp gọng thật của owner** (có thước, quy đổi mm theo IPD), tròng giữ đúng kích thước thật, chỉ cho phép nới gọng **ra ngoài**. Khuôn elip giữ nguyên trong code để tái lập các run cũ. Giai đoạn B dán hoa văn in lên chính gọng này.
+- Cần một vòng tối ưu digital mới (luật đặt trước sẽ ghi khi có ảnh gọng và IPD). Đề xuất đánh giá cuối trên `s6_vary` (đã hợp lệ ở bước A, chưa dùng để chọn gì cho gọng mới; ghi rõ là lần dùng thứ hai) hoặc session mới `s7` qua bước A: chờ owner chọn.
+- Đang chờ: ảnh gọng có thước, IPD owner, số đo tròng/cầu mũi/tổng bề rộng.
+
+## 2026-11-06 Quyết định: dùng gọng thật của owner (kiểu vuông) + tái dùng s6 cho eval cuối
+
+- Owner gửi 2 ảnh gọng thật đặt cạnh thước cm (giấy ăn làm nền): gọng kiểu vuông/wayfarer, hai tròng gần chữ nhật bo góc, cầu mũi hẹp, thanh mày và viền dưới dày vừa. Đây là vật mang cho giai đoạn B (dán hoa văn in lên gọng này).
+- Số đo thô đọc từ thước (ảnh 1, để agent kiểm chứng lại khi tách mask; không phải số chốt): bề rộng một tròng ≈ 50 mm, cao tròng ≈ 38–40 mm, cầu mũi ≈ 18–20 mm, tổng bề rộng gọng (không tính càng) ≈ 130 mm.
+- Với bước tối ưu digital, chỉ cần hình gọng trong hệ template (đặt theo tâm hai tròng = `EYES`, cách 180 px). IPD chỉ cần ở bước in (`export.py`), hiện hoãn cùng việc in bảng màu.
+- **Tái dùng `s6_vary` cho eval cuối của gọng mới:** owner đồng ý, khung nhìn đúng: đây là đổi cách tiếp cận do yếu tố ngoại cảnh (không in được + khuôn elip sai hình), không phải đổi vì đã thấy điểm. Tính hợp lệ: texture gọng mới tối ưu lại hoàn toàn trên s1 + s2, không chạm s6; s6 không dùng để chọn hình gọng hay tham số. Rủi ro còn lại (Claude đã thấy hành vi s6 của R2b) là nhỏ và được ghi minh bạch ở đây và trong report. Không chụp s7.
+
+## 2026-11-06 Luật đặt trước: vòng tối ưu gọng ảnh (PhotoFrame), ghi TRƯỚC khi có mask/số (plan: `docs/innovation/plan_frame_mask.md`)
+
+- Hình gọng: `PhotoFrame` tách từ ảnh gọng thật owner; tròng luôn trống, chỉ nới ra ngoài (`grow_px`). Không dùng `thickness/rim-scale` cho gọng này.
+- Dữ liệu & quy trình giống E1a vòng 2: tối ưu trên s1 + s2 (frame enhancer bỏ qua), dev khối liên tục 20% cuối mỗi session (có warmup smoother), M = identity (chưa in bảng màu), tex-res 15×40, 3000 bước, lr 0.03, seed 0, victim LFW_victim, EOT bật.
+- Config (chọn sau khi xem bảng độ phủ của bước 3, agent đo; đặt trước ràng buộc chứ chưa đặt số grow cuối):
+  - F0 = `grow_px` cho độ phủ TB ~11% (so trực tiếp R2a 70% và C3 60% — cùng độ phủ, khác hình gọng).
+  - F1 = `grow_px` cho độ phủ TB ~15% (so R2b 82.7% — cùng độ phủ, nhưng tròng mở).
+  - Ràng buộc bắt buộc mọi config: phần diện tích tròng còn trống ≥ 98% (nếu một config đóng tròng thì loại, không coi là "gọng").
+- Luật chọn: ưu tiên F0 trước F1 (độ phủ nhỏ hơn = thực tế hơn); chọn config đầu tiên đạt **dev ≥ 80%**. Không config nào đạt → chọn dev cao nhất. Config được chọn chấm **một lần** trên s6_vary (`--frame-mask` tương ứng, `--liveness`, transfer method1/2/4/5). Cổng giữ nguyên: D ≥ 80% và cả hai control ≤ 20%, ánh sáng thường, có liveness.
+- So sánh định hướng report (không phải tiêu chí pass/fail): nếu ở cùng độ phủ ~15%, gọng-vuông-tròng-mở đạt gần R2b (dải kín mắt) thì kết luận "độ phủ là nút thắt, không cần bịt mắt"; nếu thấp hơn nhiều thì phần điểm của R2b đến từ việc che mắt, phải nói rõ.
+- Không có vòng tối ưu thứ hai trên s6. Nếu cả F0 và F1 trượt cổng: báo cáo đúng như đo; vẫn sang giai đoạn B với config dev cao nhất khi in được.
