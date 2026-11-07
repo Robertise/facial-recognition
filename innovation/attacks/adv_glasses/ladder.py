@@ -100,8 +100,13 @@ ROUND1_ORDER = ["C0", "C1", "C2", "C3", "C4"]
 ROUND2_ORDER = ["R2a", "R2b", "R2c"]
 
 
-def measure_coverage_s1(attacker_frames: Path | str = "data/innovation/frames/owner") -> list[dict[str, Any]]:
-    """Measure mean coverage on usable normal-light s1 frames for candidate thickness/rim-scale pairs."""
+def measure_coverage_s1(
+    attacker_frames: Path | str = "data/innovation/frames/owner",
+    frame_mask: Path | str | None = None,
+    frame_lens: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Measure mean coverage on usable normal-light s1 frames for candidate thickness/rim-scale pairs
+    or grow_px values when using PhotoFrame."""
     s1_dir = Path(attacker_frames) / "s1_day1"
     if not s1_dir.exists():
         s1_dirs = list(Path(attacker_frames).glob("*s1*"))
@@ -134,6 +139,48 @@ def measure_coverage_s1(attacker_frames: Path | str = "data/innovation/frames/ow
         win = faces.crop_window(bbox, img.shape)
         items.append({"A": glasses.similarity(eyes), "window": win})
 
+    results = []
+    if frame_mask is not None:
+        # PhotoFrame evaluation with grow_px ladder
+        lens_img = cv2.imread(str(frame_lens), cv2.IMREAD_GRAYSCALE) if frame_lens else None
+        lens_pts = (lens_img > 127) if lens_img is not None else None
+
+        candidates_grow = [0.0, 4.0, 8.0, 12.0, 16.0]
+        print(f"\nMeasuring PhotoFrame eyeglass coverage across {len(items)} usable normal-light s1 frames:")
+        print(f"Mask: {frame_mask}, Lens: {frame_lens}\n" + "-" * 85)
+        print(f" {'grow_px':>7} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Note':<22}")
+        print("-" * 85)
+        for g in candidates_grow:
+            shape = glasses.PhotoFrame(frame_mask, frame_lens, grow_px=g)
+            m_np = shape.mask()
+            mask = torch.from_numpy(m_np)[None]
+            covs = [glasses.coverage(mask, it["A"], it["window"]) for it in items]
+            mean_cov = float(np.mean(covs))
+            min_cov = float(np.min(covs))
+            max_cov = float(np.max(covs))
+
+            if lens_pts is not None and lens_pts.sum() > 0:
+                encroached = float(m_np[lens_pts].mean())
+                lens_open = 100.0 * max(0.0, 1.0 - encroached)
+            else:
+                lens_open = 100.0
+
+            note = ""
+            if abs(mean_cov - 0.111) < 0.015:
+                note = "~R2a baseline (11.1%)"
+            elif abs(mean_cov - 0.150) < 0.015:
+                note = "~R2b target (15.0%)"
+
+            results.append({
+                "grow_px": g, "mean_coverage": mean_cov,
+                "min_coverage": min_cov, "max_coverage": max_cov,
+                "lens_open_pct": lens_open, "note": note,
+            })
+            print(f" {g:7.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open:9.1f}% | {note:<22}")
+        print("-" * 85)
+        return results
+
+    # Legacy FrameShape candidates
     candidates = [
         (55.0, 1.20, "R2a baseline (C3 geometry)"),
         (65.0, 1.30, "intermediate"),
@@ -143,7 +190,6 @@ def measure_coverage_s1(attacker_frames: Path | str = "data/innovation/frames/ow
         (85.0, 1.42, "candidate ~15.0% (selected for R2b/R2c)"),
         (100.0, 1.40, "candidate ~15.0%"),
     ]
-    results = []
     print(f"\nMeasuring eyeglass coverage across {len(items)} usable normal-light s1 frames:\n" + "-" * 75)
     for t, r, note in candidates:
         shape = glasses.FrameShape(t, r)
@@ -225,10 +271,14 @@ def main():
                     help="configurations to run in order (default: R2a R2b R2c)")
     ap.add_argument("--measure-coverage", action="store_true",
                     help="measure frame coverage on s1 frames and print candidate table without running ladder")
+    ap.add_argument("--frame-mask", default=None,
+                    help="path to custom frame mask PNG (uses PhotoFrame for coverage measurement)")
+    ap.add_argument("--frame-lens", default=None,
+                    help="path to custom frame lens PNG for PhotoFrame")
     args = ap.parse_args()
 
     if args.measure_coverage:
-        measure_coverage_s1(args.attacker_frames)
+        measure_coverage_s1(args.attacker_frames, frame_mask=args.frame_mask, frame_lens=args.frame_lens)
         return
 
     ladder_run = new_run("ladder", vars(args))

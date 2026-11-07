@@ -18,3 +18,20 @@ def test_env_file_sets_missing_and_keeps_existing(tmp_path, monkeypatch):
 
 def test_missing_file_is_fine(tmp_path):
     assert load_env_file(tmp_path / "nope.env") == {}
+
+
+def test_extra_cors_origins(monkeypatch):
+    import importlib
+    monkeypatch.setenv("INNOVATION_ENABLED", "0")
+    # 1. When EXTRA_CORS_ORIGINS is not set
+    monkeypatch.delenv("EXTRA_CORS_ORIGINS", raising=False)
+    import backend.main as main
+    main = importlib.reload(main)
+    assert main.cors_origins == ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    # 2. When EXTRA_CORS_ORIGINS has comma-separated origins with whitespace
+    monkeypatch.setenv("EXTRA_CORS_ORIGINS", " http://192.168.1.100:3000, https://app.example.com , http://localhost:3000 ")
+    main = importlib.reload(main)
+    assert "http://192.168.1.100:3000" in main.cors_origins
+    assert "https://app.example.com" in main.cors_origins
+    assert main.cors_origins.count("http://localhost:3000") == 1

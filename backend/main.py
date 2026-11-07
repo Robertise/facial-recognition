@@ -2,7 +2,7 @@
 main.py – FastAPI application
 Run: uvicorn backend.main:app --reload --port 8000
 """
-import json, asyncio, traceback, time
+import os, json, asyncio, traceback, time
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -30,9 +30,17 @@ if innovation_config.enabled():
     from innovation.api import router as innovation_router
     app.include_router(innovation_router)
 
+cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+extra_origins = os.getenv("EXTRA_CORS_ORIGINS", "")
+if extra_origins:
+    for o in extra_origins.split(","):
+        cleaned = o.strip()
+        if cleaned and cleaned not in cors_origins:
+            cors_origins.append(cleaned)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

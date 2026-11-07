@@ -13,10 +13,14 @@ import pytest
 
 from innovation.attacks.adv_glasses.signatures import (
     bootstrap_auc_ci,
+    build_session_streams,
+    compute_operating_points,
     compute_s1,
     compute_s2,
     compute_s3_signatures_for_window,
+    evaluate_rule_check,
     make_leave_one_out_gallery,
+    merge_galleries,
     occlude_stripes,
 )
 from innovation.eval.metrics import auc
@@ -84,6 +88,33 @@ def test_make_leave_one_out_gallery_removes_exact_query():
     assert np.array_equal(loo["id_B"], embs_B)
     assert len(loo["id_C"]) == 5
     assert np.array_equal(loo["id_C"], embs_C)
+
+
+def test_make_leave_one_out_gallery_cosine_threshold():
+    """Verify leave-one-out drops embedding with max cosine similarity only when >= 0.99."""
+    # Normalized embeddings
+    rng = np.random.default_rng(42)
+    raw = rng.standard_normal((5, 16)).astype(np.float32)
+    embs = raw / np.linalg.norm(raw, axis=1, keepdims=True)
+    gallery = {"id_A": embs}
+
+    # Query with exact match to index 3 (cosine == 1.0 >= 0.99)
+    query_exact = embs[3].copy()
+    loo_exact = make_leave_one_out_gallery(gallery, target_id="id_A", query_emb=query_exact, min_cos=0.99)
+    assert loo_exact is not None
+    assert len(loo_exact["id_A"]) == 4
+    assert not any(np.allclose(row, embs[3], atol=1e-5) for row in loo_exact["id_A"])
+
+    # Query with cosine < 0.99 (perturbed query)
+    noise = rng.standard_normal((16,)).astype(np.float32)
+    query_mismatch = embs[3] + noise * 0.5
+    query_mismatch /= np.linalg.norm(query_mismatch)
+    max_sim = float(np.max(embs @ query_mismatch))
+    assert max_sim < 0.99
+
+    loo_mismatch = make_leave_one_out_gallery(gallery, target_id="id_A", query_emb=query_mismatch, min_cos=0.99)
+    assert loo_mismatch is None
+
 
 
 def test_signatures_sign_convention_on_synthetic_data():
@@ -213,3 +244,185 @@ def test_bootstrap_auc_ci():
     assert ci is not None
     assert 0.5 < pt_auc < 1.0
     assert ci[0] <= pt_auc <= ci[1]
+
+
+
+def test_merge_galleries_duplicate_id_raises():
+    """Verify that merging extra gallery embeddings raises ValueError on duplicate ID,
+    and cleanly merges non-overlapping identities.
+    """
+    base_gallery = {
+        "owner": np.ones((5, 16), dtype=np.float32),
+        "victim": np.ones((5, 16), dtype=np.float32) * 2,
+    }
+    extra_valid = {
+        "p01": np.ones((5, 16), dtype=np.float32) * 3,
+        "p02": np.ones((5, 16), dtype=np.float32) * 4,
+    }
+
+    # Clean merge
+    merged = merge_galleries(base_gallery, extra_valid)
+    assert set(merged.keys()) == {"owner", "victim", "p01", "p02"}
+    assert np.array_equal(merged["p01"], extra_valid["p01"])
+
+    # Duplicate ID with base gallery raises ValueError
+    extra_duplicate = {
+        "victim": np.ones((5, 16), dtype=np.float32) * 99,
+        "p03": np.ones((5, 16), dtype=np.float32),
+    }
+    with pytest.raises(ValueError, match="Duplicate identities"):
+        merge_galleries(base_gallery, extra_duplicate)
+
+
+def test_build_session_streams_people_negative_only():
+    """Verify that when include_attacks=False, build_session_streams only produces
+    negative streams (label=0) for the specified target_person and no attack streams.
+    """
+    c3_assets = {"seen": np.zeros(1), "mask": np.zeros(1), "victim": "victim_c3"}
+    r2b_assets = {"seen": np.zeros(1), "mask": np.zeros(1), "victim": "victim_r2b"}
+
+    # Extra people session: negative streams only
+    streams = build_session_streams(
+        c3_assets=c3_assets,
+        r2b_assets=r2b_assets,
+        target_person="p01",
+        set_prefix="R_p01_s2",
+        include_attacks=False,
+    )
+
+    assert len(streams) == 6
+    for s in streams:
+        assert s["label"] == 0, f"Stream {s['tier']} must be negative (label=0)"
+        assert s["target_id"] == "p01", f"Target ID must be p01, got {s['target_id']}"
+        assert not s["set"].startswith("A_"), f"No attack streams allowed, got {s['set']}"
+
+    tiers = [s["tier"] for s in streams]
+    assert tiers == [
+        "baseline",
+        "baseline_EOT",
+        "control_random_C3",
+        "control_plain_C3",
+        "control_random_R2b",
+        "control_plain_R2b",
+    ]
+
+    # Baseline and EOT belong to R_p01_s2; controls belong to R_p01_s2_controls
+    assert streams[0]["set"] == "R_p01_s2"
+    assert streams[1]["set"] == "R_p01_s2"
+    assert all(s["set"] == "R_p01_s2_controls" for s in streams[2:])
+
+    # Contrast with owner session (include_attacks=True)
+    owner_streams = build_session_streams(
+        c3_assets=c3_assets,
+        r2b_assets=r2b_assets,
+        target_person="owner",
+        set_prefix="R_owner",
+        include_attacks=True,
+    )
+    attack_streams = [s for s in owner_streams if s["label"] == 1]
+    assert len(attack_streams) == 4
+    assert {s["set"] for s in attack_streams} == {"A_C3", "A_C3_EOT", "A_R2b", "A_R2b_EOT"}
+    assert all(s["target_id"].startswith("victim") for s in attack_streams)
+
+
+def test_compute_operating_points_and_rule_check_synthetic():
+    """Verify that 95% TPR threshold and FPR per negative group are calculated correctly,
+    and rule_check enforces min_auc >= 0.90 and fpr <= 0.10 on primary session.
+    """
+    # 100 positive rows: 50 C3 and 50 R2b
+    # Values spaced linearly from 0.50 to 0.99
+    pos_vals = np.linspace(0.50, 0.99, 100)
+    rows: list[dict] = []
+    for i, v in enumerate(pos_vals):
+        set_name = "A_C3" if i < 25 else ("A_C3_EOT" if i < 50 else ("A_R2b" if i < 75 else "A_R2b_EOT"))
+        rows.append({
+            "set": set_name,
+            "s2_maxdrop": float(v),
+            "s2_conc": float(v * 0.9),
+        })
+
+    # Expected 5th percentile on pos_vals:
+    expected_thresh_maxdrop = float(np.percentile(pos_vals, 5.0))
+
+    # Add negative groups
+    # R_owner: 40 frames, all low (0.10 - 0.20) -> 0 FP
+    for v in np.linspace(0.10, 0.20, 40):
+        rows.append({"set": "R_owner", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+    # R_owner_controls: 40 frames, all low -> 0 FP
+    for v in np.linspace(0.12, 0.25, 40):
+        rows.append({"set": "R_owner_controls", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+    # R_lfw: 20 frames, 2 above threshold -> 2 / 20 = 0.10 FPR
+    for i, v in enumerate(np.linspace(0.20, 0.60, 20)):
+        rows.append({"set": "R_lfw", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+    # R_p01_s2: 50 frames, all low (0.15 - 0.30) -> 0 FP
+    for v in np.linspace(0.15, 0.30, 50):
+        rows.append({"set": "R_p01_s2", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+    # R_p01_s2_controls: 50 frames, 2 above threshold -> 2 / 50 = 0.04 FPR
+    for i, v in enumerate(np.linspace(0.15, 0.60, 50)):
+        rows.append({"set": "R_p01_s2_controls", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+    # R_p01_s1: 50 frames, many high (0.40 - 0.70) -> high FPR
+    for v in np.linspace(0.40, 0.70, 50):
+        rows.append({"set": "R_p01_s1", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+        rows.append({"set": "R_p01_s1_controls", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+
+    op = compute_operating_points(rows, people_sessions=["p01/s2", "p01/s1"], tpr_target=0.95)
+
+    assert "s2_maxdrop" in op
+    assert "s2_conc" in op
+    assert op["s2_maxdrop"]["n_pos"] == 100
+    assert abs(op["s2_maxdrop"]["threshold_tpr95"] - expected_thresh_maxdrop) < 1e-3
+
+    # Check FPRs for s2_maxdrop
+    assert op["s2_maxdrop"]["R_owner"]["fpr"] == 0.0
+    assert op["s2_maxdrop"]["R_owner_controls"]["fpr"] == 0.0
+    # p01_s2_all has 100 negative frames (50 s2 + 50 controls)
+    assert op["s2_maxdrop"]["R_p01_s2_all"]["n_neg"] == 100
+    p01_s2_fpr = op["s2_maxdrop"]["R_p01_s2_all"]["fpr"]
+    assert p01_s2_fpr <= 0.10, f"Expected FPR <= 0.10, got {p01_s2_fpr}"
+
+    # p01_s1 has many high values -> FPR > 0.10
+    p01_s1_fpr = op["s2_maxdrop"]["R_p01_s1_all"]["fpr"]
+    assert p01_s1_fpr > 0.10
+
+    # Test evaluate_rule_check
+    mock_eval = {
+        "A_C3_vs_R_p01_s2_all": {"s2_maxdrop": {"auc": 0.98}, "s2_conc": {"auc": 0.96}},
+        "A_R2b_vs_R_p01_s2_all": {"s2_maxdrop": {"auc": 0.99}, "s2_conc": {"auc": 0.97}},
+        "A_C3_vs_R_p01_s1_all": {"s2_maxdrop": {"auc": 0.75}, "s2_conc": {"auc": 0.70}},
+        "A_R2b_vs_R_p01_s1_all": {"s2_maxdrop": {"auc": 0.78}, "s2_conc": {"auc": 0.72}},
+    }
+    mock_recog = {
+        "p01/s2": {"recognized_frames": 74, "total_face_frames": 75, "recognition_rate": 0.9867},
+        "p01/s1": {"recognized_frames": 40, "total_face_frames": 75, "recognition_rate": 0.5333},
+    }
+
+    rc = evaluate_rule_check(
+        mock_eval,
+        op,
+        mock_recog,
+        people_sessions=["p01/s2", "p01/s1"],
+        primary_session="p01/s2",
+    )
+
+    assert rc["primary_session"] == "p01/s2"
+    # p01/s2: min_auc = 0.98 >= 0.90 and fpr <= 0.10 -> pass
+    assert rc["sessions"]["p01/s2"]["s2_maxdrop"]["min_auc"] == 0.98
+    assert rc["sessions"]["p01/s2"]["s2_maxdrop"]["pass"] is True
+    assert rc["sessions"]["p01/s2"]["recognized_frames"] == 74
+    assert rc["sessions"]["p01/s2"]["total_face_frames"] == 75
+
+    # p01/s1: min_auc = 0.75 < 0.90 and fpr > 0.10 -> fail
+    assert rc["sessions"]["p01/s1"]["s2_maxdrop"]["pass"] is False
+
+    # s2_holds_for_other_people is determined by primary_session (p01/s2)
+    assert rc["s2_holds_for_other_people"] is True
+
+    # If primary_session was p01/s1, it would be False
+    rc_fail = evaluate_rule_check(
+        mock_eval,
+        op,
+        mock_recog,
+        people_sessions=["p01/s2", "p01/s1"],
+        primary_session="p01/s1",
+    )
+    assert rc_fail["s2_holds_for_other_people"] is False

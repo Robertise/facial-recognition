@@ -1201,4 +1201,240 @@ def test_evaluate_eval_session_fails_on_missing_or_empty_folder(tmp_path, monkey
     assert "no images found" in str(exc2.value)
 
 
+def test_photo_frame_grow_px_dilation_invariance(tmp_path):
+    """Verify grow_px strictly increases rim area while leaving lens holes 100% untouched."""
+    # Synthetic 400x150 canvas
+    H, W = 150, 400
+    base_mask = np.zeros((H, W), dtype=np.uint8)
+    lens_mask = np.zeros((H, W), dtype=np.uint8)
+
+    # Frame outer rectangle: [40..110] x [50..350]
+    cv2.rectangle(base_mask, (50, 40), (350, 110), 255, -1)
+    # Two rectangular lens holes: [60..90] x [80..140] and [60..90] x [260..320]
+    cv2.rectangle(lens_mask, (80, 60), (140, 90), 255, -1)
+    cv2.rectangle(lens_mask, (260, 60), (320, 90), 255, -1)
+    # Base rim is outer rectangle minus lenses
+    base_rim = cv2.bitwise_and(base_mask, cv2.bitwise_not(lens_mask))
+
+    mask_path = tmp_path / "base_mask.png"
+    lens_path = tmp_path / "lens_mask.png"
+    cv2.imwrite(str(mask_path), base_rim)
+    cv2.imwrite(str(lens_path), lens_mask)
+
+    # Test supersample=1 for exact discrete pixel invariants
+    areas = []
+    for g in (0.0, 4.0, 8.0, 12.0):
+        pf = glasses.PhotoFrame(mask_path, lens_path, grow_px=g)
+        m = pf.mask(supersample=1)
+
+        # Lens hole pixels must remain strictly 0.0 (no encroachment)
+        assert np.all(m[lens_mask > 0] == 0.0), f"Lens pixels encroached at grow_px={g}!"
+
+        # Rim area outside lens holes
+        rim_area = (m > 0.5).sum()
+        areas.append(rim_area)
+
+    # Dilation must strictly increase rim area outward
+    assert areas[0] < areas[1] < areas[2] < areas[3], f"Rim areas did not strictly grow: {areas}"
+
+    # Also test supersample=4 (default): interior of lens hole (> 2px away from border) must be strictly 0
+    k_erode = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    lens_interior = cv2.erode(lens_mask, k_erode) > 0
+    for g in (0.0, 4.0, 8.0):
+        pf4 = glasses.PhotoFrame(mask_path, lens_path, grow_px=g)
+        m4 = pf4.mask(supersample=4)
+        assert np.all(m4[lens_interior] == 0.0)
+
+
+def test_photo_frame_attack_json_and_evaluate_roundtrip(tmp_path, monkeypatch):
+    """Verify --frame-mask pushes frame_source='photo' into attack.json and evaluate.py loads PhotoFrame."""
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    # Setup dummy mask and lens
+    mask_file = tmp_path / "frame_mask.png"
+    lens_file = tmp_path / "frame_lens.png"
+    dummy_mask = np.zeros((150, 400), dtype=np.uint8)
+    dummy_lens = np.zeros((150, 400), dtype=np.uint8)
+    cv2.rectangle(dummy_mask, (60, 50), (340, 100), 255, -1)
+    cv2.rectangle(dummy_lens, (90, 65), (130, 85), 255, -1)
+    cv2.rectangle(dummy_lens, (270, 65), (310, 85), 255, -1)
+    dummy_rim = cv2.bitwise_and(dummy_mask, cv2.bitwise_not(dummy_lens))
+    cv2.imwrite(str(mask_file), dummy_rim)
+    cv2.imwrite(str(lens_file), dummy_lens)
+
+    root = tmp_path / "frames" / "owner"
+    root.mkdir(parents=True)
+    s_eval = root / "s_eval"
+    s_eval.mkdir()
+    cv2.imwrite(str(s_eval / "000.jpg"), np.zeros((240, 320, 3), dtype=np.uint8))
+
+    opt_run = tmp_path / "opt_photo_run"
+    opt_run.mkdir()
+    grow_px = 6.0
+    torch.save({
+        "logits": torch.zeros(3, 15, 40),
+        "frame_source": "photo",
+        "frame_mask": str(mask_file),
+        "frame_lens": str(lens_file),
+        "grow_px": grow_px,
+        "tex_res": [15, 40],
+    }, opt_run / "texture.pt")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "target": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+        "frame_source": "photo",
+        "frame_mask": str(mask_file),
+        "frame_lens": str(lens_file),
+        "grow_px": grow_px,
+        "tex_res": [15, 40],
+        "attacker_frames": str(root),
+    }), encoding="utf-8")
+
+    # Verify PhotoFrame instantiation in evaluate logic
+    with open(opt_run / "attack.json", "r", encoding="utf-8") as f:
+        attack_meta = json.load(f)
+    assert attack_meta.get("frame_source") == "photo"
+    assert attack_meta.get("frame_mask") == str(mask_file)
+    assert attack_meta.get("grow_px") == grow_px
+
+    pf = glasses.PhotoFrame(attack_meta["frame_mask"], attack_meta.get("frame_lens"), grow_px=attack_meta.get("grow_px", 0.0))
+    m = pf.mask()
+    assert m.shape == (150, 400)
+    assert m.min() >= 0.0 and m.max() <= 1.0
+
+
+def test_frame_shape_legacy_invariance():
+    """Verify legacy FrameShape ellipse template behavior and outputs remain completely unchanged."""
+    shape_default = glasses.FrameShape()
+    mask_default = shape_default.mask()
+    assert mask_default.shape == (150, 400)
+    assert 0.0 <= mask_default.min() and mask_default.max() <= 1.0
+    assert 0.05 < float(mask_default.mean()) < 0.25
+
+    # Specific C3 parameters
+    shape_c3 = glasses.FrameShape(thickness=55.0, rim_scale=1.2)
+    mask_c3 = shape_c3.mask()
+    assert mask_c3.shape == (150, 400)
+    assert float(mask_c3.mean()) > float(mask_default.mean())
+
+
+def test_frame_mask_from_photo_tool(tmp_path):
+    """Test frame_mask_from_photo pipeline with a synthetic eyeglasses photo."""
+    from innovation.tools.frame_mask_from_photo import process_photo
+
+    # Generate synthetic image of glasses on white paper
+    # Image size 1200x800
+    H, W = 800, 1200
+    img = np.full((H, W, 3), 245, dtype=np.uint8)  # white paper
+
+    # Draw dark navy rim
+    rim_color = (30, 20, 20)  # dark BGR
+    c_left_true = (380, 400)
+    c_right_true = (780, 400)  # distance = 400 px
+
+    # Outer glasses shape
+    cv2.rectangle(img, (260, 280), (900, 520), rim_color, -1)
+    # Bridge cutout
+    cv2.rectangle(img, (530, 440), (630, 520), (245, 245, 245), -1)
+    # Two blue-tinted lens openings
+    lens_color = (200, 160, 50)  # bluish BGR
+    cv2.rectangle(img, (300, 320), (460, 480), lens_color, -1)  # 160x160 left lens
+    cv2.rectangle(img, (700, 320), (860, 480), lens_color, -1)  # 160x160 right lens
+
+    test_img_path = tmp_path / "test_glasses.jpg"
+    cv2.imwrite(str(test_img_path), img)
+
+    out_dir = tmp_path / "artifacts"
+    meta = process_photo(
+        image_path=test_img_path,
+        ipd_mm=63.0,
+        px_per_cm=20.0,
+        pupil_y_frac=0.5,
+        out_dir=out_dir,
+        measure_coverage=False,
+    )
+
+    # Verify artifacts exist
+    assert (out_dir / "owner_frame_mask.png").exists()
+    assert (out_dir / "owner_frame_lens.png").exists()
+    assert (out_dir / "owner_frame_meta.json").exists()
+    assert (out_dir / "owner_frame_overlay.png").exists()
+
+    # Verify template dimensions
+    mask_tpl = cv2.imread(str(out_dir / "owner_frame_mask.png"), cv2.IMREAD_GRAYSCALE)
+    lens_tpl = cv2.imread(str(out_dir / "owner_frame_lens.png"), cv2.IMREAD_GRAYSCALE)
+    assert mask_tpl.shape == (150, 400)
+    assert lens_tpl.shape == (150, 400)
+
+    # In template space, lens hole pixels must be 0 in mask
+    assert np.all(mask_tpl[lens_tpl > 127] == 0)
+
+    # Verify meta
+    assert meta["template_size"] == [150, 400]
+    assert "measurements_mm" in meta
+    assert meta["measurements_mm"]["total_width_mm"] > 0
+    assert "lens_center_dist_mm" in meta["transform"]
+    assert "eye_offset_mm" in meta["transform"]
+    assert "silhouette_clip_ratio" in meta["transform"]
+    assert meta["transform"]["silhouette_clip_ratio"] >= 0.0
+
+
+def test_shape_from_attack_helper(tmp_path):
+    """Verify glasses.shape_from_attack parses both legacy FrameShape and PhotoFrame configurations."""
+    # 1. Legacy FrameShape
+    attack_legacy = {
+        "frame_shape": {"thickness": 45.0, "rim_scale": 1.25}
+    }
+    s_leg = glasses.shape_from_attack(attack_legacy)
+    assert isinstance(s_leg, glasses.FrameShape)
+    assert s_leg.thickness == 45.0
+    assert s_leg.rim_scale == 1.25
+
+    # 2. Legacy fallback to 'shape' key
+    attack_tex_shape = {
+        "shape": {"thickness": 35.0, "rim_scale": 1.1}
+    }
+    s_tex = glasses.shape_from_attack(attack_tex_shape)
+    assert isinstance(s_tex, glasses.FrameShape)
+    assert s_tex.thickness == 35.0
+
+    # 3. PhotoFrame config
+    mask_file = tmp_path / "mask.png"
+    lens_file = tmp_path / "lens.png"
+    mask_file.write_bytes(b"dummy")
+    lens_file.write_bytes(b"dummy")
+
+    attack_photo = {
+        "frame_source": "photo",
+        "frame_mask": str(mask_file),
+        "frame_lens": str(lens_file),
+        "grow_px": 8.0,
+    }
+    s_photo = glasses.shape_from_attack(attack_photo)
+    assert isinstance(s_photo, glasses.PhotoFrame)
+    assert s_photo.mask_path == str(mask_file)
+    assert s_photo.lens_path == str(lens_file)
+    assert s_photo.grow_px == 8.0
+
+    # 4. PhotoFrame nested inside frame_shape
+    attack_nested = {
+        "frame_shape": {
+            "frame_source": "photo",
+            "frame_mask": str(mask_file),
+            "frame_lens": str(lens_file),
+            "grow_px": 4.0,
+        }
+    }
+    s_nested = glasses.shape_from_attack(attack_nested)
+    assert isinstance(s_nested, glasses.PhotoFrame)
+    assert s_nested.grow_px == 4.0
+
+
+
 

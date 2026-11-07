@@ -157,6 +157,9 @@ def main():
                     help="override eval frames with all images in <session_parent>/<NAME>")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--control-seed", type=int, default=0, help="random seed for control_random spatial shuffling (default: 0)")
+    ap.add_argument("--frame-mask", help="override frame mask PNG path for PhotoFrame")
+    ap.add_argument("--frame-lens", help="override lens PNG path for PhotoFrame")
+    ap.add_argument("--grow-px", type=float, default=None, help="override outward dilation for PhotoFrame")
     args = ap.parse_args()
 
     src = Path(args.run)
@@ -248,7 +251,13 @@ def main():
     run = new_run(f"advglasses_eval_{attack['mode']}", {**vars(args), "source_run": str(src)})
     rng = np.random.default_rng(args.seed)
 
-    shape = glasses.FrameShape(**attack["frame_shape"])
+    if args.frame_mask:
+        grow = args.grow_px if args.grow_px is not None else 0.0
+        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, grow)
+    else:
+        shape = glasses.shape_from_attack(attack)
+        if args.grow_px is not None and isinstance(shape, glasses.PhotoFrame):
+            shape.grow_px = float(args.grow_px)
     mask = torch.from_numpy(shape.mask())[None]
     cmap = printability.ColorMap.load(src / "colormap.json")
     tex_data = torch.load(src / "texture.pt", map_location="cpu")

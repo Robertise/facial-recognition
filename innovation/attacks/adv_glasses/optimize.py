@@ -245,6 +245,10 @@ def main():
     ap.add_argument("--chart", help="chart.json, for the NPS palette (default: the standard chart colours)")
     ap.add_argument("--thickness", type=float, default=35.0)
     ap.add_argument("--rim-scale", type=float, default=1.1)
+    ap.add_argument("--frame-mask", help="path to template mask PNG for PhotoFrame (overrides --thickness/--rim-scale)")
+    ap.add_argument("--frame-lens", help="path to lens region PNG to preserve holes during dilation")
+    ap.add_argument("--grow-px", type=float, default=0.0,
+                    help="outward dilation in template pixels for PhotoFrame (default: 0.0)")
     ap.add_argument("--tex-res", type=int, nargs=2, default=[15, 40], metavar=("H", "W"),
                     help="parameter grid resolution (H, W); upsampled bicubic to 150x400 (default: 15 40)")
     ap.add_argument("--steps", type=int, default=1500)
@@ -297,7 +301,10 @@ def main():
     target = args.victim if args.mode == "impersonate" else args.attacker_id
     others = [k for k in E if k != target]
 
-    shape = glasses.FrameShape(args.thickness, args.rim_scale)
+    if args.frame_mask:
+        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, args.grow_px)
+    else:
+        shape = glasses.FrameShape(args.thickness, args.rim_scale)
     mask = torch.from_numpy(shape.mask())[None].to(args.device)
     cover = [glasses.coverage(mask.cpu(), it["A"], it["window"]) for it in items]
     cmap = printability.ColorMap.load(Path(args.color_map)) if args.color_map else printability.ColorMap.identity()
@@ -366,18 +373,33 @@ def main():
     tex_bgr = (T.flip(0).permute(1, 2, 0).numpy() * 255).round().astype(np.uint8)
     cv2.imwrite(str(run / "texture_print.png"), tex_bgr)              # print colours: the file to print
     cv2.imwrite(str(run / "mask.png"), (shape.mask() * 255).astype(np.uint8))
-    torch.save({"logits": logits.detach().cpu(), "shape": vars(shape), "tex_res": [tex_h, tex_w]}, run / "texture.pt")
+    if args.frame_mask:
+        shape_dict = {
+            "frame_source": "photo",
+            "frame_mask": str(args.frame_mask),
+            "frame_lens": str(args.frame_lens) if args.frame_lens else None,
+            "grow_px": float(args.grow_px),
+        }
+    else:
+        shape_dict = vars(shape)
+    torch.save({"logits": logits.detach().cpu(), "shape": shape_dict, "tex_res": [tex_h, tex_w]}, run / "texture.pt")
     cmap.save(run / "colormap.json")
     write_json(run / "split.json", split)
-    write_json(run / "attack.json", {
+    attack_meta = {
         "mode": args.mode, "attacker_id": args.attacker_id, "victim": args.victim, "target": target,
         "checkpoint": args.checkpoint, "model": recognizer.load_report,
         "gallery": args.gallery, "gallery_per_id": args.max_gallery, "gallery_report": g_report,
-        "identities": sorted(E), "frame_shape": vars(shape), "tex_res": [tex_h, tex_w],
+        "identities": sorted(E), "frame_shape": shape_dict, "tex_res": [tex_h, tex_w],
         "dev_frac": args.dev_frac, "dev_mode": args.dev_mode, "no_eot": args.no_eot,
         "coverage_train": {"mean": float(np.mean(cover)), "min": float(np.min(cover)), "max": float(np.max(cover))},
         "prepare_report": p_report, "color_map_calibrated": cmap.calibrated,
-        "final": log_rows[-1]})
+        "final": log_rows[-1]}
+    if args.frame_mask:
+        attack_meta["frame_source"] = "photo"
+        attack_meta["frame_mask"] = str(args.frame_mask)
+        attack_meta["frame_lens"] = str(args.frame_lens) if args.frame_lens else None
+        attack_meta["grow_px"] = float(args.grow_px)
+    write_json(run / "attack.json", attack_meta)
     print(f"results: {run}")
 
 

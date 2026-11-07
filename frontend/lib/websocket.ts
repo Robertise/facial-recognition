@@ -25,8 +25,8 @@ export type RegisterResult = {
 
 // 127.0.0.1 instead of localhost: on Windows "localhost" may resolve to ::1 first,
 // while uvicorn only listens on IPv4.
-export const API_BASE = "http://127.0.0.1:8000";
-const WS_BASE = "ws://127.0.0.1:8000";
+export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000").replace(/\/+$/, "");
+const WS_BASE = API_BASE.replace(/^https:\/\//i, "wss://").replace(/^http:\/\//i, "ws://");
 
 const RECONNECT_DELAY_MS = 1000;
 // If the backend never answers a frame, stop waiting after this long.

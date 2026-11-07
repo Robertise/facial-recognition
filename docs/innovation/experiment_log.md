@@ -453,3 +453,90 @@ Mẫu:
 - Luật chọn: ưu tiên F0 trước F1 (độ phủ nhỏ hơn = thực tế hơn); chọn config đầu tiên đạt **dev ≥ 80%**. Không config nào đạt → chọn dev cao nhất. Config được chọn chấm **một lần** trên s6_vary (`--frame-mask` tương ứng, `--liveness`, transfer method1/2/4/5). Cổng giữ nguyên: D ≥ 80% và cả hai control ≤ 20%, ánh sáng thường, có liveness.
 - So sánh định hướng report (không phải tiêu chí pass/fail): nếu ở cùng độ phủ ~15%, gọng-vuông-tròng-mở đạt gần R2b (dải kín mắt) thì kết luận "độ phủ là nút thắt, không cần bịt mắt"; nếu thấp hơn nhiều thì phần điểm của R2b đến từ việc che mắt, phải nói rõ.
 - Không có vòng tối ưu thứ hai trên s6. Nếu cả F0 và F1 trượt cổng: báo cáo đúng như đo; vẫn sang giai đoạn B với config dev cao nhất khi in được.
+
+## 2026-11-06 Review code PhotoFrame + signatures (chưa có run nào)
+
+- Trạng thái thật: `signatures.py` đã commit (`3db04b5`) nhưng **chưa chạy** (không có `*_signatures` trong results). `frame_mask_from_photo.py` + `PhotoFrame` viết xong nhưng **chưa sinh artifact**: ảnh gọng chỉ có trong chat. Claude đã ghi ảnh vào `data/innovation/frame/owner_frame_photo.png` (2552×1152). Tỉ lệ thước đo trên ảnh: chu kỳ vạch 1 cm ≈ 152 px (vạch mm ≈ 15.2 px) → `px_per_cm ≈ 152`.
+- **PhotoFrame (đúng):** nới bóng gọng (silhouette = rim ∪ lens) rồi trừ lens → tròng không bao giờ bị đóng, đúng ràng buộc (b). `optimize`/`evaluate` chỉ thêm nhánh `--frame-mask`, đường `FrameShape` cũ nguyên vẹn; `attack.json` ghi `frame_source`, `frame_mask`, `frame_lens`, `grow_px`.
+- **Lỗi hình học (lỗi đặc tả của Claude trong `plan_frame_mask.md` §1.2):** tool đặt **tâm hai tròng** trùng `EYES` (cách 180 px = IPD). Nhưng khoảng cách tâm tròng của gọng thật (≈ bề rộng tròng + cầu mũi ≈ 68–70 mm) lớn hơn IPD người đeo (thường ~60–66 mm). Hệ quả: gọng digital bị thu nhỏ ~8–12% so với gọng thật trên mặt, độ phủ bị đo thấp, và khi in (`export.py` co giãn theo IPD) gọng in sẽ không khớp gọng thật. Sửa: tỉ lệ phải lấy từ thước (`px_per_cm`) và IPD (template px/mm = 180/IPD); đặt trung điểm hai tròng ở x = 200; mắt nằm lệch vào phía mũi trong tròng như thực tế. **Cần IPD ngay bây giờ** (Claude đã nói sai trước đó rằng IPD chỉ cần lúc in).
+- **Ngoài phạm vi, phải sửa trước khi dùng:** `export.py` (dòng ~63) và `signatures.load_texture_assets` (dòng ~294) đều cứng `glasses.FrameShape(**frame_shape)` → sẽ lỗi với run `frame_source: "photo"`.
+- **signatures.py (đúng theo plan):** chia session đúng (C3: s2, s5, s6; R2b: s5, s6); dương tính chỉ giữ frame tấn công thành công ở mức nhận dạng; âm tính gồm owner, owner + control, LFW leave-one-out; S2 che dải bằng 0 trong không gian chuẩn hoá, embedding cùng đường `_preprocess_face` + `get_embedding` (FaceCNN đã L2-normalize trong `forward`) nên cosine hợp lệ; S3 giữ cả frame thất bại trong lịch sử (đúng, vì đo bất ổn).
+- **Rủi ro trong signatures:** leave-one-out bỏ embedding theo **vị trí file** (`query_idx = q_idx`), giả định gallery giữ đúng thứ tự file. `build_gallery` bỏ qua ảnh không có mặt / enhancer bật, nên nếu một ảnh bị bỏ, LOO xoá nhầm embedding và query tự khớp với chính nó (cos ≈ 1) → âm tính LFW trông "rất thật", thổi phồng AUC. Gallery LFW hiện có đủ 53 người × 5 ảnh nên nhiều khả năng không xảy ra; kiểm tra hậu kiểm: mọi dòng `R_lfw` phải có `top1_score < 0.99`.
+- pytest cache (13:59 UTC) ghi `tests/innovation/test_build_gallery.py` **thất bại**: chưa rõ nguyên nhân, cần owner chạy lại và gửi lỗi.
+
+## 2026-11-06 20261106_210957_signatures · khả thi chữ ký S1/S2/S3 · S2 có nền, S1 và S3 bị loại (theo luật đặt trước)
+
+- Mẫu: dương tính A_C3 227 (131 + 96 EOT), A_R2b 278 (147 + 131 EOT); âm tính gộp 1099 (R_owner 201, R_owner_EOT 181, R_owner_controls 667, R_lfw 50). Bỏ qua: 124 frame dim, 203 frame tấn công thất bại ở mức nhận dạng, 96 âm tính không khớp đúng người. Hậu kiểm LOO: `top1_score` lớn nhất của R_lfw = 0.895 (< 0.99) → không có tự khớp.
+- AUC so sánh chính (tấn công gộp EOT so với âm tính gộp), C3 / R2b:
+  - S1: second 0.645 / 0.622; gap_inv 0.720 / 0.455; ratio 0.712 / 0.516.
+  - S2: **maxdrop 0.997 / 0.997**; flips 0.817 / 0.681; **conc 0.965 / 0.973**.
+  - S3: top1_switch 0.582 / 0.507; score_std 0.699 / 0.678.
+- **Áp luật:** S1 = min(0.720, 0.622) = 0.62 < 0.75 → **loại**. S3 = min(0.699, 0.678) = 0.68 < 0.75 → **loại**. S2 = min(0.997, 0.997) ≥ 0.90 → **có nền, đặc trưng chính**. (Cả hai cách đọc luật, "tốt nhất theo biến thể rồi min theo tấn công" hay ngược lại, cho cùng kết quả.)
+- Cơ chế S2 (kiểm trên frames.csv): ở frame tấn công, dải gây giảm điểm lớn nhất gần như luôn là **dải 2** (hàng 28–42 của crop 112, vùng mắt/gọng): C3 129/131, R2b 141/147. Che dải này làm sụp danh tính giả: maxdrop trung vị 0.73–0.79. Mặt thật owner: maxdrop trung vị 0.22–0.24, dải lớn nhất phân tán (2–6). Owner + gọng control: 0.23–0.26.
+- **Cảnh báo lớn (gây nhiễu domain/danh tính):** âm tính gộp có 95% là frame của owner. Riêng với R_lfw: maxdrop trung vị 0.50, dải lớn nhất cũng thường là dải 2 (36/50); AUC maxdrop so với R_lfw chỉ 0.930 [0.87, 0.97] (C3) / 0.935 (R2b), và **ở ngưỡng 0.5 báo nhầm 48% LFW (owner 0%)**; ngưỡng 0.6: 22% LFW. Không tách được nguyên nhân là "người khác" hay "domain ảnh khác" (LFW là ảnh báo đã funnel, khớp LOO khó hơn: top1 TB 0.64). `s2_conc` bền hơn qua domain: AUC so với R_lfw 0.980 / 0.989.
+- Hạn chế (như đã ghi trước): một kẻ tấn công; tấn công không thích ứng; chưa có âm tính đeo phụ kiện thật; tấn công dán digital. Thêm: với gọng cao (gọng vuông của owner có thể phủ 3–4 dải), kẻ tấn công thích ứng có thể rải bằng chứng ra nhiều dải để mỗi lần che một dải không làm sụp danh tính → che một dải là chưa đủ; hướng tự nhiên là che/khôi phục **toàn bộ vùng gọng** (model làm sạch).
+- Bước tiếp đề xuất: thu âm tính webcam của **người khác** (thành viên team / người hỗ trợ, mỗi người enroll 5 góc + ~75 frame), để tách "khác người" với "khác domain" trước khi xây detector.
+
+## 2026-11-07 Dữ liệu người thứ hai `p01` (chụp từ xa qua tunnel, webcam của p01)
+
+- `p01_enroll/s0`: 75 frame 640×480, nhịp 200 ms (1 lần trễ 429 ms), đủ 5 góc (trái 12 / phải 20 / ngẩng 17 / cúi 9 frame theo proxy MediaPipe), mặt rộng 22–28% khung. Sáng hơn owner (trung vị 129, p95 166), 6 frame glare > 2%.
+- `p01/s1`: 75 frame, ngồi điểm danh bình thường. Mặt rộng 29–31.5%, yaw −0.02…0.05, sáng 110–118, glare p95 0.3%, pitch trung vị 1.41 (hơi cúi so với owner 1.20; có thể do vị trí camera). Nhịp 213 ms, chậm nhất 832 ms (trễ tunnel, không có khoảng hở > 1 s).
+  - Sự cố: p01 chụp 2 lần vào cùng session (lần 1 dừng ở index 31, lần 2 đủ 75 và ghi đè ảnh). Cả 75 ảnh khớp byte với lần 2. Claude sửa `meta.csv` chỉ giữ 75 dòng của lần 2; bản gốc lưu `meta_raw_two_runs.csv`.
+- Chưa có `p01/s2` (đeo kính thật).
+- Gallery p01: `data/innovation/gallery_people/p01/` (front/left/right/up/down), chọn tự động theo luật trong `_selection.json` (glare ≤ 1%, sáng ≤ 150; trái/phải = yaw nhỏ/lớn nhất, ngẩng/cúi = pitch nhỏ/lớn nhất, thẳng = gần yaw 0 và pitch trung vị). **Tách khỏi `data/innovation/gallery/`** để không đổi phép so 1:N của các run L1 trước.
+- Khác biệt cần ghi trong report: p01 khác owner cả người lẫn camera/phòng (webcam của p01 qua tunnel). Chỉ 1 người.
+
+## 2026-11-07 Luật đặt trước: S2 với mặt thật của người khác (signatures v2; ghi TRƯỚC khi có code/số; plan `docs/innovation/plan_signatures_v2.md`)
+
+- Câu hỏi: S2 tách tấn công khỏi mặt thật **của người khác trên webcam**, hay chỉ tách khỏi mặt owner? (v1: báo nhầm 48% LFW ở ngưỡng 0.5, owner 0%.)
+- Âm tính mới `R_p01`: `p01/s1` gốc + bản EOT + p01 đeo gọng control (random/plain, cả hai hình gọng C3 và R2b), gallery = gallery cũ + `gallery_people/p01`. Dương tính: A_C3, A_R2b như v1 nhưng chấm lại với gallery mở rộng.
+- Chỉ số: cho `s2_maxdrop` và `s2_conc`: (a) AUC tấn công (C3, R2b, gộp EOT) so với `R_p01`; (b) ngưỡng đặt trên **dương tính** tại TPR 95% (gộp C3 + R2b), báo FPR trên `R_p01`, trên owner và trên LFW.
+- Luật: **S2 đứng vững với người khác** nếu có ít nhất một biến thể S2 đạt đồng thời: min(AUC C3, AUC R2b) so với `R_p01` ≥ 0.90 **và** FPR trên `R_p01` tại TPR 95% ≤ 10%. Nếu không: S2 bị coi là phụ thuộc người/domain; không xây detector chỉ dựa trên S2 mà chuyển trọng tâm sang model làm sạch (che/khôi phục toàn vùng gọng), S2 chỉ còn là đặc trưng phụ.
+- Hạn chế biết trước: 1 người, 1 session; tấn công vẫn chỉ từ owner, dán digital, không thích ứng.
+
+## 2026-11-07 Sửa luật signatures v2 (TRƯỚC khi có code/số): p01 đeo kính lúc enroll
+
+- Owner báo: `p01_enroll/s0` p01 **đeo kính thật** (như bình thường), `p01/s1` **không đeo kính**. Chỉ số MediaPipe của Claude không phát hiện được điều này; mục dữ liệu p01 ở trên thiếu thông tin đó.
+- Hệ quả: gallery p01 (chọn từ s0) có kính, nên chấm s1 là so **chéo điều kiện** (enroll có kính, check-in không kính); báo nhầm trên s1 sẽ lẫn giữa "người khác" và "lệch kính", và nhiều frame s1 có thể không khớp p01 ≥ 0.5 (bị loại khỏi âm tính).
+- **Luật sửa:** âm tính **chính** = p01 cùng điều kiện với gallery (đeo kính), cũng là âm tính "mặt thật đeo kính thật" mà S2 đang thiếu:
+  - nếu có `p01/s2` (75 frame, ngồi điểm danh, đeo kính): dùng `p01/s2`;
+  - nếu không: dùng 16 frame nhìn gần thẳng của `p01_enroll/s0` (|yaw| ≤ 0.15, pitch 1.0–1.4, bỏ 5 ảnh gallery và ±2 frame lân cận: index 0, 1, 2, 3, 9, 17, 18, 19, 32, 33, 43, 44, 54, 60, 61, 62), ghi rõ cỡ mẫu nhỏ (mỗi frame ≈ 6% FPR).
+- Ngưỡng pass giữ nguyên (min AUC C3/R2b ≥ 0.90 **và** FPR tại TPR 95% ≤ 10%), áp trên âm tính chính (gốc + EOT + gọng control).
+- `p01/s1` (không kính) báo riêng như phép thử chéo điều kiện, kèm tỉ lệ frame p01 được nhận đúng; **không** dùng để quyết định pass/fail.
+
+## 2026-11-07 `p01/s2` (đeo kính, ngồi điểm danh) → âm tính chính cho signatures v2
+
+- 75 frame, meta sạch (không trùng index), nhịp 200 ms (chậm nhất 334 ms), 14.8 s. Mặt rộng 26.5–30%, yaw −0.00…0.04 (rất thẳng), pitch trung vị 1.44 (hơi cúi, giống s1).
+- Phơi sáng mạnh **toàn mặt**, không riêng tròng kính: glare vùng mắt/mày trung vị 1.6% (p95 4.6%), phần mặt còn lại 1.9% (p95 4.3%), độ sáng phần còn lại 165 (s1: 136; owner s6: 127). Cùng kiểu với bộ enroll `p01_enroll/s0` (trung vị 129, p95 166, glare p95 4.35%), nên s2 cùng điều kiện với gallery p01 cả về kính lẫn ánh sáng. Ghi nhận như một khác biệt domain so với owner.
+- Theo luật đã sửa: `p01/s2` là âm tính chính; không cần dùng 16 frame dự phòng từ s0. `p01/s1` (không kính) chỉ báo riêng.
+- Sửa `plan_signatures_v2.md` (trước khi có code/số): tập âm tính đặt tên theo person + session (`R_p01_s2`, `R_p01_s1`), không gộp; thêm `--primary-session p01/s2` để kết luận chỉ dựa trên session chính; báo tỉ lệ frame được nhận đúng người cho mỗi session.
+
+## 2026-11-07 20261107_124516_signatures · S2 với người thứ hai (p01) · **S2 đứng vững với p01 (pass theo luật)**
+
+- Code verify trên diff: gộp gallery báo lỗi khi trùng id (`extra_gallery_ids = [p01]`); session người khác chỉ sinh stream âm tính (`include_attacks=False`), tập đặt tên theo person + session; LOO giờ bỏ embedding có cosine lớn nhất ≥ 0.99 (`loo_mismatch = 0`). Dương tính chấm lại với gallery mở rộng: số mẫu không đổi (A_C3 227, A_R2b 278).
+- Âm tính chính `R_p01_s2_all` = 332 (75 gốc + 65 EOT + 192 gọng control). p01/s2 nhận đúng p01: 75/75.
+- Kết quả trên session chính p01/s2:
+  - `s2_maxdrop`: AUC 0.9996 (C3) / 0.9996 (R2b); ngưỡng TPR 95% = 0.594 → **FPR p01 = 0/332**. **pass**.
+  - `s2_conc`: AUC 0.975 / 0.978; FPR 18/332 = 5.4%. **pass**.
+  - → `s2_holds_for_other_people = true`.
+- Phân bố maxdrop: owner trung vị 0.22 (max 0.42); p01/s2 0.26 (p95 0.39, max 0.52); p01 + gọng control 0.35 (max 0.53); tấn công C3 0.73, R2b 0.75. Biên an toàn với p01 + gọng control khá hẹp (max 0.53 so với ngưỡng 0.594). Dải gây giảm lớn nhất ở p01/s2 thường là dải 1 hoặc 5, không phải dải 2 như tấn công.
+- Cùng ngưỡng, LFW vẫn bị báo nhầm 11/50 = 22%. Vì mặt thật webcam của **người khác** (p01) không bị báo nhầm, nhiều khả năng điểm yếu LFW đến từ domain ảnh (ảnh báo, khớp LOO giữa các ảnh khác nhau) chứ không phải từ "người khác". Chỉ là suy luận trên 1 người.
+- p01/s1 (không kính, gallery có kính): **0/75 frame được nhận là p01** (model của team không nhận ra p01 khi bỏ kính), nên không có âm tính gốc. Nhưng p01/s1 **đeo gọng control dán digital** thì 127 frame được nhận là p01: với model này, có gọng hay không chi phối danh tính rất mạnh. Hạn chế của recognizer gốc, đáng nêu trong report.
+- Hạn chế: 1 người khác, 1 session chính; tấn công chỉ từ owner, dán digital, không thích ứng.
+
+## 2026-11-07 Mask gọng ảnh (PhotoFrame) đã sinh: độ phủ thực tế thấp hơn nhiều so với luật F0/F1
+
+- Code sửa theo IPD đã verify: IPD 63 mm, 152 px/cm, khoảng cách hai tâm tròng 72.5 mm, mắt lệch vào trong 4.7 mm mỗi bên; số đo: tròng 48.0×35.7 / 47.3×36.3 mm, cầu mũi 23.2 mm, tổng rộng 150.4 mm (gồm chốt bản lề), cao 45.7 mm; 1.4% bóng gọng bị cắt ngoài template (chốt bản lề hai bên). `export.py`, `evaluate.py`, `signatures.py` dùng chung `glasses.shape_from_attack`.
+- Lỗi nhỏ trên mask (xem overlay): mép trên dính bóng đổ trên giấy (thanh trên dày hơn thật), viền răng cưa theo vân giấy.
+- **Độ phủ trên 53 frame s1 thường:** grow 0 → 4.0% [2.2, 5.7]; 4 → 5.3%; 8 → 6.4%; 12 → 7.3%; 16 → 8.1% [4.5, 11.6]; tròng mở 100% ở mọi mức. Gọng thật ở độ dày thật chỉ phủ ~4% (khớp đo trước: gọng thường ~4%, dày ~8%). Mức ~11% (F0) và ~15% (F1) trong luật 2026-11-06 cần nới ước chừng ~28 px và ~45 px (~1.0 và ~1.6 cm giấy quanh gọng) — chưa đo. Chưa có optimize nào chạy; chờ owner quyết định lại cấu hình trước khi đặt số grow.
+
+## 2026-11-07 Luật đặt trước (thay luật F0/F1 ngày 2026-11-06): thang độ phủ trên gọng thật (G-ladder), ghi TRƯỚC khi có mask sửa và trước mọi optimize
+
+- Owner chọn phương án C: đo đường "tỉ lệ thành công theo độ phủ" trên đúng gọng thật, tròng luôn mở. Lý do đổi luật: đo được gọng thật chỉ phủ ~4% (grow 16 px mới 8.1%), nên F0 ~11% / F1 ~15% cần viền giấy ~1–1.6 cm, không còn là "kính bình thường". Chưa có số tấn công nào trên gọng ảnh.
+- Mask sửa trước (plan `docs/innovation/plan_frame_ladder.md`): bỏ bóng đổ, làm mượt viền; đo lại bảng độ phủ grow 0–64 px bước 4. Grow cho G11/G15 = mức trong bảng có độ phủ TB gần 11.0% / 15.0% nhất (ghi số grow và mm vào log trước khi optimize). Nếu bị cắt ở biên template làm không đạt 15%, G15 = grow lớn nhất trong bảng, ghi rõ.
+- Cấu hình (PhotoFrame, tex-res 15×40, s1 + s2, dev block 20% có warmup, M = identity, 3000 bước, lr 0.03, seed 0, LFW_victim, EOT):
+  - G0: grow 0 (gọng thật, ~4%); G16: grow 16 (~8%, ~5.6 mm); G11: grow cho ~11%; G15: grow cho ~15%.
+  - Ràng buộc: tròng mở 100% ở mọi cấu hình.
+- **Luật chọn cho giai đoạn B:** thứ tự ưu tiên G0 → G16 → G11 → G15 (nhỏ trước); chọn cấu hình đầu tiên có dev ≥ 80% (thành công đầy đủ, method3, ánh sáng thường). Không cái nào đạt → chọn dev cao nhất.
+- **Đánh giá trên s6:** sau khi việc chọn đã cố định từ dev, chấm **cả 4 cấu hình**, mỗi cái đúng một lần, trên `s6_vary` (`--eval-session s6_vary --liveness`); chỉ cấu hình được chọn chạy thêm transfer method1/2/4/5 và chỉ cổng của nó được tính (D ≥ 80% và hai control ≤ 20%). 3 cấu hình còn lại là điểm mô tả của đường cong, không phải cổng.
+- Phân tích đặt trước cho report: đường tỉ lệ thành công (dev và s6) theo độ phủ; so ở cùng độ phủ với kết quả gọng elip (C4 7.8% → 0/13 dev; R2a 11.6% → 70% dev; R2b 15.5% dải kín mắt → 93% dev) để tách "độ phủ" khỏi "che mắt".

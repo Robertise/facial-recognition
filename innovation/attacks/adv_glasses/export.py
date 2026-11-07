@@ -60,8 +60,10 @@ def load_run_data(run_dir: Path | str) -> dict:
 
     mask = cv2.imread(str(run / "mask.png"), cv2.IMREAD_GRAYSCALE)
     if mask is None:
-        shape_dict = tex_data.get("shape") or attack_data.get("frame_shape") or {}
-        shape = glasses.FrameShape(**shape_dict) if shape_dict else glasses.FrameShape()
+        shape_payload = dict(attack_data)
+        if "frame_shape" not in shape_payload and "shape" in tex_data:
+            shape_payload["frame_shape"] = tex_data["shape"]
+        shape = glasses.shape_from_attack(shape_payload)
         mask = (shape.mask() * 255).astype(np.uint8)
 
     return {

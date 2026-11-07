@@ -97,3 +97,8 @@ Quyết định: độ phủ là tham số (`--thickness`, `--rim-scale`). Ablat
 
 ## Hướng đã loại
 Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink thụ động, screen-flash, motion challenge, depth/CDCN, sonar, face–voice không enroll, multi-face).
+
+## 2026-11-06 Chữ ký phòng thủ bị loại (luật đặt trước, run `20261106_210957_signatures`)
+- **S1 danh tính còn sót (top-2 / gap / ratio): loại.** AUC min giữa C3 và R2b = 0.62 (< 0.75). So với mặt thật LFW còn đảo chiều (AUC 0.07–0.32): khớp LOO trên ảnh LFW tự nhiên đã có top-2 cao, nên "danh tính thứ hai cao" không đặc trưng cho tấn công. Không đề xuất lại S1 làm đặc trưng.
+- **S3 bất ổn theo thời gian (top1_switch / score_std): loại.** AUC min = 0.68 (< 0.75). Tấn công giữ top-1 ổn định ở mức frame (switch gần như 0 khi đã thành công), nên chập chờn không phải dấu hiệu dùng được. Phòng thủ vận hành "yêu cầu nhiều frame nhất quán" vẫn có thể giữ như biện pháp UX/vận hành, nhưng không phải chữ ký phát hiện.
+- **S2 bằng chứng tập trung: giữ, đặc trưng chính** (maxdrop 0.997, conc ~0.97), kèm cảnh báo nhiễu domain trong `experiment_log.md`.

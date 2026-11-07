@@ -1,0 +1,26 @@
+{
+  "run_id": "20261106_210957_signatures",
+  "started": "2026-11-06T21:09:57",
+  "git_commit": "3db04b546310395379f2ea255cfd3f1a86b8ec3a",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\attacks\\adv_glasses\\signatures.py",
+  "args": {
+    "c3_run": "results\\innovation\\20261104_140557_advglasses_impersonate",
+    "r2b_run": "results\\innovation\\20261106_132526_advglasses_impersonate",
+    "frames_dir": "data\\innovation\\frames\\owner",
+    "gallery_dir": "data\\innovation\\gallery",
+    "checkpoint": "checkpoints\\method3_best.pth",
+    "seed": 0,
+    "control_seed": 0,
+    "bootstrap_iterations": 2000
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
