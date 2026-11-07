@@ -1436,5 +1436,71 @@ def test_shape_from_attack_helper(tmp_path):
     assert s_nested.grow_px == 4.0
 
 
+def test_g_ladder_configs_and_selection_rule():
+    """Verify G-ladder configurations G0, G16, G11, G15, GROW_ORDER priority, and selection rule."""
+    from innovation.attacks.adv_glasses.ladder import LADDER_CONFIGS, GROW_ORDER, select_config
 
+    for c in ["G0", "G16", "G11", "G15"]:
+        assert c in LADDER_CONFIGS
+        assert LADDER_CONFIGS[c]["frame_mask"] == "data/innovation/frame/owner_frame_mask.png"
+        assert LADDER_CONFIGS[c]["frame_lens"] == "data/innovation/frame/owner_frame_lens.png"
+        assert LADDER_CONFIGS[c]["no_eot"] is False
+        assert LADDER_CONFIGS[c]["tex_res"] == [15, 40]
+
+    assert GROW_ORDER == ["G0", "G16", "G11", "G15"]
+    assert LADDER_CONFIGS["G0"]["grow_px"] == 0.0
+    assert LADDER_CONFIGS["G16"]["grow_px"] == 16.0
+
+    # Test selection rule: first with dev_success >= 0.80 in GROW_ORDER
+    rows1 = [
+        {"config": "G0", "dev_success": 0.50},
+        {"config": "G16", "dev_success": 0.82},
+        {"config": "G11", "dev_success": 0.85},
+        {"config": "G15", "dev_success": 0.90},
+    ]
+    sel1, reason1 = select_config(rows1, GROW_ORDER)
+    assert sel1["config"] == "G16"
+    assert "dev_success >= 80%: G16" in reason1
+
+    # If none >= 0.80, select highest dev_success
+    rows2 = [
+        {"config": "G0", "dev_success": 0.30},
+        {"config": "G16", "dev_success": 0.55},
+        {"config": "G11", "dev_success": 0.72},
+        {"config": "G15", "dev_success": 0.68},
+    ]
+    sel2, reason2 = select_config(rows2, GROW_ORDER)
+    assert sel2["config"] == "G11"
+    assert "highest dev_success: G11" in reason2
+
+
+def test_photoframe_lens_opening_invariance_all_grow(tmp_path):
+    """Verify that PhotoFrame mask guarantees 100% lens opening across all grow in {0, 4, ..., 64}."""
+    import cv2
+    import numpy as np
+    from innovation.attacks.adv_glasses import glasses
+
+    H, W = 150, 400
+    mask = np.zeros((H, W), dtype=np.uint8)
+    lens = np.zeros((H, W), dtype=np.uint8)
+
+    cv2.rectangle(mask, (50, 30), (350, 120), 255, -1)
+    cv2.rectangle(lens, (70, 50), (170, 100), 255, -1)
+    cv2.rectangle(lens, (230, 50), (330, 100), 255, -1)
+    mask[lens > 127] = 0
+
+    mask_p = tmp_path / "mask.png"
+    lens_p = tmp_path / "lens.png"
+    cv2.imwrite(str(mask_p), mask)
+    cv2.imwrite(str(lens_p), lens)
+
+    lens_pts = (lens > 127)
+    assert lens_pts.sum() > 0
+
+    for g in range(0, 65, 4):
+        shape = glasses.PhotoFrame(mask_p, lens_p, grow_px=float(g))
+        m = shape.mask()
+        assert m.shape == (H, W)
+        encroached = float(m[lens_pts].mean())
+        assert encroached == 0.0, f"Lens opening encroached at grow_px={g}!"
 

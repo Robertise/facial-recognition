@@ -540,3 +540,57 @@ Mẫu:
 - **Luật chọn cho giai đoạn B:** thứ tự ưu tiên G0 → G16 → G11 → G15 (nhỏ trước); chọn cấu hình đầu tiên có dev ≥ 80% (thành công đầy đủ, method3, ánh sáng thường). Không cái nào đạt → chọn dev cao nhất.
 - **Đánh giá trên s6:** sau khi việc chọn đã cố định từ dev, chấm **cả 4 cấu hình**, mỗi cái đúng một lần, trên `s6_vary` (`--eval-session s6_vary --liveness`); chỉ cấu hình được chọn chạy thêm transfer method1/2/4/5 và chỉ cổng của nó được tính (D ≥ 80% và hai control ≤ 20%). 3 cấu hình còn lại là điểm mô tả của đường cong, không phải cổng.
 - Phân tích đặt trước cho report: đường tỉ lệ thành công (dev và s6) theo độ phủ; so ở cùng độ phủ với kết quả gọng elip (C4 7.8% → 0/13 dev; R2a 11.6% → 70% dev; R2b 15.5% dải kín mắt → 93% dev) để tách "độ phủ" khỏi "che mắt".
+
+## 2026-11-07 Mask gọng ảnh v2 + chốt grow cho G-ladder (ghi TRƯỚC khi chạy ladder; chỉ dựa trên bảng độ phủ, chưa có số tấn công)
+
+- Mask v2 (`rim_max_l` = 70; bản cũ ở `data/innovation/frame/_v1/`): hết bóng đổ ở mép trên; viền mượt. Số đo mới: tròng 49.3×37.9 / 49.3×38.4 mm (gần số đo thô owner ~50×38–40), cầu mũi 22.4 mm, rộng 150.3 mm, cao 43.2 mm; khoảng cách tâm tròng 73.7 mm, mắt lệch vào trong 5.4 mm. Còn vài mảng nhỏ ở đáy tròng bị tính là gọng (nhiều khả năng là gờ tròng nhìn qua kính); ảnh hưởng nhỏ, chấp nhận.
+- Code `ladder.py` (G0/G16/G11/G15, `--g11-grow/--g15-grow`, cột `grow_px`, luật theo `GROW_ORDER`, in lệnh eval s6 cho cả 4 run) verify trên diff. pytest không còn lỗi (kể cả `test_build_gallery.py`).
+- **Bảng độ phủ (53 frame s1 thường), tròng mở 100% mọi mức:** grow 0 → 2.6% (thấp hơn 4.0% của mask v1 vì bỏ bóng đổ); 8 → 5.0%; 16 → 6.8%; 24 → 8.3%; 28 (9.8 mm) → 8.7% (cắt biên 17.6%); 32 → 9.0%; 40 → 9.3%; 48 (16.8 mm) → 9.4% (cắt 37%); ≥ 52 → 9.43% (bão hoà). Gọng cao 43 mm ≈ 124 px trong template cao 150 px, nên nới thêm chủ yếu bị cắt ở biên trên/dưới.
+- **Hệ quả cho luật G-ladder:** 11% và 15% **không đạt được** trong template hiện tại. Luật đã dự trù cho 15% (dùng grow lớn nhất), chưa dự trù cho 11% (gần 11% nhất cũng là mức bão hoà, trùng G15). Sửa bắt buộc:
+  - Slot `G11` chạy với `--g11-grow 28` (8.7%, ~1 cm, mức trước khi cắt biên tăng nhanh); slot `G15` chạy với `--g15-grow 48` (9.4%, mức nhỏ nhất đạt trần). **Tên G11/G15 giữ nguyên trong code nhưng không còn nghĩa 11%/15%**; report dùng grow (px, mm) và độ phủ đo được, không dùng tên.
+  - Thang thực tế: G0 2.6% → G16 6.8% → G11(=grow 28) 8.7% → G15(=grow 48) 9.4%. Luật chọn, đánh giá s6 và cổng giữ nguyên.
+- Kỳ vọng ghi trước (không phải tiêu chí): với gọng elip, 7.8% (C4) cho 0/13 dev và 11.6% (R2a) cho 70% dev; gọng thật tròng to (49×38 mm) chỉ đạt tối đa ~9.4%, nên nhiều khả năng không cấu hình nào đạt 80% dev. Nếu vậy đó là kết quả chính: **với tròng kính kích thước thật, độ phủ tối đa của một gọng (kể cả nới ~1.7 cm) không đủ cho tấn công giả danh trên model này ở mức ≥ 80%**.
+- Lệnh chạy: `python -m innovation.attacks.adv_glasses.ladder --configs G0 G16 G11 G15 --g11-grow 28 --g15-grow 48`
+
+## 2026-11-07 20261107_133518_ladder · G-ladder trên gọng thật (G0/G16/G11/G15, dev block) · info + chọn cấu hình
+
+- Dev (method3, ánh sáng thường, thành công đầy đủ), độ phủ đo trên frame train:
+  - G0 grow 0, phủ 2.9%: 0/74 (cos nạn nhân 0.10).
+  - G16 grow 16, phủ 7.7%: 0/74 (cos 0.35).
+  - G11 grow 28, phủ 9.7%: 20/74 = 27% (cos 0.43).
+  - G15 grow 48, phủ 10.5%: 27/74 = 36% (cos 0.47).
+- **Luật chọn:** không cấu hình nào đạt dev ≥ 80% → chọn dev cao nhất = **G15** (grow 48, 36.5%).
+- Đọc kết quả: trên gọng thật tròng to (49×38 mm), độ phủ tối đa ~10.5% (đã nới ~1.7 cm, bị cắt biên template) chỉ cho 36% dev, không đủ cổng 80%. Đối chiếu gọng elip cùng độ phủ: R2a 11.6% → 70% dev, R2b 15.5% (dải kín mắt) → 93%. Cùng ~10–11% độ phủ nhưng gọng thật kém hơn elip R2a: tròng to giữ vùng mắt hở, nên hoa văn ít tiếp giáp vùng quyết định danh tính (dải 2) hơn. Củng cố kết luận: **độ phủ quanh vùng mắt là yếu tố, không phải tổng diện tích gọng**; và tròng kính kích thước thật là ràng buộc vật lý thật cho kẻ tấn công.
+- Theo luật G-ladder: chấm cả 4 cấu hình trên s6 (một lần mỗi cái); chỉ G15 chạy transfer và tính cổng. Dù G15 gần như chắc trượt cổng, vẫn chấm để có đường cong s6 và để nhất quán với luật.
+- Bảng màu: fit hai frame (0040, 0050) cho MAE 9.60 / 9.63 (8-bit), max ~22; ổn định giữa hai frame. `colormap.json` đã ghi (calibrated). Dùng cho bản in giai đoạn B.
+
+## 2026-11-07 Lỗi phương pháp mask gọng ảnh (outward-only) + thiết kế lại (fill-lens + lỗ chừa đồng tử). Ghi TRƯỚC khi chạy lại.
+
+- **Lỗi (owner phát hiện, Claude xác nhận):** `PhotoFrame` chỉ nới gọng **ra ngoài**, giữ nguyên toàn bộ tròng thật. Hai hậu quả: (1) ở độ phủ cao (G11/G15) viền đâm vào khung template 400×150 và bị cắt phẳng — đo pixel chạm biên: G11 trên/dưới/trái/phải 0.72/0.81/0.73/0.83; G15 ~1.0 cả bốn cạnh. Nên độ phủ bão hoà ~10.5% là **giới hạn của khung template, không phải của kính**; gọng in ra sẽ có mép cắt vuông, không đeo được (khớp quan sát owner về G15 mất cầu mũi). (2) chừa trống cả vùng tròng to một cách vô ích, đúng vùng mắt mà S2 cho thấy danh tính tập trung; và làm việc đo IPD thành vô nghĩa (đặt tâm mắt nhưng không dùng để khoét lỗ chừa mắt). Claude overcorrect sau phê bình R2b "che kín mắt".
+- Lưu ý: con số độ phủ cũ **không bị thổi phồng** (`coverage()` dùng `padding_mode="zeros"`, phần ngoài template tính 0), nhưng hình dạng sai và trần là giả tạo. → Run `20261107_133518_ladder` (G0–G15) **không dùng làm kết quả vật lý**; không chấm trên s6. Giữ lại chỉ để ghi nhận lỗi.
+- **Thiết kế lại (owner đồng ý hướng):** adv = `dilate(rim ∪ lens, g_out)` TRỪ hai đĩa chừa đồng tử bán kính `clearance_mm` đặt ở tâm mắt (template (110,80),(290,80), quy đổi 180 px / IPD 63 mm). Tức lấp tròng, chỉ chừa lỗ vừa đủ cho mắt nhìn; `g_out` nhỏ để giữ cầu mũi và không chạm biên. Tròng-mở giờ đo bằng % diện tích tròng còn hở (lỗ chừa), không phải 100%.
+- **Độ phủ đo thử (prototype, warpAffine ~ grid_sample, 75 frame s1 thường):**
+  - g_out 8, clearance 14 mm: 9.9%, tròng hở 38%, chạm biên 0.8%.
+  - g_out 8, clearance 11 mm: 11.0%, hở 23%, biên 0.8%.
+  - g_out 16, clearance 11 mm: 13.0%, hở 23%, biên 1.4%.
+  - g_out 16, clearance 9 mm: 13.5%, hở 16%, biên 1.4%.
+  - Trần thực tế với lỗ chừa dùng được (đường kính ≥ 18 mm) ≈ 13.5%; muốn 15% phải bịt gần kín mắt (về lại vùng R2b). Preview: `data/innovation/frame/_preview/mask_*.png`.
+- Nhận định cần ghi cho report: thiết kế này là "kính có tròng phủ hoa văn, chỉ hở một lỗ ~22 mm ở đồng tử" — ranh giới giữa "kính thường" và "miếng dán adversarial lên tròng". Owner chủ động chọn hướng này; report phải mô tả trung thực, không gọi là kính thường.
+
+## 2026-11-07 Luật đặt trước: H-ladder (fill-lens + clearance) — thay G-ladder cho gọng vật lý. Ghi TRƯỚC khi có số tấn công.
+
+- Tham số mask mới trong `PhotoFrame`: thêm `clearance_mm` (đĩa chừa ở tâm mắt) và giữ `grow_px` (nay là g_out nhỏ). Khuôn elip và đường outward-only cũ giữ nguyên để tái lập run cũ.
+- g_out cố định (chờ owner chốt: 8 px ~2.8 mm, an toàn cầu mũi; hoặc 16 px). Thang theo `clearance_mm`:
+  - H18 clearance 18 mm (~8%), H14 14 mm (~10%), H11 11 mm (~11%), H09 9 mm (~11.5–13.5% tuỳ g_out).
+  - Ràng buộc: tròng còn hở ≥ 15% (lỗ chừa đủ để nhìn/liveness thấy mắt); cầu mũi còn nguyên; chạm biên ≤ 3%.
+- Cấu hình: tex-res 15×40, s1 + s2, dev block 20% có warmup, M = identity, 3000 bước, lr 0.03, seed 0, LFW_victim, EOT. Luật chọn: ưu tiên clearance lớn trước (ít phủ, dễ nhìn hơn) → H18 → H14 → H11 → H09; chọn cái đầu đạt dev ≥ 80%; không có thì dev cao nhất. Đánh giá s6 như cũ (cả thang một lần mỗi cái; chỉ cấu hình chọn chạy transfer + tính cổng).
+- Phân tích report: đường tỉ lệ thành công theo độ phủ, cho **cùng kích thước tròng thật**, so với elip R2a (11.6% → 70% dev) và R2b (dải kín mắt). Lần này độ phủ đến từ việc lấn vào tròng quanh mắt, nên là phép đo sạch hơn cho giả thuyết "vùng mắt quyết định".
+
+## 2026-11-07 Chốt thiết kế H-ladder (bổ sung luật đặt trước ở trên; vẫn TRƯỚC khi có số tấn công)
+
+- Owner chốt: g_out = 8 px cố định (không nới lớn hơn để khỏi phải phóng khung template, vốn sẽ làm lệch hình học mọi run cũ). Độ phủ cao hơn lấy từ lỗ chừa nhỏ hơn.
+- **Cắt ngàm hai bên (temple hinge):** ngàm ở x < 22 và x > 381 (cao 18–40 px so với thân 100+), cắt bằng vertical opening (kernel 1×51). Đo: ngàm nằm gần như ngoài crop 112, nên cắt chỉ mất ~0.1% độ phủ trong crop (fill-lens 10.38% → 9.59% ở template, nhưng cover-trong-crop H11 g8: 11.0% → 10.3%). Side-thickening để bù: chỉ thêm ~0.1% (ngàm vốn ngoài crop), nên là tùy chọn thẩm mỹ.
+- Bảng độ phủ cuối (g_out 8, nub-cut, đo prototype): clr 14 mm → 9.1%; clr 11 mm → 10.3%; clr 9 mm → 10.8%. Trần ~10.8% với lỗ chừa ≥ 18 mm đường kính.
+- **Luật H-ladder chốt:** 4 cấu hình g_out 8 + nub-cut, clearance = 16 / 13 / 11 / 9 mm (đặt lại rung để phủ dải 8–11% đều hơn; con số cuối chờ bảng đo của agent xác nhận). Ưu tiên clearance lớn trước. Chọn cấu hình đầu đạt dev ≥ 80%; không có thì dev cao nhất. Đánh giá s6 như cũ.
+- Ghi chú trung thực cho report giữ nguyên: đây là "kính phủ hoa văn lên tròng, chỉ chừa lỗ ~22 mm ở đồng tử", ranh giới giữa kính thường và miếng dán adversarial lên tròng.
+- Sửa (2026-11-07, owner phát hiện): prototype cắt ngàm của Claude dùng vertical opening trên toàn ảnh nên **xoá luôn cầu mũi** (cao ~18 px). Đúng phải là chỉ cắt trong hai dải ngoài phạm vi tròng; cầu mũi giữ nguyên. Các số độ phủ "nub-cut" ghi ở trên đo trên mask thiếu cầu mũi nên hơi thấp; agent đo lại sau khi sửa. Đã sửa `plan_frame_clearance.md` §1b.

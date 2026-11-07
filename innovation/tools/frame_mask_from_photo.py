@@ -37,6 +37,8 @@ EYES_TEMPLATE = np.array([[110.0, 80.0], [290.0, 80.0]], dtype=np.float32)
 def segment_glasses_photo(
     img: np.ndarray,
     dark_threshold: int | None = None,
+    rim_max_l: float | None = 70.0,
+    px_per_cm: float = 152.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]:
     """Segment eyeglasses photo into rim mask, lens mask, silhouette, and centroids.
 
@@ -50,26 +52,37 @@ def segment_glasses_photo(
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    l_chan = lab[:, :, 0]
+    px_per_mm = px_per_cm / 10.0
 
     # 1. Dark rim segmentation
     if dark_threshold is not None:
         _, dark_bin = cv2.threshold(gray, dark_threshold, 255, cv2.THRESH_BINARY_INV)
+        print(f"      [segmentation] Using dark_threshold = {dark_threshold} (grayscale override)")
     else:
-        # Otsu threshold on inverted grayscale, with L-channel fallback
-        _, dark_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        l_chan = lab[:, :, 0]
-        dark_l = (l_chan < 130).astype(np.uint8) * 255
-        dark_bin = cv2.bitwise_and(dark_otsu, dark_l)
+        actual_rim_max_l = float(rim_max_l) if rim_max_l is not None else 70.0
+        dark_bin = (l_chan < actual_rim_max_l).astype(np.uint8) * 255
+        print(f"      [segmentation] Using rim_max_l = {actual_rim_max_l:.1f} (L-channel threshold)")
 
-    # Clean dark rim with morphology
-    k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    rim_clean = cv2.morphologyEx(dark_bin, cv2.MORPH_CLOSE, k_close)
-    rim_clean = cv2.morphologyEx(rim_clean, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    # Clean dark rim with morphology (kernel ~0.5 mm)
+    k_sz = max(3, int(round(0.5 * px_per_mm)))
+    if k_sz % 2 == 0:
+        k_sz += 1
+    k_morph = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_sz, k_sz))
+    rim_clean = cv2.morphologyEx(dark_bin, cv2.MORPH_CLOSE, k_morph)
+    rim_clean = cv2.morphologyEx(rim_clean, cv2.MORPH_OPEN, k_morph)
 
-    # 2. Extract largest outer contour as glasses frame (isolates frame from ruler/background)
+    # 2. Extract largest connected component as glasses frame
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(rim_clean)
+    if num_labels <= 1:
+        raise ValueError("Could not find any foreground object in the photo.")
+
+    max_idx = np.argmax(stats[1:, cv2.CC_STAT_AREA]) + 1
+    rim_clean = (labels == max_idx).astype(np.uint8) * 255
+
     contours_rim, _ = cv2.findContours(rim_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours_rim:
-        raise ValueError("Could not find any foreground object in the photo.")
+        raise ValueError("Could not find outer contour of glasses frame.")
 
     glasses_contour = max(contours_rim, key=cv2.contourArea)
     filled_frame = np.zeros((h, w), dtype=np.uint8)
@@ -111,6 +124,11 @@ def segment_glasses_photo(
         c1 = centroids_holes[comp1]
         c2 = centroids_holes[comp2]
         lens_centroids = [c1, c2]
+
+        # Fill small holes inside rim (all non-lens holes)
+        for i in range(1, num_holes):
+            if i != comp1 and i != comp2:
+                rim_clean[labels_holes == i] = 255
     elif len(large_blue) >= 2:
         comp1, comp2 = large_blue[0][0], large_blue[1][0]
         lens_mask[(labels_blue == comp1) | (labels_blue == comp2)] = 255
@@ -133,9 +151,17 @@ def segment_glasses_photo(
     else:
         c_left, c_right = lens_centroids[0], lens_centroids[1]
 
-    # Combine silhouette = rim | lens
-    silhouette = cv2.bitwise_or(rim_clean, lens_mask)
-    rim_mask = cv2.bitwise_and(silhouette, cv2.bitwise_not(lens_mask))
+    # Smooth rim outline with Gaussian blur (sigma ≈ 0.3 mm)
+    sigma = 0.3 * px_per_mm
+    k_g = max(3, int(round(sigma * 4)))
+    if k_g % 2 == 0:
+        k_g += 1
+    blurred = cv2.GaussianBlur(rim_clean.astype(np.float32), (k_g, k_g), sigma)
+    rim_smooth = (blurred > 127).astype(np.uint8) * 255
+
+    # Combine silhouette = rim | lens, strictly preserving 100% lens opening
+    rim_mask = cv2.bitwise_and(rim_smooth, cv2.bitwise_not(lens_mask))
+    silhouette = cv2.bitwise_or(rim_mask, lens_mask)
 
     return rim_mask, lens_mask, silhouette, (np.array(c_left, dtype=np.float32), np.array(c_right, dtype=np.float32))
 
@@ -327,11 +353,17 @@ def measure_coverage_table(
     mask_path: Path | str,
     lens_path: Path | str,
     attacker_frames: Path | str = "data/innovation/frames/owner/s1_day1",
-    grow_candidates: tuple[float, ...] = (0.0, 4.0, 8.0, 12.0, 16.0),
+    grow_candidates: tuple[float, ...] | None = None,
+    ipd_mm: float = 63.0,
+    silhouette: np.ndarray | None = None,
+    M_affine: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
-    """Measure coverage across s1 frames and verify lens opening remains ~100%."""
+    """Measure coverage across s1 frames, grow_mm, and template clipping."""
     import torch
     from innovation.attacks.adv_glasses import faces, glasses
+
+    if grow_candidates is None:
+        grow_candidates = tuple(float(g) for g in range(0, 65, 4))
 
     s1_dir = Path(attacker_frames)
     if not s1_dir.exists():
@@ -371,13 +403,23 @@ def measure_coverage_table(
     lens_pixels = (lens_raw > 127)
     total_lens_pixels = int(lens_pixels.sum())
 
+    # Pre-compute padded canvas for clip calculation if silhouette & M_affine provided
+    sil_pad = None
+    PAD = 120
+    if silhouette is not None and M_affine is not None:
+        W_pad, H_pad = TEMPLATE_W + 2 * PAD, TEMPLATE_H + 2 * PAD
+        M_pad = M_affine.copy()
+        M_pad[0, 2] += PAD
+        M_pad[1, 2] += PAD
+        sil_pad = cv2.warpAffine(silhouette, M_pad, (W_pad, H_pad), flags=cv2.INTER_NEAREST)
+
     results = []
-    print(f"\n{'='*75}")
+    print(f"\n{'='*95}")
     print(f"MEASURING COVERAGE ON {len(items)} USABLE NORMAL-LIGHT s1 FRAMES")
     print(f"Template: {mask_path}")
-    print(f"{'='*75}")
-    print(f" {'grow_px':>7} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Note':<22}")
-    print(f"{'-'*75}")
+    print(f"{'='*95}")
+    print(f" {'grow_px':>7} | {'grow_mm':>7} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Clip %':>7} | {'Note':<20}")
+    print(f"{'-'*95}")
 
     for g in grow_candidates:
         shape = glasses.PhotoFrame(mask_path, lens_path, grow_px=g)
@@ -395,24 +437,46 @@ def measure_coverage_table(
         else:
             lens_open_pct = 100.0
 
+        grow_mm = round(g * (ipd_mm / 180.0), 2)
+
+        # Silhouette clipping outside template 400x150
+        clip_pct = 0.0
+        if sil_pad is not None:
+            if g > 0:
+                k_dil = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(2 * round(g) + 1), int(2 * round(g) + 1)))
+                grown_sil = cv2.dilate(sil_pad, k_dil)
+            else:
+                grown_sil = sil_pad
+            tot_px = float((grown_sil > 127).sum())
+            in_px = float((grown_sil[PAD:PAD + TEMPLATE_H, PAD:PAD + TEMPLATE_W] > 127).sum())
+            clip_pct = round(100.0 * (1.0 - in_px / tot_px), 2) if tot_px > 0 else 0.0
+
         note = ""
-        if abs(mean_cov - 0.111) < 0.015:
-            note = "~R2a baseline (11.1%)"
-        elif abs(mean_cov - 0.150) < 0.015:
-            note = "~R2b target (15.0%)"
+        if abs(mean_cov - 0.110) < 0.008:
+            note = "~11% target"
+        elif abs(mean_cov - 0.150) < 0.008:
+            note = "~15% target"
 
         results.append({
             "grow_px": g,
+            "grow_mm": grow_mm,
             "mean_coverage": mean_cov,
             "min_coverage": min_cov,
             "max_coverage": max_cov,
             "lens_open_pct": lens_open_pct,
+            "clip_pct": clip_pct,
             "note": note,
         })
 
-        print(f" {g:7.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open_pct:9.1f}% | {note:<22}")
+        print(f" {g:7.1f} | {grow_mm:7.2f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open_pct:9.1f}% | {clip_pct:6.2f}% | {note:<20}")
 
-    print(f"{'='*75}\n")
+    print(f"{'='*95}")
+
+    best_11 = min(results, key=lambda r: abs(r["mean_coverage"] - 0.110))
+    best_15 = min(results, key=lambda r: abs(r["mean_coverage"] - 0.150))
+    print(f"\n  [Ladder Targets] Closest to 11.0%: grow_px = {best_11['grow_px']:.1f} ({best_11['grow_mm']:.2f} mm) -> mean = {best_11['mean_coverage']*100:.2f}% (clip: {best_11['clip_pct']:.2f}%)")
+    print(f"  [Ladder Targets] Closest to 15.0%: grow_px = {best_15['grow_px']:.1f} ({best_15['grow_mm']:.2f} mm) -> mean = {best_15['mean_coverage']*100:.2f}% (clip: {best_15['clip_pct']:.2f}%)\n")
+
     return results
 
 
@@ -423,6 +487,7 @@ def process_photo(
     pupil_y_frac: float = 0.5,
     out_dir: Path | str = "data/innovation/frame",
     dark_threshold: int | None = None,
+    rim_max_l: float | None = 70.0,
     measure_coverage: bool = False,
     attacker_frames: Path | str = "data/innovation/frames/owner/s1_day1",
 ) -> dict[str, Any]:
@@ -438,9 +503,20 @@ def process_photo(
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
+    # Backup existing artifacts to _v1 if not yet backed up
+    v1_dir = out_path / "_v1"
+    if not v1_dir.exists():
+        v1_dir.mkdir(parents=True, exist_ok=True)
+        import shutil
+        for art in ["owner_frame_mask.png", "owner_frame_lens.png", "owner_frame_meta.json", "owner_frame_overlay.png"]:
+            f_orig = out_path / art
+            if f_orig.exists():
+                shutil.copy2(str(f_orig), str(v1_dir / art))
+        print(f"      [backup] Backed up original artifacts to {v1_dir}")
+
     print(f"\n[1/4] Segmenting eyeglasses photo: {img_path.name} ({img.shape[1]}x{img.shape[0]})...")
     rim_mask, lens_mask, silhouette, (c_left, c_right) = segment_glasses_photo(
-        img, dark_threshold=dark_threshold
+        img, dark_threshold=dark_threshold, rim_max_l=rim_max_l, px_per_cm=px_per_cm
     )
 
     print(f"      Detected lens centroids in photo:")
@@ -492,6 +568,7 @@ def process_photo(
         "ipd_mm": ipd_mm,
         "px_per_cm": px_per_cm,
         "pupil_y_frac": pupil_y_frac,
+        "rim_max_l": float(rim_max_l) if rim_max_l is not None else 70.0,
         "detected_centroids_photo": {
             "left": [float(c_left[0]), float(c_left[1])],
             "right": [float(c_right[0]), float(c_right[1])],
@@ -513,6 +590,13 @@ def process_photo(
             "total_width_mm": round(w_sil / px_per_mm, 1),
             "total_height_mm": round(h_sil / px_per_mm, 1),
             "reference_rough_measurements": "lens ~50x38-40mm, bridge ~18-20mm, total ~130mm",
+            "previous_run_comparison_mm": {
+                "lens_left_wh": [48.0, 35.7],
+                "lens_right_wh": [47.3, 36.3],
+                "bridge_mm": 23.2,
+                "total_width_mm": 150.4,
+                "total_height_mm": 45.7,
+            },
         },
     }
 
@@ -544,20 +628,25 @@ def process_photo(
     print(f"    Ti le bong gong bi cat:         {transform_meta['silhouette_clip_pct']:.2f}% (clip ratio: {transform_meta['silhouette_clip_ratio']:.5f})")
 
     mm = meta["measurements_mm"]
-    print(f"\n  Estimated physical dimensions:")
-    print(f"    Left lens:   {mm['lens_left_wh'][0]} x {mm['lens_left_wh'][1]} mm")
-    print(f"    Right lens:  {mm['lens_right_wh'][0]} x {mm['lens_right_wh'][1]} mm")
-    print(f"    Bridge:      {mm['bridge_mm']} mm")
-    print(f"    Total width: {mm['total_width_mm']} mm")
+    print(f"\n  Estimated physical dimensions (vs previous run):")
+    print(f"    Left lens:   {mm['lens_left_wh'][0]} x {mm['lens_left_wh'][1]} mm  (prev: 48.0 x 35.7 mm)")
+    print(f"    Right lens:  {mm['lens_right_wh'][0]} x {mm['lens_right_wh'][1]} mm  (prev: 47.3 x 36.3 mm)")
+    print(f"    Bridge:      {mm['bridge_mm']} mm  (prev: 23.2 mm, diff: {round(mm['bridge_mm'] - 23.2, 1):+0.1f} mm)")
+    print(f"    Total width: {mm['total_width_mm']} mm  (prev: 150.4 mm, diff: {round(mm['total_width_mm'] - 150.4, 1):+0.1f} mm)")
+    print(f"    Total height:{mm['total_height_mm']} mm  (prev: 45.7 mm, diff: {round(mm['total_height_mm'] - 45.7, 1):+0.1f} mm - shadow removed)")
     print(f"    (Reference owner rough values: lens ~50x38-40 mm, bridge ~18-20 mm, total ~130 mm)")
 
     # 4. Coverage measurement if requested
     if measure_coverage:
-        print(f"\n[4/4] Measuring coverage across s1 frames...")
+        print(f"\n[4/4] Measuring coverage across s1 frames (grow 0..64 px, step 4)...")
         cov_results = measure_coverage_table(
             mask_path=mask_file,
             lens_path=lens_file,
             attacker_frames=attacker_frames,
+            grow_candidates=tuple(float(g) for g in range(0, 65, 4)),
+            ipd_mm=ipd_mm,
+            silhouette=silhouette,
+            M_affine=M_affine,
         )
         meta["s1_coverage_ladder"] = cov_results
         meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -575,7 +664,8 @@ def main():
     parser.add_argument("--pupil-y-frac", type=float, default=0.5, help="Fraction from top of lens bounding box to pupil height (default: 0.5)")
     parser.add_argument("--out-dir", default="data/innovation/frame", help="Output directory for masks and metadata")
     parser.add_argument("--dark-threshold", type=int, default=None, help="Override threshold for dark rim detection (0-255)")
-    parser.add_argument("--measure-coverage", action="store_true", help="Measure s1 frame coverage for grow_px in [0, 4, 8, 12, 16]")
+    parser.add_argument("--rim-max-l", type=float, default=70.0, help="Maximum L channel threshold for dark rim segmentation (default: 70.0)")
+    parser.add_argument("--measure-coverage", action="store_true", help="Measure s1 frame coverage for grow_px in [0, 4, 8, ..., 64]")
     parser.add_argument("--attacker-frames", default="data/innovation/frames/owner/s1_day1", help="Path to s1 frames directory")
 
     args = parser.parse_args()
@@ -586,6 +676,7 @@ def main():
         pupil_y_frac=args.pupil_y_frac,
         out_dir=args.out_dir,
         dark_threshold=args.dark_threshold,
+        rim_max_l=args.rim_max_l,
         measure_coverage=args.measure_coverage,
         attacker_frames=args.attacker_frames,
     )

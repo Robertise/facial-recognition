@@ -94,10 +94,44 @@ LADDER_CONFIGS: dict[str, dict[str, Any]] = {
         "rim_scale": 1.42,
         "description": "30x80, EOT, thickness 85, rim 1.42 (~15.0% coverage, medium res)",
     },
+    # PhotoFrame G-ladder (growth ladder on physical eyeglasses)
+    "G0": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 0.0,
+        "description": "G0: PhotoFrame, grow 0px (~4% coverage, real frame geometry)",
+    },
+    "G16": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 16.0,
+        "description": "G16: PhotoFrame, grow 16px (~8% coverage, ~5.6mm)",
+    },
+    "G11": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": None,  # provided via --g11-grow
+        "description": "G11: PhotoFrame, target ~11% coverage",
+    },
+    "G15": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": None,  # provided via --g15-grow
+        "description": "G15: PhotoFrame, target ~15% coverage",
+    },
 }
 
 ROUND1_ORDER = ["C0", "C1", "C2", "C3", "C4"]
 ROUND2_ORDER = ["R2a", "R2b", "R2c"]
+GROW_ORDER = ["G0", "G16", "G11", "G15"]
 
 
 def measure_coverage_s1(
@@ -275,7 +309,20 @@ def main():
                     help="path to custom frame mask PNG (uses PhotoFrame for coverage measurement)")
     ap.add_argument("--frame-lens", default=None,
                     help="path to custom frame lens PNG for PhotoFrame")
+    ap.add_argument("--g11-grow", type=float, default=None,
+                    help="grow_px for G11 configuration in PhotoFrame ladder (required when running G11)")
+    ap.add_argument("--g15-grow", type=float, default=None,
+                    help="grow_px for G15 configuration in PhotoFrame ladder (required when running G15)")
     args = ap.parse_args()
+
+    if "G11" in args.configs:
+        if args.g11_grow is None:
+            raise ValueError("--g11-grow is required when running G11 configuration")
+        LADDER_CONFIGS["G11"]["grow_px"] = float(args.g11_grow)
+    if "G15" in args.configs:
+        if args.g15_grow is None:
+            raise ValueError("--g15-grow is required when running G15 configuration")
+        LADDER_CONFIGS["G15"]["grow_px"] = float(args.g15_grow)
 
     if args.measure_coverage:
         measure_coverage_s1(args.attacker_frames, frame_mask=args.frame_mask, frame_lens=args.frame_lens)
@@ -301,24 +348,46 @@ def main():
         print(f"{'='*70}")
 
         # 1. Optimize
-        cmd_opt = [
-            sys.executable, "-m", "innovation.attacks.adv_glasses.optimize",
-            "--attacker-frames", str(args.attacker_frames),
-            "--gallery", str(args.gallery),
-            "--attacker-id", str(args.attacker_id),
-            "--victim", str(args.victim),
-            "--mode", "impersonate",
-            "--checkpoint", str(args.checkpoint),
-            "--thickness", str(cfg["thickness"]),
-            "--rim-scale", str(cfg["rim_scale"]),
-            "--tex-res", str(cfg["tex_res"][0]), str(cfg["tex_res"][1]),
-            "--steps", str(args.steps),
-            "--lr", str(args.lr),
-            "--dev-frac", str(args.dev_frac),
-            "--dev-mode", str(args.dev_mode),
-            "--seed", str(args.seed),
-            "--device", str(args.device),
-        ]
+        if cfg.get("frame_mask"):
+            cmd_opt = [
+                sys.executable, "-m", "innovation.attacks.adv_glasses.optimize",
+                "--attacker-frames", str(args.attacker_frames),
+                "--gallery", str(args.gallery),
+                "--attacker-id", str(args.attacker_id),
+                "--victim", str(args.victim),
+                "--mode", "impersonate",
+                "--checkpoint", str(args.checkpoint),
+                "--frame-mask", str(cfg["frame_mask"]),
+                "--grow-px", str(cfg["grow_px"]),
+                "--tex-res", str(cfg["tex_res"][0]), str(cfg["tex_res"][1]),
+                "--steps", str(args.steps),
+                "--lr", str(args.lr),
+                "--dev-frac", str(args.dev_frac),
+                "--dev-mode", str(args.dev_mode),
+                "--seed", str(args.seed),
+                "--device", str(args.device),
+            ]
+            if cfg.get("frame_lens"):
+                cmd_opt.extend(["--frame-lens", str(cfg["frame_lens"])])
+        else:
+            cmd_opt = [
+                sys.executable, "-m", "innovation.attacks.adv_glasses.optimize",
+                "--attacker-frames", str(args.attacker_frames),
+                "--gallery", str(args.gallery),
+                "--attacker-id", str(args.attacker_id),
+                "--victim", str(args.victim),
+                "--mode", "impersonate",
+                "--checkpoint", str(args.checkpoint),
+                "--thickness", str(cfg["thickness"]),
+                "--rim-scale", str(cfg["rim_scale"]),
+                "--tex-res", str(cfg["tex_res"][0]), str(cfg["tex_res"][1]),
+                "--steps", str(args.steps),
+                "--lr", str(args.lr),
+                "--dev-frac", str(args.dev_frac),
+                "--dev-mode", str(args.dev_mode),
+                "--seed", str(args.seed),
+                "--device", str(args.device),
+            ]
         if args.eval_sessions:
             cmd_opt.extend(["--eval-sessions", *args.eval_sessions])
         if cfg.get("no_eot"):
@@ -369,6 +438,10 @@ def main():
             rate = 0.0
             match_ign = 0.0
 
+        grow_val = cfg.get("grow_px")
+        if grow_val is None:
+            grow_val = attack.get("grow_px", "")
+
         row = {
             "config": cfg_name,
             "run_optimize": opt_dir_str,
@@ -381,6 +454,7 @@ def main():
             "margin_vs_attacker": round(float(margin_att), 4) if margin_att is not None else "",
             "dev_success": round(float(rate), 4),
             "dev_match_ignoring_liveness": round(float(match_ign), 4),
+            "grow_px": grow_val,
         }
         csv_rows.append(row)
 
@@ -390,6 +464,7 @@ def main():
         "dev_success_frames", "wilson95", "victim_sim_mean",
         "final_train_target_cos", "margin_vs_attacker",
         "dev_success", "dev_match_ignoring_liveness",
+        "grow_px",
     ]
     csv_path = ladder_run / "ladder.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
@@ -411,21 +486,39 @@ def main():
     print(f"Results CSV written to: {csv_path}\n")
 
     # Preregistered selection rule evaluation
-    priority = ROUND2_ORDER if any(r["config"].startswith("R2") for r in csv_rows) else ROUND1_ORDER
+    if all(r["config"].startswith("G") for r in csv_rows):
+        priority = GROW_ORDER
+    elif any(r["config"].startswith("R2") for r in csv_rows):
+        priority = ROUND2_ORDER
+    else:
+        priority = ROUND1_ORDER
     selected, reason = select_config(csv_rows, priority)
     print(f">>> PREREGISTERED SELECTION RESULT: {reason}")
     print(f"    Selected configuration: {selected['config']}")
     print(f"    Optimize run:           {selected['run_optimize']}")
 
-    eval_cmd = (
-        f"python -m innovation.attacks.adv_glasses.evaluate "
-        f"--run {selected['run_optimize']} "
-        f"--liveness "
-        f"--transfer method1=checkpoints/method1_best.pth method2=checkpoints/method2_best.pth "
-        f"method4=checkpoints/method4_best.pth method5=checkpoints/method5_best.pth"
-    )
-    print("\n>>> FINAL EVALUATION COMMAND ON TEST SESSION (RUN MANUALLY ONCE, NOT EXECUTED AUTOMATICALLY):")
-    print(f"    {eval_cmd}\n")
+    print("\n>>> PREREGISTERED EVALUATION COMMANDS ON s6_vary (RUN MANUALLY ONCE, NOT EXECUTED AUTOMATICALLY):")
+    for r in csv_rows:
+        cfg_n = r["config"]
+        is_selected = (cfg_n == selected["config"])
+        if is_selected:
+            eval_cmd = (
+                f"python -m innovation.attacks.adv_glasses.evaluate "
+                f"--run {r['run_optimize']} "
+                f"--eval-session s6_vary "
+                f"--liveness "
+                f"--transfer method1=checkpoints/method1_best.pth method2=checkpoints/method2_best.pth "
+                f"method4=checkpoints/method4_best.pth method5=checkpoints/method5_best.pth"
+            )
+            print(f"  [*] SELECTED ({cfg_n}):\n      {eval_cmd}\n")
+        else:
+            eval_cmd = (
+                f"python -m innovation.attacks.adv_glasses.evaluate "
+                f"--run {r['run_optimize']} "
+                f"--eval-session s6_vary "
+                f"--liveness"
+            )
+            print(f"  [ ] {cfg_n}:\n      {eval_cmd}\n")
 
 
 if __name__ == "__main__":

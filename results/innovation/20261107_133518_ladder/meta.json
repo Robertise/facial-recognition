@@ -1,0 +1,43 @@
+{
+  "run_id": "20261107_133518_ladder",
+  "started": "2026-11-07T13:35:18",
+  "git_commit": "1e903432ca903306d701b898a55ac034bc50dced",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\attacks\\adv_glasses\\ladder.py --configs G0 G16 G11 G15 --g11-grow 28 --g15-grow 48",
+  "args": {
+    "attacker_frames": "data/innovation/frames/owner",
+    "gallery": "data/innovation/gallery",
+    "attacker_id": "owner",
+    "victim": "LFW_victim",
+    "steps": 3000,
+    "lr": 0.03,
+    "dev_frac": 0.2,
+    "dev_mode": "block",
+    "eval_sessions": [
+      "s3_vary"
+    ],
+    "seed": 0,
+    "checkpoint": "checkpoints/method3_best.pth",
+    "device": "cpu",
+    "configs": [
+      "G0",
+      "G16",
+      "G11",
+      "G15"
+    ],
+    "measure_coverage": false,
+    "frame_mask": null,
+    "frame_lens": null,
+    "g11_grow": 28.0,
+    "g15_grow": 48.0
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
