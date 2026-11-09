@@ -349,6 +349,199 @@ def build_overlay(
     return canvas
 
 
+def cut_hinge_nubs_template(
+    sil_warped: np.ndarray,
+    lens_warped: np.ndarray,
+    keep_hinges: bool = False,
+    side_thicken: int = 0,
+) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    """Cut outer hinge nubs in 400x150 template space without touching the nose bridge.
+
+    Only columns strictly outside the horizontal span of the lenses (x < left lens edge,
+    x > right lens edge) are subjected to vertical opening (1x51 kernel), preserving
+    the ~18 px nose bridge around x ≈ 200. Optionally thickens the outer 45 px bands
+    horizontally by `side_thicken` px.
+    """
+    xs_before = np.where(sil_warped > 127)[1]
+    x_range_before = [int(xs_before.min()), int(xs_before.max())] if len(xs_before) > 0 else [0, 0]
+
+    sil_cut = sil_warped.copy()
+    xs_lens = np.where(lens_warped > 127)[1]
+    if not keep_hinges and len(xs_lens) > 0:
+        x_left_lens = int(xs_lens.min())
+        x_right_lens = int(xs_lens.max())
+        k_vert = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 51))
+        if x_left_lens > 0:
+            sil_cut[:, :x_left_lens] = cv2.morphologyEx(sil_cut[:, :x_left_lens], cv2.MORPH_OPEN, k_vert)
+        if x_right_lens + 1 < TEMPLATE_W:
+            sil_cut[:, x_right_lens + 1:] = cv2.morphologyEx(sil_cut[:, x_right_lens + 1:], cv2.MORPH_OPEN, k_vert)
+    else:
+        x_left_lens = int(xs_lens.min()) if len(xs_lens) > 0 else 0
+        x_right_lens = int(xs_lens.max()) if len(xs_lens) > 0 else TEMPLATE_W - 1
+
+    if side_thicken > 0:
+        k_side = cv2.getStructuringElement(cv2.MORPH_RECT, (2 * int(side_thicken) + 1, 1))
+        dil_h = cv2.dilate(sil_cut, k_side)
+        band_w = 45
+        sil_cut[:, :band_w] = np.maximum(sil_cut[:, :band_w], dil_h[:, :band_w])
+        sil_cut[:, TEMPLATE_W - band_w:] = np.maximum(sil_cut[:, TEMPLATE_W - band_w:], dil_h[:, TEMPLATE_W - band_w:])
+
+    mask_template = cv2.bitwise_and(sil_cut, cv2.bitwise_not(lens_warped))
+    xs_after = np.where(sil_cut > 127)[1]
+    x_range_after = [int(xs_after.min()), int(xs_after.max())] if len(xs_after) > 0 else [0, 0]
+    bridge_x200_px = int((mask_template[:, TEMPLATE_W // 2] > 127).sum())
+
+    hinge_info = {
+        "keep_hinges": bool(keep_hinges),
+        "side_thicken_px": int(side_thicken),
+        "lens_x_span": [x_left_lens, x_right_lens],
+        "x_range_before": x_range_before,
+        "x_range_after": x_range_after,
+        "bridge_x200_rim_px": bridge_x200_px,
+    }
+    return sil_cut, mask_template, hinge_info
+
+
+def compute_template_border_touch_pct(
+    mask_path: Path | str | np.ndarray,
+    lens_path: Path | str | np.ndarray | None,
+    grow_px: float,
+    clearance_mm: float = 0.0,
+    ipd_mm: float = 63.0,
+) -> float:
+    """Compute percentage of the dilated frame mask that touches/clips at the 400x150 template border."""
+    from innovation.attacks.adv_glasses import glasses
+
+    pf = glasses.PhotoFrame(mask_path, lens_path, grow_px=grow_px, clearance_mm=clearance_mm, ipd_mm=ipd_mm)
+    base = pf._load_image(pf.mask_path)
+    lens = pf._load_image(pf.lens_path)
+    sil = cv2.bitwise_or((base > 127).astype(np.uint8) * 255, (lens > 127).astype(np.uint8) * 255)
+
+    pad = max(16, int(round(grow_px)) + 8)
+    sil_pad = cv2.copyMakeBorder(sil, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=0)
+    r = int(round(grow_px))
+    if r > 0:
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1))
+        grown_pad = cv2.dilate(sil_pad, k)
+    else:
+        grown_pad = sil_pad
+
+    if clearance_mm <= 0:
+        lens_pad = cv2.copyMakeBorder((lens > 127).astype(np.uint8) * 255, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=0)
+        mask_pad = cv2.bitwise_and(grown_pad, cv2.bitwise_not(lens_pad))
+    else:
+        mask_pad = grown_pad.copy()
+        r_clr = max(1, int(round(clearance_mm * (180.0 / ipd_mm))))
+        for cx, cy in glasses.EYES:
+            cv2.circle(mask_pad, (int(round(cx)) + pad, int(round(cy)) + pad), r_clr, 0, -1)
+
+    total_px = float((mask_pad > 127).sum())
+    if total_px <= 0:
+        return 0.0
+    inside_px = float((mask_pad[pad:pad + TEMPLATE_H, pad:pad + TEMPLATE_W] > 127).sum())
+    # Also include 1-px border touch if not overflowing pad
+    border_mask = np.zeros((TEMPLATE_H, TEMPLATE_W), dtype=bool)
+    border_mask[0, :] = border_mask[-1, :] = border_mask[:, 0] = border_mask[:, -1] = True
+    inside_arr = mask_pad[pad:pad + TEMPLATE_H, pad:pad + TEMPLATE_W] > 127
+    on_border_or_outside = (total_px - inside_px) + float((inside_arr & border_mask).sum())
+    return round(100.0 * on_border_or_outside / total_px, 2)
+
+
+def measure_clearance_table(
+    mask_path: Path | str,
+    lens_path: Path | str,
+    attacker_frames: Path | str = "data/innovation/frames/owner/s1_day1",
+    clearance_candidates: tuple[float, ...] = (16.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0),
+    g_out: float = 8.0,
+    ipd_mm: float = 63.0,
+) -> list[dict[str, Any]]:
+    """Measure coverage across s1 frames for H-ladder (fill-lens + pupil clearance)."""
+    import torch
+    from innovation.attacks.adv_glasses import faces, glasses
+
+    s1_dir = Path(attacker_frames)
+    if not s1_dir.exists():
+        s1_dirs = list(Path(attacker_frames).parent.glob("*s1*"))
+        if s1_dirs:
+            s1_dir = s1_dirs[0]
+        else:
+            raise FileNotFoundError(f"Frames directory not found: {attacker_frames}")
+
+    detector = faces.FaceDetector()
+    eyes_finder = faces.EyeLandmarks()
+    frame_files = faces.list_images(s1_dir)
+    items = []
+    for f in frame_files:
+        img = cv2.imread(str(f))
+        if img is None:
+            continue
+        bbox = detector.detect(img)
+        if bbox is None:
+            continue
+        _, meta = faces.enhance(faces.crop(img, bbox))
+        if meta and meta.get("applied"):
+            continue
+        eyes = eyes_finder.eyes(img)
+        if eyes is None:
+            continue
+        win = faces.crop_window(bbox, img.shape)
+        items.append({"A": glasses.similarity(eyes), "window": win})
+
+    if not items:
+        raise RuntimeError(f"No usable normal-light frames found in {s1_dir}")
+
+    lens_raw = cv2.imread(str(lens_path), cv2.IMREAD_GRAYSCALE)
+    if lens_raw is None:
+        raise ValueError(f"Could not read lens mask: {lens_path}")
+    lens_pixels = (lens_raw > 127)
+    total_lens_pixels = int(lens_pixels.sum())
+
+    g_out_mm = round(g_out * (ipd_mm / 180.0), 2)
+    results = []
+    print(f"\n{'='*105}")
+    print(f"MEASURING H-LADDER (FILL-LENS + PUPIL CLEARANCE) ON {len(items)} USABLE NORMAL-LIGHT s1 FRAMES")
+    print(f"Template: {mask_path} | Fixed g_out = {g_out:.1f} px (+{g_out_mm:.2f} mm), ipd_mm = {ipd_mm:.1f}")
+    print(f"{'='*105}")
+    print(f" {'clr_mm':>6} | {'clr_px':>6} | {'g_out':>5} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Border %':>8} | {'Config':<10}")
+    print(f"{'-'*105}")
+
+    for clr_mm in clearance_candidates:
+        shape = glasses.PhotoFrame(mask_path, lens_path, grow_px=g_out, clearance_mm=clr_mm, ipd_mm=ipd_mm)
+        tpl_mask_arr = shape.mask()
+        tpl_mask_t = torch.from_numpy(tpl_mask_arr)[None]
+        covs = [glasses.coverage(tpl_mask_t, it["A"], it["window"]) for it in items]
+        mean_cov = float(np.mean(covs))
+        min_cov = float(np.min(covs))
+        max_cov = float(np.max(covs))
+
+        if total_lens_pixels > 0:
+            encroached = float(tpl_mask_arr[lens_pixels].mean())
+            lens_open_pct = 100.0 * max(0.0, 1.0 - encroached)
+        else:
+            lens_open_pct = 0.0
+
+        clr_px = round(clr_mm * (180.0 / ipd_mm), 1)
+        border_pct = compute_template_border_touch_pct(mask_path, lens_path, grow_px=g_out, clearance_mm=clr_mm, ipd_mm=ipd_mm)
+
+        cfg_tag = f"H{int(round(clr_mm)):02d}" if int(round(clr_mm)) in (16, 13, 11, 9) else ""
+        results.append({
+            "clearance_mm": float(clr_mm),
+            "clearance_px": clr_px,
+            "grow_px": float(g_out),
+            "grow_mm": g_out_mm,
+            "mean_coverage": mean_cov,
+            "min_coverage": min_cov,
+            "max_coverage": max_cov,
+            "lens_open_pct": round(lens_open_pct, 2),
+            "border_touch_pct": border_pct,
+            "config": cfg_tag,
+        })
+        print(f" {clr_mm:6.1f} | {clr_px:6.1f} | {g_out:5.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open_pct:9.1f}% | {border_pct:7.2f}% | {cfg_tag:<10}")
+
+    print(f"{'='*105}\n")
+    return results
+
+
 def measure_coverage_table(
     mask_path: Path | str,
     lens_path: Path | str,
@@ -488,6 +681,9 @@ def process_photo(
     out_dir: Path | str = "data/innovation/frame",
     dark_threshold: int | None = None,
     rim_max_l: float | None = 70.0,
+    keep_hinges: bool = False,
+    side_thicken: int = 0,
+    g_out: float = 8.0,
     measure_coverage: bool = False,
     attacker_frames: Path | str = "data/innovation/frames/owner/s1_day1",
 ) -> dict[str, Any]:
@@ -503,16 +699,24 @@ def process_photo(
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # Backup existing artifacts to _v1 if not yet backed up
+    # Backup existing artifacts to _v1 if not yet backed up, then _v2 if _v1 exists and _v2 does not
+    import shutil
     v1_dir = out_path / "_v1"
+    v2_dir = out_path / "_v2"
     if not v1_dir.exists():
         v1_dir.mkdir(parents=True, exist_ok=True)
-        import shutil
         for art in ["owner_frame_mask.png", "owner_frame_lens.png", "owner_frame_meta.json", "owner_frame_overlay.png"]:
             f_orig = out_path / art
             if f_orig.exists():
                 shutil.copy2(str(f_orig), str(v1_dir / art))
         print(f"      [backup] Backed up original artifacts to {v1_dir}")
+    elif not v2_dir.exists():
+        v2_dir.mkdir(parents=True, exist_ok=True)
+        for art in ["owner_frame_mask.png", "owner_frame_lens.png", "owner_frame_meta.json", "owner_frame_overlay.png"]:
+            f_orig = out_path / art
+            if f_orig.exists():
+                shutil.copy2(str(f_orig), str(v2_dir / art))
+        print(f"      [backup] Backed up v2 artifacts to {v2_dir}")
 
     print(f"\n[1/4] Segmenting eyeglasses photo: {img_path.name} ({img.shape[1]}x{img.shape[0]})...")
     rim_mask, lens_mask, silhouette, (c_left, c_right) = segment_glasses_photo(
@@ -538,7 +742,16 @@ def process_photo(
 
     sil_warped = cv2.warpAffine(silhouette, M_affine, (TEMPLATE_W, TEMPLATE_H), flags=cv2.INTER_NEAREST)
     lens_warped = cv2.warpAffine(lens_mask, M_affine, (TEMPLATE_W, TEMPLATE_H), flags=cv2.INTER_NEAREST)
-    mask_template = cv2.bitwise_and(sil_warped, cv2.bitwise_not(lens_warped))
+    sil_warped, mask_template, hinge_info = cut_hinge_nubs_template(
+        sil_warped=sil_warped,
+        lens_warped=lens_warped,
+        keep_hinges=keep_hinges,
+        side_thicken=side_thicken,
+    )
+    print(f"      [hinge cut] x-range before: {hinge_info['x_range_before'][0]}–{hinge_info['x_range_before'][1]} "
+          f"-> after: {hinge_info['x_range_after'][0]}–{hinge_info['x_range_after'][1]} "
+          f"(keep_hinges={keep_hinges}, side_thicken={side_thicken}px)")
+    print(f"      [bridge check] Center column x=200 rim pixels: {hinge_info['bridge_x200_rim_px']} px")
     img_warped = cv2.warpAffine(img, M_affine, (TEMPLATE_W, TEMPLATE_H), flags=cv2.INTER_LINEAR)
 
     # Compute bounding boxes and measurements
@@ -569,6 +782,7 @@ def process_photo(
         "px_per_cm": px_per_cm,
         "pupil_y_frac": pupil_y_frac,
         "rim_max_l": float(rim_max_l) if rim_max_l is not None else 70.0,
+        "hinge_cut": hinge_info,
         "detected_centroids_photo": {
             "left": [float(c_left[0]), float(c_left[1])],
             "right": [float(c_right[0]), float(c_right[1])],
@@ -638,7 +852,7 @@ def process_photo(
 
     # 4. Coverage measurement if requested
     if measure_coverage:
-        print(f"\n[4/4] Measuring coverage across s1 frames (grow 0..64 px, step 4)...")
+        print(f"\n[4/4] Measuring coverage across s1 frames...")
         cov_results = measure_coverage_table(
             mask_path=mask_file,
             lens_path=lens_file,
@@ -648,7 +862,16 @@ def process_photo(
             silhouette=silhouette,
             M_affine=M_affine,
         )
+        clr_results = measure_clearance_table(
+            mask_path=mask_file,
+            lens_path=lens_file,
+            attacker_frames=attacker_frames,
+            clearance_candidates=(16.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0),
+            g_out=g_out,
+            ipd_mm=ipd_mm,
+        )
         meta["s1_coverage_ladder"] = cov_results
+        meta["s1_clearance_ladder"] = clr_results
         meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     else:
         print(f"\n[4/4] Skipping s1 coverage measurement (use --measure-coverage to run).")
@@ -665,7 +888,10 @@ def main():
     parser.add_argument("--out-dir", default="data/innovation/frame", help="Output directory for masks and metadata")
     parser.add_argument("--dark-threshold", type=int, default=None, help="Override threshold for dark rim detection (0-255)")
     parser.add_argument("--rim-max-l", type=float, default=70.0, help="Maximum L channel threshold for dark rim segmentation (default: 70.0)")
-    parser.add_argument("--measure-coverage", action="store_true", help="Measure s1 frame coverage for grow_px in [0, 4, 8, ..., 64]")
+    parser.add_argument("--keep-hinges", action="store_true", help="Do not cut outer hinge nubs in template space")
+    parser.add_argument("--side-thicken", type=int, default=0, help="Horizontally dilate outer 45px bands by PX pixels after cutting hinges (default: 0)")
+    parser.add_argument("--g-out", type=float, default=8.0, help="Fixed outward grow_px for clearance coverage table (default: 8.0)")
+    parser.add_argument("--measure-coverage", action="store_true", help="Measure s1 frame coverage for grow_px and clearance_mm ladders")
     parser.add_argument("--attacker-frames", default="data/innovation/frames/owner/s1_day1", help="Path to s1 frames directory")
 
     args = parser.parse_args()
@@ -677,6 +903,9 @@ def main():
         out_dir=args.out_dir,
         dark_threshold=args.dark_threshold,
         rim_max_l=args.rim_max_l,
+        keep_hinges=args.keep_hinges,
+        side_thicken=args.side_thicken,
+        g_out=args.g_out,
         measure_coverage=args.measure_coverage,
         attacker_frames=args.attacker_frames,
     )

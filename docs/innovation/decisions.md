@@ -102,3 +102,8 @@ Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink 
 - **S1 danh tính còn sót (top-2 / gap / ratio): loại.** AUC min giữa C3 và R2b = 0.62 (< 0.75). So với mặt thật LFW còn đảo chiều (AUC 0.07–0.32): khớp LOO trên ảnh LFW tự nhiên đã có top-2 cao, nên "danh tính thứ hai cao" không đặc trưng cho tấn công. Không đề xuất lại S1 làm đặc trưng.
 - **S3 bất ổn theo thời gian (top1_switch / score_std): loại.** AUC min = 0.68 (< 0.75). Tấn công giữ top-1 ổn định ở mức frame (switch gần như 0 khi đã thành công), nên chập chờn không phải dấu hiệu dùng được. Phòng thủ vận hành "yêu cầu nhiều frame nhất quán" vẫn có thể giữ như biện pháp UX/vận hành, nhưng không phải chữ ký phát hiện.
 - **S2 bằng chứng tập trung: giữ, đặc trưng chính** (maxdrop 0.997, conc ~0.97), kèm cảnh báo nhiễu domain trong `experiment_log.md`.
+
+## 2026-11-08 Giai đoạn B vật lý: phương án 1 + một lần thử in có giới hạn
+- **Chọn:** đánh giá chính bằng gọng digital áp lên frame thật (người hỗ trợ quay video/ảnh làm dữ liệu), phòng thủ là trọng tâm. Thêm đúng một lần thử in H09 có giới hạn 2 ngày (luật ở `experiment_log.md` 2026-11-08). Trượt thì dừng in vô thời hạn.
+- **Loại: "in gọng + tăng tốc mọi thứ" (phương án 2 đầy đủ).** Lý do: digital → vật lý thường tụt mạnh (màu, độ cong, ánh sáng); nếu trượt sẽ kéo thêm nhiều vòng sửa, ăn vào 10–14 ngày cần cho phòng thủ trước hạn cuối Week 11. Phần tốn nhất (bảng màu, colormap) đã xong nên một lần thử là rẻ.
+- Demo cuối dùng video đã quay, không làm live với người hỗ trợ. Tấn công vật lý không cần người hỗ trợ (owner là kẻ tấn công).

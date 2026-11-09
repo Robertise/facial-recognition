@@ -125,6 +125,28 @@ def stage_b_gate(results: dict, liveness_gated: bool) -> dict | None:
             "pass": bool(d >= 0.8 and c <= 0.2) if liveness_gated else None}
 
 
+def physical_gate(results: dict, liveness_gated: bool) -> dict | None:
+    """plan_physical.md: P >= 80% and max(P_control_random, P_control_plain) <= 20%, on normal-light frames.
+
+    With liveness: pass is True/False. Without liveness: pass is None (null).
+    """
+    p_data = results.get("method3/P")
+    p_rate = p_data.get("rate") if p_data is not None else None
+    controls = [
+        results[f"method3/{t}"]["rate"]
+        for t in ("P_control_random", "P_control_plain")
+        if f"method3/{t}" in results and "rate" in results[f"method3/{t}"]
+    ]
+    control_max = max(controls) if controls else 0.0
+    passed = bool(p_rate >= 0.8 and control_max <= 0.2) if (liveness_gated and p_rate is not None) else None
+    return {
+        "P_rate": p_rate,
+        "control_max": control_max,
+        "liveness_gated": liveness_gated,
+        "pass": passed,
+    }
+
+
 def liveness_step(live, smoother, frame: np.ndarray, t: float) -> tuple[bool, str, float]:
     """Check-in's liveness decision (backend.processing.process_attendance_frame).
 
@@ -160,11 +182,219 @@ def main():
     ap.add_argument("--frame-mask", help="override frame mask PNG path for PhotoFrame")
     ap.add_argument("--frame-lens", help="override lens PNG path for PhotoFrame")
     ap.add_argument("--grow-px", type=float, default=None, help="override outward dilation for PhotoFrame")
+    ap.add_argument("--clearance-mm", type=float, default=None, help="override pupil clearance radius in mm for PhotoFrame")
+    ap.add_argument("--ipd-mm", type=float, default=None, help="override interpupillary distance in mm for PhotoFrame")
+    ap.add_argument("--physical", nargs="+", default=None,
+                    help="evaluate physical tiers: TIER=DIR [TIER=DIR ...]")
     args = ap.parse_args()
 
     src = Path(args.run)
     attack = json.loads((src / "attack.json").read_text())
     split = json.loads((src / "split.json").read_text())
+
+    if args.physical is not None:
+        tier_dirs: dict[str, tuple[Path, list[Path]]] = {}
+        for item in args.physical:
+            if "=" not in item:
+                raise SystemExit(f"invalid --physical format, expected TIER=DIR, got: {item}")
+            t_name, d_str = item.split("=", 1)
+            p_dir = Path(d_str)
+            if not p_dir.exists() or not p_dir.is_dir():
+                raise SystemExit(f"physical tier folder does not exist: {p_dir}")
+            t_files = faces.list_images(p_dir)
+            if not t_files:
+                raise SystemExit(f"no images found in physical tier folder: {p_dir}")
+            tier_dirs[t_name] = (p_dir, t_files)
+
+        # Leak check: no physical frame may appear in split.json train, dev, or eval
+        leak_set = set()
+        for s_name in ("train", "dev", "eval"):
+            for p_str in split.get(s_name, []):
+                p = Path(p_str)
+                leak_set.add(str(p))
+                leak_set.add(str(p.as_posix()))
+                try:
+                    leak_set.add(str(p.resolve()))
+                except Exception:
+                    pass
+
+        for t_name, (p_dir, t_files) in tier_dirs.items():
+            for f in t_files:
+                f_vars = {str(f), str(f.as_posix())}
+                try:
+                    f_vars.add(str(f.resolve()))
+                except Exception:
+                    pass
+                if any(v in leak_set for v in f_vars):
+                    raise SystemExit(
+                        f"physical tier '{t_name}' contains frame '{f}' which is in split train, dev, or eval"
+                    )
+
+        all_physical_files = []
+        for _, t_files in tier_dirs.values():
+            all_physical_files.extend(t_files)
+        times = frame_times(all_physical_files)
+        for _, t_files in tier_dirs.values():
+            t_files.sort(key=lambda f: (f.parent.name, times[str(f)]))
+
+        run = new_run("advglasses_eval_physical", {**vars(args), "source_run": str(src)})
+
+        tex_res = attack.get("tex_res")
+        if not tex_res and (src / "texture.pt").exists():
+            try:
+                tex_data = torch.load(src / "texture.pt", map_location="cpu")
+                tex_res = tex_data.get("tex_res") or list(tex_data.get("logits", torch.zeros(1, 1, 1)).shape[-2:])
+            except Exception:
+                pass
+
+        from backend.face_recognizer import FaceRecognizer
+        detector = faces.FaceDetector()
+        models = {"method3": attack["checkpoint"], **dict(t.split("=", 1) for t in args.transfer)}
+
+        live = None
+        n_warmup = 0
+        if args.liveness:
+            from liveness.liveness_detector import LivenessDetector
+            from liveness.temporal import make_smoother
+            live = LivenessDetector()
+            smoothing_cfg = (getattr(live, "config", None) or {}).get("smoothing") or {}
+            n_warmup = max(2, int(smoothing_cfg.get("min_frames", 3)))
+
+        smoother_warmup_frames = sum(min(n_warmup, len(files)) for _, (_, files) in tier_dirs.items()) if live is not None else 0
+
+        rows, model_info = [], {}
+        for model, ckpt in models.items():
+            recognizer = FaceRecognizer(threshold=0.5, ckpt_path=ckpt, strict=True)
+            model_info[model] = recognizer.load_report
+            gallery, _ = faces.build_gallery(Path(attack["gallery"]), recognizer, detector,
+                                             attack.get("gallery_per_id", faces.GALLERY_PER_ID),
+                                             cache_dir=src.parent / "_cache")
+            db = gallery.as_db()
+
+            tiers_to_run = list(tier_dirs.keys()) if model == "method3" else [t for t in tier_dirs.keys() if t == "P"]
+            for tier in tiers_to_run:
+                p_dir, t_files = tier_dirs[tier]
+                smoother = make_smoother(live.config) if live is not None else None
+                if smoother is not None:
+                    w_files = t_files[:n_warmup]
+                    t0 = times[str(t_files[0])]
+                    dt = (times[str(t_files[1])] - t0) if len(t_files) >= 2 and times[str(t_files[1])] > t0 else 0.2
+                    for i, wf in enumerate(w_files):
+                        w_img = cv2.imread(str(wf))
+                        if w_img is not None:
+                            w_frame = jpeg(w_img, 95)
+                            w_t = t0 - (len(w_files) - i) * dt
+                            liveness_step(live, smoother, w_frame, w_t)
+
+                for f in t_files:
+                    img = cv2.imread(str(f))
+                    if img is None:
+                        row = {
+                            "model": model, "tier": tier, "frame": str(f), "session": f.parent.name,
+                            "t": round(times[str(f)], 3), "face": 0, "live_label": "No Face",
+                            "live_score": 0.0, "is_real": 0, "enhancer_applied": 0, "match_id": "",
+                            "match_sim": 0.0, "victim_sim": "", "attacker_sim": "", "match_ok": 0, "success": 0,
+                        }
+                        rows.append(row)
+                        continue
+
+                    frame = jpeg(img, 95)
+                    row = {
+                        "model": model, "tier": tier, "frame": str(f), "session": f.parent.name,
+                        "t": round(times[str(f)], 3), "face": 0, "live_label": "", "live_score": "",
+                        "is_real": 1, "enhancer_applied": "", "match_id": "", "match_sim": "",
+                        "victim_sim": "", "attacker_sim": "",
+                    }
+
+                    if live is not None:
+                        real, label, p = liveness_step(live, smoother, frame, times[str(f)])
+                        row.update(live_label=label, live_score=round(p, 4), is_real=int(real))
+
+                    bbox = detector.detect(frame)
+                    if bbox is not None:
+                        row["face"] = 1
+                        face, meta = faces.enhance(faces.crop(frame, bbox))
+                        row["enhancer_applied"] = int(bool(meta and meta.get("applied")))
+                        emb = recognizer.extract_embedding(face)
+                        m = recognizer.find_match(emb, db)
+                        row["match_sim"] = round(m["similarity"], 4)
+                        row["match_id"] = m["employee_id"] if m["matched"] else ""
+                        if attack.get("victim") in gallery.embeddings:
+                            row["victim_sim"] = round(float((gallery.embeddings[attack["victim"]] @ emb).max()), 4)
+                        row["attacker_sim"] = round(float((gallery.embeddings[attack["attacker_id"]] @ emb).max()), 4)
+                    else:
+                        row["face"] = 0
+                        row["enhancer_applied"] = 0
+                        row["match_sim"] = 0.0
+                        row["match_id"] = ""
+
+                    if attack["mode"] == "impersonate":
+                        hit = (row["match_id"] == attack["victim"]) if row["face"] == 1 else False
+                    else:
+                        hit = (row["face"] == 1 and row["match_id"] != attack["attacker_id"])
+
+                    row["match_ok"] = int(bool(hit))
+                    row["success"] = int(bool(hit) and row["is_real"] == 1 and row["face"] == 1)
+                    rows.append(row)
+
+        with open(run / "frames.csv", "w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+            w.writeheader(); w.writerows(rows)
+
+        physical_tier_names = list(tier_dirs.keys())
+        summary = {
+            "source_run": str(src), "mode": attack["mode"], "victim": attack.get("victim"),
+            "attacker": attack["attacker_id"], "tex_res": tex_res, "control_seed": args.control_seed,
+            "split": args.split, "dev_mode": None,
+            "eval_session_override": None,
+            "eval_session_names": sorted({p_dir.name for p_dir, _ in tier_dirs.values()}),
+            "liveness_mode": "smooth" if (live is not None and getattr(live, "config", {}).get("smoothing", {}).get("enabled", True)) else "raw_per_frame",
+            "liveness_gated": live is not None,
+            "smoother_warmup_frames": smoother_warmup_frames,
+            "eval_frames": sum(len(f) for _, (_, f) in tier_dirs.items()),
+            "coverage_train": attack.get("coverage_train"),
+            "color_map_calibrated": attack.get("color_map_calibrated"),
+            "gallery_per_id": attack.get("gallery_per_id"), "models": model_info, "results": {},
+            "physical_sessions": {t: str(p_dir) for t, (p_dir, _) in tier_dirs.items()},
+        }
+
+        for model in models:
+            for tier in physical_tier_names:
+                for light, suffix in (("normal", ""), ("dim", "@dim")):
+                    sel = [r for r in rows if r["model"] == model and r["tier"] == tier
+                           and (r["enhancer_applied"] == 1) == (light == "dim")]
+                    if not sel:
+                        continue
+                    n, k = len(sel), sum(r["success"] for r in sel)
+                    windows = {}
+                    for r in sel:
+                        windows.setdefault((r["session"], int(r["t"] // WINDOW_S)), []).append(r["success"])
+                    vs = [r["victim_sim"] for r in sel if r["victim_sim"] != ""]
+                    summary["results"][f"{model}/{tier}{suffix}"] = {
+                        "frames": n, "success": k, "rate": k / n, "wilson95": wilson(k, n),
+                        "match_ignoring_liveness": sum(r["match_ok"] for r in sel) / n,
+                        "liveness_pass": sum(r["is_real"] for r in sel if r["face"]) / max(1, sum(r["face"] for r in sel)),
+                        "no_face": sum(1 - r["face"] for r in sel) / n,
+                        "enhancer_applied": sum(1 for r in sel if r["enhancer_applied"] == 1) / n,
+                        "victim_sim_mean": round(float(np.mean(vs)), 4) if vs else None,
+                        "windows_3s": len(windows), "windows_with_success": sum(any(v) for v in windows.values()) / max(1, len(windows)),
+                    }
+
+        summary["gate_to_stage_B"] = None
+        summary["gate_physical"] = physical_gate(summary["results"], live is not None)
+        write_json(run / "summary.json", summary)
+
+        print(f"results: {run}")
+        for k, v in summary["results"].items():
+            lo, hi = v["wilson95"]
+            print(f"  {k:<26} success {v['success']}/{v['frames']} = {v['rate']:.2f} [{lo:.2f}, {hi:.2f}]  "
+                  f"match {v['match_ignoring_liveness']:.2f}  live {v['liveness_pass']:.2f}  "
+                  f"3s-windows {v['windows_with_success']:.2f}  victim_sim {v['victim_sim_mean']}")
+        if "gate_physical" in summary:
+            print("  gate physical:", summary["gate_physical"])
+            if live is None:
+                print("  (no verdict: rerun with --liveness)")
+        return
     if args.eval_session is not None:
         if args.split != "eval":
             raise SystemExit(f"--eval-session can only be used with --split eval, got --split {args.split}")
@@ -252,12 +482,19 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     if args.frame_mask:
-        grow = args.grow_px if args.grow_px is not None else 0.0
-        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, grow)
+        grow = args.grow_px if args.grow_px is not None else float(attack.get("grow_px", 0.0))
+        clr = args.clearance_mm if args.clearance_mm is not None else float(attack.get("clearance_mm", 0.0))
+        ipd = args.ipd_mm if args.ipd_mm is not None else float(attack.get("ipd_mm", 63.0))
+        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, grow, clr, ipd)
     else:
         shape = glasses.shape_from_attack(attack)
-        if args.grow_px is not None and isinstance(shape, glasses.PhotoFrame):
-            shape.grow_px = float(args.grow_px)
+        if isinstance(shape, glasses.PhotoFrame):
+            if args.grow_px is not None:
+                shape.grow_px = float(args.grow_px)
+            if args.clearance_mm is not None:
+                shape.clearance_mm = float(args.clearance_mm)
+            if args.ipd_mm is not None:
+                shape.ipd_mm = float(args.ipd_mm)
     mask = torch.from_numpy(shape.mask())[None]
     cmap = printability.ColorMap.load(src / "colormap.json")
     tex_data = torch.load(src / "texture.pt", map_location="cpu")

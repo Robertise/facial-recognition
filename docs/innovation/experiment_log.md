@@ -594,3 +594,84 @@ Mẫu:
 - **Luật H-ladder chốt:** 4 cấu hình g_out 8 + nub-cut, clearance = 16 / 13 / 11 / 9 mm (đặt lại rung để phủ dải 8–11% đều hơn; con số cuối chờ bảng đo của agent xác nhận). Ưu tiên clearance lớn trước. Chọn cấu hình đầu đạt dev ≥ 80%; không có thì dev cao nhất. Đánh giá s6 như cũ.
 - Ghi chú trung thực cho report giữ nguyên: đây là "kính phủ hoa văn lên tròng, chỉ chừa lỗ ~22 mm ở đồng tử", ranh giới giữa kính thường và miếng dán adversarial lên tròng.
 - Sửa (2026-11-07, owner phát hiện): prototype cắt ngàm của Claude dùng vertical opening trên toàn ảnh nên **xoá luôn cầu mũi** (cao ~18 px). Đúng phải là chỉ cắt trong hai dải ngoài phạm vi tròng; cầu mũi giữ nguyên. Các số độ phủ "nub-cut" ghi ở trên đo trên mask thiếu cầu mũi nên hơi thấp; agent đo lại sau khi sửa. Đã sửa `plan_frame_clearance.md` §1b.
+
+## 2026-11-07 Kết quả dev H-ladder (run `20261107_173748_ladder`) và áp luật chọn
+
+- Cấu hình đúng luật: g_out 8, nub-cut, tex-res 15×40, 3000 bước, lr 0.03, seed 0, dev block, LFW_victim, EOT, color_map None (Claude kiểm attack.json/meta.json cả 4 run).
+- Dev (tầng không EOT, method3, liveness gated):
+
+| Cấu hình | clearance | độ phủ train | D success | Wilson95 | match bỏ liveness | D_EOT |
+|---|---|---|---|---|---|---|
+| H16 | 16 mm | 9.4% | 36/75 = 48.0% | 0.37–0.59 | 52.0% | 14/75 |
+| H13 | 13 mm | 10.8% | 40/75 = 53.3% | 0.42–0.64 | 60.0% | 21/75 |
+| H11 | 11 mm | 11.6% | 43/73 = 58.9% | 0.47–0.69 | 74.0% | 30/75 |
+| H09 | 9 mm | 12.3% | 45/74 = 60.8% | 0.49–0.71 | 81.1% | 37/75 |
+
+- Control (random, plain) 0 match ở cả 4. Baseline 0 match.
+- **Áp luật: không cấu hình nào đạt dev ≥ 80% → chọn dev cao nhất = H09.** CI của H11 và H09 chồng nhau gần hết; vẫn theo luật, không đổi.
+- Quan sát: liveness là nút thắt thứ hai trong khối dev. Baseline chỉ 49/75 frame được coi là thật (0.65), D khoảng 60/75. H09 có 15 frame khớp danh tính nhưng bị liveness chặn. Hoa văn không làm liveness tệ hơn baseline trong khối này (khác với hiện tượng đầu session ở R2b), nên phần chặn này chủ yếu do điều kiện khối dev.
+- "Độ phủ train" (cột `coverage` trong ladder.csv) cao hơn bảng đo s1 (8.4–10.9%) vì đo trên tập train s1+s2; dùng bảng s1 khi so với R2a/R2b cho nhất quán.
+- Đường cong: độ phủ tăng khoảng 3 điểm % (lỗ chừa 32 → 18 mm) thì match bỏ liveness tăng 52 → 81%. Danh tính tập trung quanh mắt, khớp với S2.
+- Tiếp: chấm cả 4 trên s6 một lần mỗi cái; chỉ H09 chạy transfer và tính cổng.
+
+## 2026-11-07 HUỶ kết quả dev H-ladder `20261107_173748_ladder` (rò rỉ split)
+
+- Chấm s6 bị `evaluate --eval-session s6_vary` chặn: frame s6 nằm trong train/dev. Kiểm `split.json` của 4 run H: train = s1, s2, s4, s5, s6 (mỗi session 60 frame), dev = khối 15 frame cuối của cả 5 session, eval = s3_vary. Nguyên nhân: ladder mặc định `--eval-sessions s3_vary`; lúc chạy R2 (11-06) chỉ có s1–s3 nên train đúng là s1+s2 (đã kiểm split R2b `20261106_132526`: train s1/s2 60+60, eval s3). Sau khi chụp s4–s6, mặc định này đẩy chúng vào train. Lỗi do plan H-ladder (Claude) không ghi rõ `--eval-sessions`.
+- Hệ quả: (1) run H đã tối ưu trên s6, nên không được chấm s6; (2) số dev ở mục trên đo trên khối dev gồm cả s4/s5 (liveness kém, đã trượt bước A), không phải dev s1+s2 như luật. Baseline liveness 0.65 trong dev là do vậy, không phải do "điều kiện khối dev". **Bảng dev và việc chọn H09 ở mục trên bị huỷ.** G-ladder `20261107_133518` cũng dính lỗi này (vốn đã bỏ).
+- R2b (cổng s6 82.7%) không bị ảnh hưởng.
+- Chạy lại, luật không đổi (cùng 4 cấu hình, cùng luật chọn), chỉ sửa split cho đúng luật đặt trước: `ladder --configs H16 H13 H11 H09 --g-out 8 --eval-sessions s3_vary s4_vary s5_vary s6_vary`. Sau đó mới chấm s6. Kiểm split.json trước khi đọc số dev.
+- Ghi chú minh bạch: owner và Claude đã thấy số dev của run lỗi. Luật chọn đã cố định từ trước nên không bị số này tác động; không đổi gì dựa trên chúng.
+
+## 2026-11-07 Kết quả dev H-ladder chạy lại (run `20261107_210423_ladder`, split đúng)
+
+- Claude kiểm `split.json` cả 4 run: train = s1_day1 60 + s2_day2 60; dev = khối 15 cuối của s1 và s2; eval = s3–s6. attack.json: g_out 8, clearance 16/13/11/9; meta: 3000 bước, lr 0.03, seed 0, dev block. Đúng luật.
+- Dev (method3, tầng không EOT, liveness gated; liveness_pass = 1.0 ở mọi tầng):
+
+| Cấu hình | clearance | phủ s1 | D success | Wilson95 | D_EOT |
+|---|---|---|---|---|---|
+| H16 | 16 mm | 8.4% | 8/28 = 28.6% | 0.15–0.47 | 2/30 |
+| H13 | 13 mm | 9.7% | 7/27 = 25.9% | 0.13–0.45 | 2/30 |
+| H11 | 11 mm | 10.4% | 17/30 = 56.7% | 0.39–0.73 | 12/29 |
+| H09 | 9 mm | 10.9% | 18/30 = 60.0% | 0.42–0.75 | 17/30 |
+
+- Baseline 0/29, control random/plain 0 ở cả 4.
+- **Áp luật: không cấu hình nào đạt dev ≥ 80% → chọn dev cao nhất = H09.**
+- Nhận xét: dev chỉ ~30 frame nên CI rộng; H16/H13 và H11/H09 không tách được nhau, chỉ thấy bước nhảy giữa 13 mm và 11 mm. Khớp với R2a (elip, phủ 11.6% → dev 70%): với độ phủ ~11% tấn công dừng quanh 60–70% dev.
+- Tiếp: chấm cả 4 trên s6 một lần mỗi cái; chỉ H09 (`20261107_214538_advglasses_impersonate`) chạy transfer và tính cổng.
+
+## 2026-11-08 Đánh giá s6 H-ladder (mỗi cấu hình đúng 1 lần, `--eval-session s6_vary --liveness`)
+
+- Claude kiểm: mỗi run H (`210429`/`211930`/`213245`/`214538`) có đúng một eval s6 (`20261108_215634`/`215438`/`215327`/`215113`). Baseline liveness s6 0.973.
+
+| Cấu hình | phủ s1 | dev | **s6 D** | Wilson95 | match bỏ liveness | D_EOT | control max |
+|---|---|---|---|---|---|---|---|
+| H16 | 8.4% | 28.6% | 15/75 = 20.0% | 0.13–0.30 | 20.0% | 4/75 | 0 |
+| H13 | 9.7% | 25.9% | 18/75 = 24.0% | 0.16–0.35 | 25.3% | 5/75 | 0 |
+| H11 | 10.4% | 56.7% | 52/75 = 69.3% | 0.58–0.79 | 72.0% | 47/74 | 0 |
+| **H09 (chọn)** | 10.9% | 60.0% | **65/75 = 86.7%** | 0.77–0.93 | 89.3% | 51/75 | 0 |
+
+- **Cổng L1 (chỉ H09 tính): D 86.7% ≥ 80%, control 0/0 ≤ 20% → PASS** (`gate_to_stage_B.pass = true`). Dự báo trước của Claude (khó qua cổng) sai: s6 cao hơn dev; dev chỉ 30 frame nên nhiễu lớn.
+- Transfer H09 (s6): method1 0/75, method2 5/75 (6.7%), method4 0/75, method5 (ViT) 0/75. Tấn công vẫn white-box đặc thù method3, giống R2b.
+- Liveness của frame D = baseline (0.973). Hiện tượng "liveness phản ứng với hoa văn dán digital" ở R2b **không lặp lại** với H09; không dùng làm tín hiệu phòng thủ.
+- Ý nghĩa: gọng thật của owner (tròng phủ hoa văn, chừa lỗ đồng tử 18 mm đường kính, 16% tròng hở) đủ để giả danh với độ phủ ~11%, vẫn là dán digital. Bước nhảy rõ giữa clearance 13 mm và 11 mm (24% → 69%) ủng hộ giả thuyết danh tính tập trung quanh mắt (cùng cơ chế S2).
+- Giới hạn: một kẻ tấn công (owner), một nạn nhân, một session đánh giá, digital chưa in.
+
+## 2026-11-08 Luật đặt trước: thử vật lý H09 có giới hạn (giai đoạn B rút gọn). Ghi TRƯỚC khi có số vật lý.
+
+- Bối cảnh: owner chốt phương án 1 (đánh giá digital, phòng thủ là trọng tâm) + **đúng một lần thử in** H09. Xem `decisions.md` 2026-11-08.
+- **Giới hạn:** tối đa 2 ngày tính từ lúc tối ưu bản in. Một bản in (A4, kèm control_random và control_plain), một session mỗi loại, chấm một lần.
+- **Bản in:** tối ưu lại H09, giữ y hệt mọi tham số của `20261107_214538` (s1+s2, `--eval-sessions s3_vary s4_vary s5_vary s6_vary`, dev block, g_out 8, clearance 9, 3000 bước, lr 0.03, seed 0, EOT), chỉ thêm `--color-map data/innovation/chart/colormap.json`. In cùng máy và cùng giấy mờ với `chart.png`, tỉ lệ 100%, tắt tự chỉnh màu. Phần hoa văn phủ lên tròng; khoét hai lỗ đồng tử theo mask.
+- **Kiểm digital phụ (mô tả, không phải cổng):** run có color-map chấm s6 một lần. Nếu D < 60%, vẫn in (luật không đổi) nhưng ghi lại.
+- **Quay:** owner tự đeo, `person = owner_physical`, ba session: `p_adv` (H09 in), `p_rand` (control_random in), `p_plain` (control_plain in); mỗi session ~75 frame, ánh sáng thường, khoảng cách như s6, cùng ngày, cùng chỗ. Không để dưới `frames/owner/` (tránh lọt vào split của ladder).
+- **Cổng vật lý:** tầng P (method3, liveness gated, frame enhancer tách sang `@dim`): P ≥ 80% VÀ cả hai control vật lý ≤ 20%. Transfer method1/2/4/5 chỉ mô tả.
+- **Nếu trượt:** được sửa đúng một lần trong ≤ nửa ngày, chỉ được chọn một trong: (a) in lại đúng kích thước nếu thước 50 mm sai ≥ 2 mm; (b) quay lại nếu liveness_pass của p_plain < 0.80 (lỗi điều kiện quay, như bước A); (c) không có lỗi đo nào → dừng luôn. Sau đó dừng hẳn, ghi khoảng cách digital/vật lý làm kết quả, quay về phương án 1.
+- Rủi ro biết trước: liveness model học kết cấu giấy in/màn hình nên có thể chặn khuôn mặt đeo gọng giấy; nếu P trượt chủ yếu do liveness (match bỏ liveness ≥ 80%) thì ghi là phát hiện, không tính là qua cổng.
+
+## 2026-11-09 H09 có bảng màu (run `20261109_094721`) — kiểm digital phụ trên s6
+
+- Claude kiểm meta: khác run `20261107_214538` đúng một tham số (`color_map = data/innovation/chart/colormap.json`); split train s1+s2, dev khối s1/s2; `color_map_calibrated = true`.
+- Tối ưu hội tụ kém hơn: cuối 3000 bước target_cos 0.53 (không bảng màu: 0.64), batch_success 0.5 (không bảng màu: 1.0).
+- **s6 (eval `20261109_105917`, 1 lần): D 8/75 = 10.7% [0.06–0.20], match bỏ liveness 10.7%, D_EOT 8/74, control 0/0, baseline liveness 0.973.** So với 86.7% khi M = identity.
+- Diễn giải: bảng màu đo được cho thấy giấy in qua camera chỉ phủ dải sáng ~0.06–0.69 mỗi kênh (`observed_range`), tức mất ~40% tương phản. Trong dải màu in được, tấn công H09 gần như mất tác dụng. Đây là ước lượng bằng mô phỏng cho kết quả vật lý.
+- Theo luật đặt trước (D < 60% vẫn in, ghi lại): **vẫn in và quay một lần**, không đổi tham số tối ưu. Kết quả vật lý dùng để kiểm mô phỏng bảng màu có đúng không. Không được tối ưu lại với cấu hình khác (bước, tex-res, trọng số NPS) trong lần thử này: luật chỉ cho sửa lỗi đo.
+- Lưu ý: `observed_range` trần 0.69 có thể một phần do phơi sáng của ảnh chụp bảng màu (frame 0050), nên mô phỏng có thể bi quan hơn thực tế. Chính vì vậy số vật lý mới có giá trị.

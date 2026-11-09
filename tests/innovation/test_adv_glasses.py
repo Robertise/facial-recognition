@@ -1504,3 +1504,560 @@ def test_photoframe_lens_opening_invariance_all_grow(tmp_path):
         encroached = float(m[lens_pts].mean())
         assert encroached == 0.0, f"Lens opening encroached at grow_px={g}!"
 
+
+
+def test_photoframe_clearance_mm_zero_reproducibility(tmp_path):
+    """(1) PhotoFrame with clearance_mm=0 gives the exact same mask array as default / legacy outward-only."""
+    H, W = 150, 400
+    mask = np.zeros((H, W), dtype=np.uint8)
+    lens = np.zeros((H, W), dtype=np.uint8)
+    cv2.rectangle(mask, (40, 30), (360, 120), 255, -1)
+    cv2.rectangle(lens, (60, 45), (170, 105), 255, -1)
+    cv2.rectangle(lens, (230, 45), (340, 105), 255, -1)
+    mask[lens > 127] = 0
+
+    mask_p = tmp_path / "mask.png"
+    lens_p = tmp_path / "lens.png"
+    cv2.imwrite(str(mask_p), mask)
+    cv2.imwrite(str(lens_p), lens)
+
+    for g in (0.0, 8.0, 16.0):
+        pf_default = glasses.PhotoFrame(mask_p, lens_p, grow_px=g)
+        pf_zero = glasses.PhotoFrame(mask_p, lens_p, grow_px=g, clearance_mm=0.0, ipd_mm=63.0)
+        m_def = pf_default.mask()
+        m_zero = pf_zero.mask()
+        assert np.array_equal(m_def, m_zero), f"clearance_mm=0 altered mask at grow_px={g}"
+        # Also verify lens remains 100% open when clearance_mm=0
+        assert np.all(m_zero[lens > 127] == 0.0)
+
+
+def test_photoframe_clearance_mm_positive_eye_disks_and_open_area(tmp_path):
+    """(2) PhotoFrame with clearance_mm > 0 fills lens outside pupil clearance disks and leaves the two
+    circular disks around (110, 80) and (290, 80) empty with area matching radius."""
+    H, W = 150, 400
+    mask = np.zeros((H, W), dtype=np.uint8)
+    lens = np.zeros((H, W), dtype=np.uint8)
+    cv2.rectangle(mask, (30, 20), (370, 130), 255, -1)
+    cv2.rectangle(lens, (50, 30), (175, 120), 255, -1)
+    cv2.rectangle(lens, (225, 30), (350, 120), 255, -1)
+    mask[lens > 127] = 0
+
+    mask_p = tmp_path / "mask.png"
+    lens_p = tmp_path / "lens.png"
+    cv2.imwrite(str(mask_p), mask)
+    cv2.imwrite(str(lens_p), lens)
+
+    ipd_mm = 63.0
+    yy, xx = np.mgrid[0:H, 0:W]
+    dist_left = np.sqrt((xx - 110.0) ** 2 + (yy - 80.0) ** 2)
+    dist_right = np.sqrt((xx - 290.0) ** 2 + (yy - 80.0) ** 2)
+
+    open_counts = []
+    for clr_mm in (14.0, 11.0, 9.0):
+        r_px = clr_mm * (180.0 / ipd_mm)
+        pf = glasses.PhotoFrame(mask_p, lens_p, grow_px=8.0, clearance_mm=clr_mm, ipd_mm=ipd_mm)
+        m = pf.mask()
+
+        # Strictly inside the two eye disks (margin 2px for supersampled AA edge) must be 0.0
+        inside_disks = (dist_left <= r_px - 2.0) | (dist_right <= r_px - 2.0)
+        assert np.all(m[inside_disks] == 0.0), f"Pixels inside pupil disk not zero for clr_mm={clr_mm}"
+
+        # Inside silhouette but outside the two eye disks (margin 2px) must be 1.0 (filled lens)
+        in_lens_outside_disks = (lens > 127) & (dist_left >= r_px + 2.0) & (dist_right >= r_px + 2.0)
+        assert in_lens_outside_disks.sum() > 0
+        assert np.all(m[in_lens_outside_disks] == 1.0), f"Lens area outside disk not filled for clr_mm={clr_mm}"
+
+        # Open area inside the silhouette should match 2 * pi * r_px^2 within discretization tolerance
+        sil_dilated = (m < 0.5) & ((dist_left <= r_px + 3.0) | (dist_right <= r_px + 3.0))
+        measured_open_px = float(sil_dilated.sum())
+        expected_open_px = 2.0 * np.pi * (r_px ** 2)
+        assert abs(measured_open_px - expected_open_px) / expected_open_px < 0.08
+        open_counts.append(measured_open_px)
+
+    # Larger clearance_mm -> strictly larger open hole area
+    assert open_counts[0] > open_counts[1] > open_counts[2]
+
+
+def test_hinge_cut_preserves_nose_bridge_and_trims_outer_nubs():
+    """(3) Cutting outer hinge nubs trims outer x-range while preserving the nose bridge at x≈200."""
+    from innovation.tools.frame_mask_from_photo import cut_hinge_nubs_template
+
+    H, W = 150, 400
+    sil = np.zeros((H, W), dtype=np.uint8)
+    lens = np.zeros((H, W), dtype=np.uint8)
+
+    # Main frame body x in [22..381], y in [25..125]
+    cv2.rectangle(sil, (22, 25), (175, 125), 255, -1)
+    cv2.rectangle(sil, (225, 25), (381, 125), 255, -1)
+    # Thin nose bridge at x in [175..225], y in [65..83] (18 px high, inside y 60-100)
+    cv2.rectangle(sil, (175, 65), (225, 83), 255, -1)
+    # Two outer hinge nubs at x in [0..21] and [382..399], y in [45..70] (25 px high < 51 px)
+    cv2.rectangle(sil, (0, 45), (21, 70), 255, -1)
+    cv2.rectangle(sil, (382, 45), (399, 70), 255, -1)
+
+    # Lenses at x in [28..168] and [232..373]
+    cv2.rectangle(lens, (28, 32), (168, 118), 255, -1)
+    cv2.rectangle(lens, (232, 32), (373, 118), 255, -1)
+
+    sil_cut, rim_cut, info = cut_hinge_nubs_template(sil, lens, keep_hinges=False, side_thicken=0)
+    assert info["x_range_before"] == [0, 399]
+    assert info["x_range_after"] == [22, 381]
+    # Nose bridge at x=200, y in [60..100] must remain intact
+    assert (rim_cut[60:100, 200] > 127).sum() >= 18
+    assert info["bridge_x200_rim_px"] >= 18
+
+    # Also verify real generated owner_frame_mask.png if present
+    real_mask_p = Path("data/innovation/frame/owner_frame_mask.png")
+    if real_mask_p.exists():
+        real_mask = cv2.imread(str(real_mask_p), cv2.IMREAD_GRAYSCALE)
+        xs = np.where(real_mask > 127)[1]
+        assert int(xs.min()) == 22 and int(xs.max()) == 381
+        assert int((real_mask[:, 200] > 127).sum()) == 18
+
+
+def test_h_ladder_configs_flags_csv_and_selection_rule(tmp_path, monkeypatch):
+    """(4) Verify H-ladder configs (H16, H13, H11, H09), optimize flags, clearance_mm in ladder.csv,
+    and selection rule following H_ORDER."""
+    import csv
+    import sys
+    from innovation.attacks.adv_glasses import ladder as ladder_mod
+    from innovation.attacks.adv_glasses.ladder import H_ORDER, LADDER_CONFIGS, select_config
+
+    assert H_ORDER == ["H16", "H13", "H11", "H09"]
+    expected_clr = {"H16": 16.0, "H13": 13.0, "H11": 11.0, "H09": 9.0}
+    for cfg_name, clr in expected_clr.items():
+        assert cfg_name in LADDER_CONFIGS
+        cfg = LADDER_CONFIGS[cfg_name]
+        assert cfg["clearance_mm"] == clr
+        assert cfg["tex_res"] == [15, 40]
+        assert cfg["no_eot"] is False
+        assert cfg["frame_mask"] == "data/innovation/frame/owner_frame_mask.png"
+        assert cfg["frame_lens"] == "data/innovation/frame/owner_frame_lens.png"
+
+    # Selection rule follows H_ORDER
+    rows_h = [
+        {"config": "H16", "dev_success": 0.65},
+        {"config": "H13", "dev_success": 0.81},
+        {"config": "H11", "dev_success": 0.88},
+        {"config": "H09", "dev_success": 0.92},
+    ]
+    sel, reason = select_config(rows_h, H_ORDER)
+    assert sel["config"] == "H13"
+    assert "H13" in reason
+
+    # End-to-end mocked ladder run for H16, H13, H11, H09 checking CLI flags and ladder.csv
+    recorded_cmds = []
+    call_idx = {"n": 0}
+
+    def fake_execute(cmd):
+        recorded_cmds.append(list(cmd))
+        call_idx["n"] += 1
+        d = tmp_path / f"run_{call_idx['n']}"
+        d.mkdir(parents=True, exist_ok=True)
+        if "innovation.attacks.adv_glasses.optimize" in cmd:
+            clr_arg = float(cmd[cmd.index("--clearance-mm") + 1]) if "--clearance-mm" in cmd else 0.0
+            grow_arg = float(cmd[cmd.index("--grow-px") + 1]) if "--grow-px" in cmd else 0.0
+            (d / "attack.json").write_text(json.dumps({
+                "coverage_train": {"mean": 0.095},
+                "final": {"target_cos": 0.65, "margin_vs_attacker": 0.12},
+                "grow_px": grow_arg,
+                "clearance_mm": clr_arg,
+            }), encoding="utf-8")
+        else:
+            # Evaluate call
+            rate = 0.85 if call_idx["n"] == 6 else 0.60  # 3rd config (H11) reaches 0.85
+            (d / "summary.json").write_text(json.dumps({
+                "results": {
+                    "method3/D": {
+                        "success": int(rate * 20),
+                        "frames": 20,
+                        "rate": rate,
+                        "wilson95": [rate - 0.1, min(1.0, rate + 0.1)],
+                        "victim_sim_mean": 0.58,
+                        "match_ignoring_liveness": rate,
+                    }
+                }
+            }), encoding="utf-8")
+        return str(d)
+
+    ladder_out = tmp_path / "ladder_out"
+    ladder_out.mkdir()
+    monkeypatch.setattr(ladder_mod, "execute_command", fake_execute)
+    monkeypatch.setattr(ladder_mod, "new_run", lambda name, args: ladder_out)
+    monkeypatch.setattr(
+        sys, "argv",
+        [
+            "ladder.py",
+            "--configs", "H16", "H13", "H11", "H09",
+            "--eval-sessions", "s6_vary",
+            "--g-out", "8",
+            "--ipd-mm", "63",
+        ],
+    )
+    ladder_mod.main()
+
+    opt_cmds = [c for c in recorded_cmds if "innovation.attacks.adv_glasses.optimize" in c]
+    assert len(opt_cmds) == 4
+    for cmd, expected_c in zip(opt_cmds, [16.0, 13.0, 11.0, 9.0]):
+        assert "--clearance-mm" in cmd
+        assert float(cmd[cmd.index("--clearance-mm") + 1]) == expected_c
+        assert "--grow-px" in cmd
+        assert float(cmd[cmd.index("--grow-px") + 1]) == 8.0
+        assert "--ipd-mm" in cmd
+        assert float(cmd[cmd.index("--ipd-mm") + 1]) == 63.0
+
+    csv_file = ladder_out / "ladder.csv"
+    assert csv_file.exists()
+    with open(csv_file, encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        assert reader.fieldnames is not None
+        assert reader.fieldnames[-1] == "clearance_mm"
+        rows_csv = list(reader)
+    assert [r["config"] for r in rows_csv] == ["H16", "H13", "H11", "H09"]
+    assert [float(r["clearance_mm"]) for r in rows_csv] == [16.0, 13.0, 11.0, 9.0]
+
+
+# ==============================================================================
+# Physical evaluation tests (plan_physical.md)
+# ==============================================================================
+
+def test_physical_gate_unit():
+    from innovation.attacks.adv_glasses.evaluate import physical_gate
+
+    # P 0.85 / control 0.1 -> pass
+    r1 = {
+        "method3/P": {"rate": 0.85},
+        "method3/P_control_random": {"rate": 0.10},
+        "method3/P_control_plain": {"rate": 0.05},
+    }
+    g1 = physical_gate(r1, liveness_gated=True)
+    assert g1["P_rate"] == 0.85
+    assert g1["control_max"] == 0.10
+    assert g1["liveness_gated"] is True
+    assert g1["pass"] is True
+
+    # P 0.85 / control 0.3 -> fail (control > 0.2)
+    r2 = {
+        "method3/P": {"rate": 0.85},
+        "method3/P_control_random": {"rate": 0.30},
+        "method3/P_control_plain": {"rate": 0.05},
+    }
+    g2 = physical_gate(r2, liveness_gated=True)
+    assert g2["P_rate"] == 0.85
+    assert g2["control_max"] == 0.30
+    assert g2["pass"] is False
+
+    # P 0.75 / control 0.1 -> fail (P < 0.8)
+    r3 = {
+        "method3/P": {"rate": 0.75},
+        "method3/P_control_random": {"rate": 0.10},
+    }
+    g3 = physical_gate(r3, liveness_gated=True)
+    assert g3["pass"] is False
+
+    # without liveness -> pass is None (null)
+    g4 = physical_gate(r1, liveness_gated=False)
+    assert g4["pass"] is None
+    assert g4["liveness_gated"] is False
+    assert g4["P_rate"] == 0.85
+    assert g4["control_max"] == 0.10
+
+
+def test_evaluate_physical_leak_and_validation(tmp_path, monkeypatch):
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    s_train = tmp_path / "train_frames"
+    s_train.mkdir()
+    train_frame = s_train / "000.jpg"
+    cv2.imwrite(str(train_frame), np.zeros((100, 100, 3), dtype=np.uint8))
+
+    (opt_run / "split.json").write_text(json.dumps({
+        "train": [str(train_frame)],
+        "dev": [],
+        "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+    }), encoding="utf-8")
+
+    # 1. Invalid format (no '=')
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--physical", "INVALID_FORMAT"],
+    )
+    with pytest.raises(SystemExit) as exc1:
+        eval_mod.main()
+    assert "invalid --physical format" in str(exc1.value)
+
+    # 2. Non-existent directory
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--physical", f"P={tmp_path / 'missing_dir'}"],
+    )
+    with pytest.raises(SystemExit) as exc2:
+        eval_mod.main()
+    assert "does not exist" in str(exc2.value)
+
+    # 3. Empty directory
+    empty_dir = tmp_path / "empty_dir"
+    empty_dir.mkdir()
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--physical", f"P={empty_dir}"],
+    )
+    with pytest.raises(SystemExit) as exc3:
+        eval_mod.main()
+    assert "no images found" in str(exc3.value)
+
+    # 4. Leak: physical frame in split.json
+    phys_dir = tmp_path / "p_leaked"
+    phys_dir.mkdir()
+    leaked_frame = phys_dir / "000.jpg"
+    cv2.imwrite(str(leaked_frame), np.zeros((100, 100, 3), dtype=np.uint8))
+
+    (opt_run / "split.json").write_text(json.dumps({
+        "train": [str(leaked_frame)],
+        "dev": [],
+        "eval": [],
+    }), encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--physical", f"P={phys_dir}"],
+    )
+    with pytest.raises(SystemExit) as exc4:
+        eval_mod.main()
+    assert "which is in split" in str(exc4.value)
+
+
+def test_evaluate_physical_no_eyes_and_no_face_handling(tmp_path, monkeypatch):
+    import csv
+    import sys
+    import backend.face_recognizer as fr_mod
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    (opt_run / "split.json").write_text(json.dumps({
+        "train": [], "dev": [], "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "checkpoint": "dummy.pth",
+        "gallery": str(tmp_path / "gallery"),
+    }), encoding="utf-8")
+
+    phys_dir = tmp_path / "p_adv"
+    phys_dir.mkdir()
+    # Frame 0: has face
+    cv2.imwrite(str(phys_dir / "000.jpg"), np.full((120, 120, 3), 100, dtype=np.uint8))
+    # Frame 1: no face
+    cv2.imwrite(str(phys_dir / "001.jpg"), np.full((120, 120, 3), 120, dtype=np.uint8))
+
+    with open(phys_dir / "meta.csv", "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["index", "client_ms", "bytes"])
+        w.writerow([0, 0.0, 1000])
+        w.writerow([1, 200.0, 1000])
+
+    class DetectFaceOn0Only:
+        def detect(self, img):
+            # Only detect face on 000.jpg (mean pixel value < 110)
+            if img.mean() < 110:
+                return [20, 20, 60, 60]
+            return None
+
+    class BreakOnEyes:
+        def eyes(self, img):
+            # Paper glasses ruin eye landmarks
+            return None
+
+    class FakeRecognizer:
+        def __init__(self, *a, **kw):
+            self.load_report = {"arch": "fake"}
+
+        def extract_embedding(self, face):
+            v = np.zeros(16, dtype=np.float32)
+            v[0] = 1.0
+            return v
+
+        def find_match(self, emb, db):
+            return {"matched": True, "employee_id": "LFW_victim", "similarity": 0.90}
+
+    class FakeGallery:
+        def __init__(self):
+            v = np.zeros((1, 16), dtype=np.float32)
+            v[0, 0] = 1.0
+            self.embeddings = {"LFW_victim": v, "owner": v}
+
+        def as_db(self):
+            return {}
+
+    eval_out = tmp_path / "eval_physical_out"
+    eval_out.mkdir()
+
+    monkeypatch.setattr(faces, "FaceDetector", DetectFaceOn0Only)
+    monkeypatch.setattr(faces, "EyeLandmarks", BreakOnEyes)
+    monkeypatch.setattr(faces, "build_gallery", lambda *a, **kw: (FakeGallery(), {}))
+    monkeypatch.setattr(faces, "enhance", lambda crop: (crop, {"applied": False}))
+    monkeypatch.setattr(fr_mod, "FaceRecognizer", FakeRecognizer)
+    recorded_name = {}
+    def fake_new_run(name, args):
+        recorded_name["name"] = name
+        return eval_out
+    monkeypatch.setattr(eval_mod, "new_run", fake_new_run)
+
+    monkeypatch.setattr(
+        sys, "argv",
+        ["evaluate.py", "--run", str(opt_run), "--physical", f"P={phys_dir}"],
+    )
+    eval_mod.main()
+
+    assert recorded_name["name"] == "advglasses_eval_physical"
+
+    with open(eval_out / "frames.csv", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    assert len(rows) == 2
+    # Row 0: face detected despite EyeLandmarks returning None
+    assert rows[0]["frame"].endswith("000.jpg")
+    assert rows[0]["face"] == "1"
+    assert rows[0]["success"] == "1"
+    assert rows[0]["match_id"] == "LFW_victim"
+
+    # Row 1: no face detected
+    assert rows[1]["frame"].endswith("001.jpg")
+    assert rows[1]["face"] == "0"
+    assert rows[1]["success"] == "0"
+    assert rows[1]["match_id"] == ""
+
+    summary = json.loads((eval_out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["eval_frames"] == 2
+    assert summary["gate_to_stage_B"] is None
+    assert summary["physical_sessions"] == {"P": str(phys_dir)}
+    res_p = summary["results"]["method3/P"]
+    assert res_p["frames"] == 2
+    assert res_p["success"] == 1
+    assert res_p["rate"] == 0.5
+    assert res_p["no_face"] == 0.5
+
+
+def test_evaluate_physical_multi_tier_transfer_and_gate(tmp_path, monkeypatch):
+    import csv
+    import sys
+    import backend.face_recognizer as fr_mod
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    (opt_run / "split.json").write_text(json.dumps({
+        "train": [], "dev": [], "eval": [],
+    }), encoding="utf-8")
+    (opt_run / "attack.json").write_text(json.dumps({
+        "mode": "impersonate",
+        "attacker_id": "owner",
+        "victim": "LFW_victim",
+        "checkpoint": "method3.pth",
+        "gallery": str(tmp_path / "gallery"),
+    }), encoding="utf-8")
+
+    p_adv = tmp_path / "p_adv"
+    p_rand = tmp_path / "p_rand"
+    p_plain = tmp_path / "p_plain"
+    for d, val in [(p_adv, 50), (p_rand, 150), (p_plain, 200)]:
+        d.mkdir()
+        for i in range(3):
+            cv2.imwrite(str(d / f"{i:03d}.jpg"), np.full((120, 120, 3), val, dtype=np.uint8))
+
+    class UniversalDetector:
+        def detect(self, img):
+            return [20, 20, 60, 60]
+
+    class FakeRecognizer:
+        def __init__(self, ckpt_path=None, *a, **kw):
+            self.ckpt = str(ckpt_path)
+            self.load_report = {"arch": "fake", "ckpt": self.ckpt}
+
+        def extract_embedding(self, face):
+            v = np.zeros(16, dtype=np.float32)
+            # p_adv (mean < 100) gets victim embedding
+            if face.mean() < 100:
+                v[0] = 1.0
+            else:
+                v[1] = 1.0
+            return v
+
+        def find_match(self, emb, db):
+            if emb[0] == 1.0:
+                return {"matched": True, "employee_id": "LFW_victim", "similarity": 0.88}
+            return {"matched": False, "employee_id": "other", "similarity": 0.10}
+
+    class FakeGallery:
+        def __init__(self):
+            v_vic = np.zeros((1, 16), dtype=np.float32); v_vic[0, 0] = 1.0
+            v_own = np.zeros((1, 16), dtype=np.float32); v_own[0, 1] = 1.0
+            self.embeddings = {"LFW_victim": v_vic, "owner": v_own}
+
+        def as_db(self):
+            return {}
+
+    class FakeLiveness:
+        def __init__(self):
+            self.config = {"smoothing": {"enabled": True, "min_frames": 2}}
+
+        def check(self, frame):
+            return True, 0.95, "Real", [20, 20, 60, 60]
+
+    eval_out = tmp_path / "eval_out"
+    eval_out.mkdir()
+
+    monkeypatch.setattr(faces, "FaceDetector", UniversalDetector)
+    monkeypatch.setattr(faces, "build_gallery", lambda *a, **kw: (FakeGallery(), {}))
+    monkeypatch.setattr(faces, "enhance", lambda crop: (crop, {"applied": False}))
+    monkeypatch.setattr(fr_mod, "FaceRecognizer", FakeRecognizer)
+    monkeypatch.setattr(eval_mod, "new_run", lambda name, args: eval_out)
+
+    import liveness.liveness_detector as ld_mod
+    monkeypatch.setattr(ld_mod, "LivenessDetector", FakeLiveness)
+
+    monkeypatch.setattr(
+        sys, "argv",
+        [
+            "evaluate.py", "--run", str(opt_run),
+            "--physical", f"P={p_adv}", f"P_control_random={p_rand}", f"P_control_plain={p_plain}",
+            "--transfer", "method1=method1.pth",
+            "--liveness",
+        ],
+    )
+    eval_mod.main()
+
+    with open(eval_out / "frames.csv", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    # method3 evaluated P, P_control_random, P_control_plain (3 * 3 = 9 rows)
+    # method1 evaluated ONLY P (3 rows)
+    # Total = 12 rows
+    assert len(rows) == 12
+    m3_tiers = {r["tier"] for r in rows if r["model"] == "method3"}
+    assert m3_tiers == {"P", "P_control_random", "P_control_plain"}
+    m1_tiers = {r["tier"] for r in rows if r["model"] == "method1"}
+    assert m1_tiers == {"P"}
+
+    summary = json.loads((eval_out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["gate_to_stage_B"] is None
+    gate_p = summary["gate_physical"]
+    assert gate_p is not None
+    assert gate_p["P_rate"] == 1.0
+    assert gate_p["control_max"] == 0.0
+    assert gate_p["liveness_gated"] is True
+    assert gate_p["pass"] is True
+    assert summary["smoother_warmup_frames"] > 0
+

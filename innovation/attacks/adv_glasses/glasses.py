@@ -61,19 +61,26 @@ class PhotoFrame:
 
     `mask_path`: base rim mask (rim only, lens holes 0).
     `lens_path`: lens region to keep open (two lens holes).
-    `grow_px`: outward dilation in template pixels. Dilation is applied to the
-    full silhouette (rim | lens) and then the lens region is strictly subtracted,
-    guaranteeing that lens holes are NEVER encroached upon regardless of grow_px.
+    `grow_px`: outward dilation in template pixels.
+    `clearance_mm`: radius in mm of circular holes around the two eye centres (110, 80) and (290, 80).
+      When `clearance_mm <= 0`, dilation is outward-only and `lens_path` is strictly subtracted.
+      When `clearance_mm > 0`, the silhouette (`rim | lens`) is dilated by `grow_px` and two circular
+      pupil clearance holes of radius `clearance_mm * (180.0 / ipd_mm)` px are subtracted.
+    `ipd_mm`: interpupillary distance in mm (maps 180 template pixels -> ipd_mm).
     """
     def __init__(
         self,
         mask_path: str | Path | np.ndarray,
         lens_path: str | Path | np.ndarray | None = None,
         grow_px: float = 0.0,
+        clearance_mm: float = 0.0,
+        ipd_mm: float = 63.0,
     ):
         self.mask_path = mask_path
         self.lens_path = lens_path
         self.grow_px = float(grow_px)
+        self.clearance_mm = float(clearance_mm)
+        self.ipd_mm = float(ipd_mm)
 
     def _load_image(self, src: str | Path | np.ndarray | None) -> np.ndarray:
         if src is None:
@@ -108,7 +115,6 @@ class PhotoFrame:
 
         h_s, w_s = TEMPLATE_H * s, TEMPLATE_W * s
         sil_s = cv2.resize(silhouette, (w_s, h_s), interpolation=cv2.INTER_NEAREST)
-        lens_s = cv2.resize(lens_bin, (w_s, h_s), interpolation=cv2.INTER_NEAREST)
 
         r = int(round(self.grow_px * s))
         if r > 0:
@@ -117,7 +123,16 @@ class PhotoFrame:
         else:
             grown_s = sil_s
 
-        mask_s = cv2.bitwise_and(grown_s, cv2.bitwise_not(lens_s))
+        if self.clearance_mm <= 0:
+            lens_s = cv2.resize(lens_bin, (w_s, h_s), interpolation=cv2.INTER_NEAREST)
+            mask_s = cv2.bitwise_and(grown_s, cv2.bitwise_not(lens_s))
+        else:
+            mask_s = grown_s.copy()
+            r_clr_px = self.clearance_mm * (180.0 / self.ipd_mm)
+            r_clr_s = max(1, int(round(r_clr_px * s)))
+            for cx, cy in EYES:
+                center_s = (int(round(cx * s)), int(round(cy * s)))
+                cv2.circle(mask_s, center_s, r_clr_s, 0, -1, cv2.LINE_AA)
 
         m = cv2.resize(mask_s, (TEMPLATE_W, TEMPLATE_H), interpolation=cv2.INTER_AREA)
         return m.astype(np.float32) / 255.0
@@ -134,6 +149,8 @@ def shape_from_attack(attack: dict[str, Any]) -> FrameShape | PhotoFrame:
         mask_path = attack.get("frame_mask")
         lens_path = attack.get("frame_lens")
         grow_px = attack.get("grow_px", 0.0)
+        clearance_mm = attack.get("clearance_mm", 0.0)
+        ipd_mm = attack.get("ipd_mm", 63.0)
         if isinstance(shape_meta, dict):
             if not mask_path:
                 mask_path = shape_meta.get("frame_mask")
@@ -141,9 +158,19 @@ def shape_from_attack(attack: dict[str, Any]) -> FrameShape | PhotoFrame:
                 lens_path = shape_meta.get("frame_lens")
             if grow_px == 0.0 and "grow_px" in shape_meta:
                 grow_px = shape_meta.get("grow_px", 0.0)
+            if clearance_mm == 0.0 and "clearance_mm" in shape_meta:
+                clearance_mm = shape_meta.get("clearance_mm", 0.0)
+            if "ipd_mm" in shape_meta and "ipd_mm" not in attack:
+                ipd_mm = shape_meta.get("ipd_mm", 63.0)
         if not mask_path:
             raise ValueError("attack dict specifies frame_source='photo' but missing 'frame_mask'")
-        return PhotoFrame(mask_path, lens_path, grow_px=float(grow_px))
+        return PhotoFrame(
+            mask_path,
+            lens_path,
+            grow_px=float(grow_px),
+            clearance_mm=float(clearance_mm),
+            ipd_mm=float(ipd_mm),
+        )
 
     if isinstance(shape_meta, dict):
         kwargs = {}

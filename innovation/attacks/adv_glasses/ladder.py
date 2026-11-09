@@ -127,20 +127,60 @@ LADDER_CONFIGS: dict[str, dict[str, Any]] = {
         "grow_px": None,  # provided via --g15-grow
         "description": "G15: PhotoFrame, target ~15% coverage",
     },
+    # PhotoFrame H-ladder (fill-lens + pupil clearance around eye centres)
+    "H16": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 8.0,
+        "clearance_mm": 16.0,
+        "description": "H16: PhotoFrame fill-lens + 16mm pupil clearance (~7.8% coverage)",
+    },
+    "H13": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 8.0,
+        "clearance_mm": 13.0,
+        "description": "H13: PhotoFrame fill-lens + 13mm pupil clearance (~9.5% coverage)",
+    },
+    "H11": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 8.0,
+        "clearance_mm": 11.0,
+        "description": "H11: PhotoFrame fill-lens + 11mm pupil clearance (~10.3% coverage)",
+    },
+    "H09": {
+        "tex_res": [15, 40],
+        "no_eot": False,
+        "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+        "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+        "grow_px": 8.0,
+        "clearance_mm": 9.0,
+        "description": "H09: PhotoFrame fill-lens + 9mm pupil clearance (~10.8% coverage)",
+    },
 }
 
 ROUND1_ORDER = ["C0", "C1", "C2", "C3", "C4"]
 ROUND2_ORDER = ["R2a", "R2b", "R2c"]
 GROW_ORDER = ["G0", "G16", "G11", "G15"]
+H_ORDER = ["H16", "H13", "H11", "H09"]
 
 
 def measure_coverage_s1(
     attacker_frames: Path | str = "data/innovation/frames/owner",
     frame_mask: Path | str | None = None,
     frame_lens: Path | str | None = None,
+    g_out: float = 8.0,
+    ipd_mm: float = 63.0,
 ) -> list[dict[str, Any]]:
     """Measure mean coverage on usable normal-light s1 frames for candidate thickness/rim-scale pairs
-    or grow_px values when using PhotoFrame."""
+    or grow_px / clearance_mm values when using PhotoFrame."""
     s1_dir = Path(attacker_frames) / "s1_day1"
     if not s1_dir.exists():
         s1_dirs = list(Path(attacker_frames).glob("*s1*"))
@@ -152,6 +192,7 @@ def measure_coverage_s1(
     import cv2
     import torch
     from innovation.attacks.adv_glasses import faces, glasses
+    from innovation.tools.frame_mask_from_photo import compute_template_border_touch_pct
 
     detector = faces.FaceDetector()
     eyes_finder = faces.EyeLandmarks()
@@ -175,17 +216,17 @@ def measure_coverage_s1(
 
     results = []
     if frame_mask is not None:
-        # PhotoFrame evaluation with grow_px ladder
         lens_img = cv2.imread(str(frame_lens), cv2.IMREAD_GRAYSCALE) if frame_lens else None
         lens_pts = (lens_img > 127) if lens_img is not None else None
 
+        # 1. Outward-only grow_px table (clearance_mm = 0)
         candidates_grow = [0.0, 4.0, 8.0, 12.0, 16.0]
-        print(f"\nMeasuring PhotoFrame eyeglass coverage across {len(items)} usable normal-light s1 frames:")
-        print(f"Mask: {frame_mask}, Lens: {frame_lens}\n" + "-" * 85)
-        print(f" {'grow_px':>7} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Note':<22}")
-        print("-" * 85)
+        print(f"\nMeasuring PhotoFrame outward grow_px coverage across {len(items)} usable normal-light s1 frames:")
+        print(f"Mask: {frame_mask}, Lens: {frame_lens}\n" + "-" * 95)
+        print(f" {'grow_px':>7} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Border %':>8} | {'Note':<22}")
+        print("-" * 95)
         for g in candidates_grow:
-            shape = glasses.PhotoFrame(frame_mask, frame_lens, grow_px=g)
+            shape = glasses.PhotoFrame(frame_mask, frame_lens, grow_px=g, clearance_mm=0.0, ipd_mm=ipd_mm)
             m_np = shape.mask()
             mask = torch.from_numpy(m_np)[None]
             covs = [glasses.coverage(mask, it["A"], it["window"]) for it in items]
@@ -198,6 +239,7 @@ def measure_coverage_s1(
                 lens_open = 100.0 * max(0.0, 1.0 - encroached)
             else:
                 lens_open = 100.0
+            border_pct = compute_template_border_touch_pct(frame_mask, frame_lens, grow_px=g, clearance_mm=0.0, ipd_mm=ipd_mm)
 
             note = ""
             if abs(mean_cov - 0.111) < 0.015:
@@ -206,12 +248,45 @@ def measure_coverage_s1(
                 note = "~R2b target (15.0%)"
 
             results.append({
-                "grow_px": g, "mean_coverage": mean_cov,
-                "min_coverage": min_cov, "max_coverage": max_cov,
-                "lens_open_pct": lens_open, "note": note,
+                "grow_px": g, "clearance_mm": 0.0, "clearance_px": 0.0,
+                "mean_coverage": mean_cov, "min_coverage": min_cov, "max_coverage": max_cov,
+                "lens_open_pct": lens_open, "border_touch_pct": border_pct, "note": note,
             })
-            print(f" {g:7.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open:9.1f}% | {note:<22}")
-        print("-" * 85)
+            print(f" {g:7.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open:9.1f}% | {border_pct:7.2f}% | {note:<22}")
+        print("-" * 95)
+
+        # 2. H-ladder clearance_mm table at fixed grow_px = g_out
+        candidates_clr = [16.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0]
+        g_out_mm = round(g_out * (ipd_mm / 180.0), 2)
+        print(f"\nMeasuring H-ladder (fill-lens + pupil clearance) at fixed g_out = {g_out:.1f} px (+{g_out_mm:.2f} mm), ipd_mm = {ipd_mm:.1f}:")
+        print("-" * 105)
+        print(f" {'clr_mm':>6} | {'clr_px':>6} | {'g_out':>5} | {'Mean Cov':>9} | {'Min Cov':>9} | {'Max Cov':>9} | {'Lens Open':>10} | {'Border %':>8} | {'Config':<12}")
+        print("-" * 105)
+        for clr_mm in candidates_clr:
+            shape = glasses.PhotoFrame(frame_mask, frame_lens, grow_px=g_out, clearance_mm=clr_mm, ipd_mm=ipd_mm)
+            m_np = shape.mask()
+            mask = torch.from_numpy(m_np)[None]
+            covs = [glasses.coverage(mask, it["A"], it["window"]) for it in items]
+            mean_cov = float(np.mean(covs))
+            min_cov = float(np.min(covs))
+            max_cov = float(np.max(covs))
+
+            if lens_pts is not None and lens_pts.sum() > 0:
+                encroached = float(m_np[lens_pts].mean())
+                lens_open = 100.0 * max(0.0, 1.0 - encroached)
+            else:
+                lens_open = 0.0
+            clr_px = round(clr_mm * (180.0 / ipd_mm), 1)
+            border_pct = compute_template_border_touch_pct(frame_mask, frame_lens, grow_px=g_out, clearance_mm=clr_mm, ipd_mm=ipd_mm)
+            cfg_tag = f"H{int(round(clr_mm)):02d}" if int(round(clr_mm)) in (16, 13, 11, 9) else ""
+
+            results.append({
+                "grow_px": float(g_out), "clearance_mm": float(clr_mm), "clearance_px": clr_px,
+                "mean_coverage": mean_cov, "min_coverage": min_cov, "max_coverage": max_cov,
+                "lens_open_pct": lens_open, "border_touch_pct": border_pct, "note": cfg_tag,
+            })
+            print(f" {clr_mm:6.1f} | {clr_px:6.1f} | {g_out:5.1f} | {mean_cov*100:8.2f}% | {min_cov*100:8.2f}% | {max_cov*100:8.2f}% | {lens_open:9.1f}% | {border_pct:7.2f}% | {cfg_tag:<12}")
+        print("-" * 105)
         return results
 
     # Legacy FrameShape candidates
@@ -313,6 +388,10 @@ def main():
                     help="grow_px for G11 configuration in PhotoFrame ladder (required when running G11)")
     ap.add_argument("--g15-grow", type=float, default=None,
                     help="grow_px for G15 configuration in PhotoFrame ladder (required when running G15)")
+    ap.add_argument("--g-out", type=float, default=8.0,
+                    help="outward grow_px for H-ladder and clearance coverage table (default: 8.0)")
+    ap.add_argument("--ipd-mm", type=float, default=63.0,
+                    help="interpupillary distance in mm for H-ladder (default: 63.0)")
     args = ap.parse_args()
 
     if "G11" in args.configs:
@@ -323,9 +402,18 @@ def main():
         if args.g15_grow is None:
             raise ValueError("--g15-grow is required when running G15 configuration")
         LADDER_CONFIGS["G15"]["grow_px"] = float(args.g15_grow)
+    for h_cfg in H_ORDER:
+        if h_cfg in LADDER_CONFIGS:
+            LADDER_CONFIGS[h_cfg]["grow_px"] = float(args.g_out)
 
     if args.measure_coverage:
-        measure_coverage_s1(args.attacker_frames, frame_mask=args.frame_mask, frame_lens=args.frame_lens)
+        measure_coverage_s1(
+            args.attacker_frames,
+            frame_mask=args.frame_mask,
+            frame_lens=args.frame_lens,
+            g_out=args.g_out,
+            ipd_mm=args.ipd_mm,
+        )
         return
 
     ladder_run = new_run("ladder", vars(args))
@@ -369,6 +457,11 @@ def main():
             ]
             if cfg.get("frame_lens"):
                 cmd_opt.extend(["--frame-lens", str(cfg["frame_lens"])])
+            if cfg.get("clearance_mm") is not None:
+                cmd_opt.extend([
+                    "--clearance-mm", str(cfg["clearance_mm"]),
+                    "--ipd-mm", str(args.ipd_mm),
+                ])
         else:
             cmd_opt = [
                 sys.executable, "-m", "innovation.attacks.adv_glasses.optimize",
@@ -441,6 +534,9 @@ def main():
         grow_val = cfg.get("grow_px")
         if grow_val is None:
             grow_val = attack.get("grow_px", "")
+        clr_val = cfg.get("clearance_mm")
+        if clr_val is None:
+            clr_val = attack.get("clearance_mm", "")
 
         row = {
             "config": cfg_name,
@@ -455,6 +551,7 @@ def main():
             "dev_success": round(float(rate), 4),
             "dev_match_ignoring_liveness": round(float(match_ign), 4),
             "grow_px": grow_val,
+            "clearance_mm": clr_val,
         }
         csv_rows.append(row)
 
@@ -464,7 +561,7 @@ def main():
         "dev_success_frames", "wilson95", "victim_sim_mean",
         "final_train_target_cos", "margin_vs_attacker",
         "dev_success", "dev_match_ignoring_liveness",
-        "grow_px",
+        "grow_px", "clearance_mm",
     ]
     csv_path = ladder_run / "ladder.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
@@ -486,7 +583,9 @@ def main():
     print(f"Results CSV written to: {csv_path}\n")
 
     # Preregistered selection rule evaluation
-    if all(r["config"].startswith("G") for r in csv_rows):
+    if all(r["config"].startswith("H") for r in csv_rows):
+        priority = H_ORDER
+    elif all(r["config"].startswith("G") for r in csv_rows):
         priority = GROW_ORDER
     elif any(r["config"].startswith("R2") for r in csv_rows):
         priority = ROUND2_ORDER

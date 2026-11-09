@@ -249,6 +249,10 @@ def main():
     ap.add_argument("--frame-lens", help="path to lens region PNG to preserve holes during dilation")
     ap.add_argument("--grow-px", type=float, default=0.0,
                     help="outward dilation in template pixels for PhotoFrame (default: 0.0)")
+    ap.add_argument("--clearance-mm", type=float, default=0.0,
+                    help="pupil clearance radius in mm for PhotoFrame fill-lens mode (default: 0.0 = outward only)")
+    ap.add_argument("--ipd-mm", type=float, default=63.0,
+                    help="interpupillary distance in mm for PhotoFrame clearance scaling (default: 63.0)")
     ap.add_argument("--tex-res", type=int, nargs=2, default=[15, 40], metavar=("H", "W"),
                     help="parameter grid resolution (H, W); upsampled bicubic to 150x400 (default: 15 40)")
     ap.add_argument("--steps", type=int, default=1500)
@@ -302,7 +306,7 @@ def main():
     others = [k for k in E if k != target]
 
     if args.frame_mask:
-        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, args.grow_px)
+        shape = glasses.PhotoFrame(args.frame_mask, args.frame_lens, args.grow_px, args.clearance_mm, args.ipd_mm)
     else:
         shape = glasses.FrameShape(args.thickness, args.rim_scale)
     mask = torch.from_numpy(shape.mask())[None].to(args.device)
@@ -379,6 +383,8 @@ def main():
             "frame_mask": str(args.frame_mask),
             "frame_lens": str(args.frame_lens) if args.frame_lens else None,
             "grow_px": float(args.grow_px),
+            "clearance_mm": float(args.clearance_mm),
+            "ipd_mm": float(args.ipd_mm),
         }
     else:
         shape_dict = vars(shape)
@@ -399,6 +405,8 @@ def main():
         attack_meta["frame_mask"] = str(args.frame_mask)
         attack_meta["frame_lens"] = str(args.frame_lens) if args.frame_lens else None
         attack_meta["grow_px"] = float(args.grow_px)
+        attack_meta["clearance_mm"] = float(args.clearance_mm)
+        attack_meta["ipd_mm"] = float(args.ipd_mm)
     write_json(run / "attack.json", attack_meta)
     print(f"results: {run}")
 
