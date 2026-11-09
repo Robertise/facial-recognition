@@ -252,15 +252,12 @@ def main():
         models = {"method3": attack["checkpoint"], **dict(t.split("=", 1) for t in args.transfer)}
 
         live = None
-        n_warmup = 0
         if args.liveness:
             from liveness.liveness_detector import LivenessDetector
             from liveness.temporal import make_smoother
             live = LivenessDetector()
-            smoothing_cfg = (getattr(live, "config", None) or {}).get("smoothing") or {}
-            n_warmup = max(2, int(smoothing_cfg.get("min_frames", 3)))
 
-        smoother_warmup_frames = sum(min(n_warmup, len(files)) for _, (_, files) in tier_dirs.items()) if live is not None else 0
+        smoother_warmup_frames = 0
 
         rows, model_info = [], {}
         for model, ckpt in models.items():
@@ -275,16 +272,6 @@ def main():
             for tier in tiers_to_run:
                 p_dir, t_files = tier_dirs[tier]
                 smoother = make_smoother(live.config) if live is not None else None
-                if smoother is not None:
-                    w_files = t_files[:n_warmup]
-                    t0 = times[str(t_files[0])]
-                    dt = (times[str(t_files[1])] - t0) if len(t_files) >= 2 and times[str(t_files[1])] > t0 else 0.2
-                    for i, wf in enumerate(w_files):
-                        w_img = cv2.imread(str(wf))
-                        if w_img is not None:
-                            w_frame = jpeg(w_img, 95)
-                            w_t = t0 - (len(w_files) - i) * dt
-                            liveness_step(live, smoother, w_frame, w_t)
 
                 for f in t_files:
                     img = cv2.imread(str(f))

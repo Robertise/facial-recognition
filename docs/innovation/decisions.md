@@ -107,3 +107,7 @@ Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink 
 - **Chọn:** đánh giá chính bằng gọng digital áp lên frame thật (người hỗ trợ quay video/ảnh làm dữ liệu), phòng thủ là trọng tâm. Thêm đúng một lần thử in H09 có giới hạn 2 ngày (luật ở `experiment_log.md` 2026-11-08). Trượt thì dừng in vô thời hạn.
 - **Loại: "in gọng + tăng tốc mọi thứ" (phương án 2 đầy đủ).** Lý do: digital → vật lý thường tụt mạnh (màu, độ cong, ánh sáng); nếu trượt sẽ kéo thêm nhiều vòng sửa, ăn vào 10–14 ngày cần cho phòng thủ trước hạn cuối Week 11. Phần tốn nhất (bảng màu, colormap) đã xong nên một lần thử là rẻ.
 - Demo cuối dùng video đã quay, không làm live với người hỗ trợ. Tấn công vật lý không cần người hỗ trợ (owner là kẻ tấn công).
+
+## 2026-11-09 Đóng phần tấn công kính
+- Thử vật lý một lần theo luật: P 5.3%, trượt cổng; mô phỏng bảng màu (10.7%) khớp. Không in lại, không tối ưu lại cấu hình khác (luật chỉ cho sửa lỗi đo; tăng bước/tex-res/giảm NPS là đổi thí nghiệm). In gọng hoãn vô thời hạn.
+- Bằng chứng tấn công dùng cho report và phòng thủ: R2b (digital, 82.7% s6) và H09 (gọng thật, digital, 86.7% s6) + chuỗi suy giảm printability → vật lý. Từ đây dồn thời gian cho phòng thủ.

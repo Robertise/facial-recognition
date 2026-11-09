@@ -675,3 +675,24 @@ Mẫu:
 - Diễn giải: bảng màu đo được cho thấy giấy in qua camera chỉ phủ dải sáng ~0.06–0.69 mỗi kênh (`observed_range`), tức mất ~40% tương phản. Trong dải màu in được, tấn công H09 gần như mất tác dụng. Đây là ước lượng bằng mô phỏng cho kết quả vật lý.
 - Theo luật đặt trước (D < 60% vẫn in, ghi lại): **vẫn in và quay một lần**, không đổi tham số tối ưu. Kết quả vật lý dùng để kiểm mô phỏng bảng màu có đúng không. Không được tối ưu lại với cấu hình khác (bước, tex-res, trọng số NPS) trong lần thử này: luật chỉ cho sửa lỗi đo.
 - Lưu ý: `observed_range` trần 0.69 có thể một phần do phơi sáng của ảnh chụp bảng màu (frame 0050), nên mô phỏng có thể bi quan hơn thực tế. Chính vì vậy số vật lý mới có giá trị.
+
+## 2026-11-09 Quay vật lý lần 1: kiểm trước khi chấm (chưa chấm)
+- Owner quay 3 session lúc ~21:02–21:04 nhưng cả ba đều đeo gọng D (hoa văn mượt); chưa in/đeo control. Claude kiểm bằng contact sheet. `p_adv` hợp lệ (75 frame). `p_rand`/`p_plain` sai gọng → chuyển sang `owner_physical/_wrong_pattern_20261109/` (không xoá, không chấm). Không phải lỗi đo được tính vào lần sửa duy nhất: chưa có số nào.
+- Độ sáng `p_adv`: L* vùng nửa dưới mặt TB 49.9 (p10 41.4), s6 50.1 (p10 46.1), s1 46.5. Đủ sáng, tương đương s6; vài frame tối hơn sẽ bị enhancer tách sang `@dim`.
+- Quan sát: hoa văn in ra nhạt hơn hẳn bản trên màn hình, đúng như bảng màu dự báo.
+- Tiếp: quay lại `p_rand` (gọng giữa tờ in, đốm ngẫu nhiên) và `p_plain` (gọng dưới, màu nâu trơn), cùng chỗ, cùng ánh sáng, cùng ngày nếu được; rồi chấm một lần cả ba.
+
+## 2026-11-09 Kết quả vật lý H09 (run chính thức `20261109_212933_advglasses_eval_physical`)
+
+- Contact sheet đã kiểm: `p_adv` gọng D (quay 21:02), `p_rand` đốm ngẫu nhiên (21:27), `p_plain` nâu trơn (21:25); mỗi session 75 frame, cùng phòng, cùng đèn. L* nửa dưới mặt: 49.9 / 48.1 / 50.0 (s6: 50.1). Nguồn: run có bảng màu `20261109_094721`; `smoother_warmup_frames = 0`.
+- Run `20261109_210500_advglasses_eval_physical` (21:05) **không hợp lệ**: chạy khi `p_rand`/`p_plain` còn là gọng D quay nhầm. Tầng P của nó dùng đúng các frame `p_adv` như run chính thức nên số P giống hệt; không có lựa chọn nào dựa trên run này.
+
+| Tầng (method3, liveness gated) | success | Wilson95 | match bỏ liveness | liveness_pass |
+|---|---|---|---|---|
+| **P** (gọng H09 in) | **4/75 = 5.3%** | 0.02–0.13 | 5.3% | 0.973 |
+| P_control_random | 0/75 | 0–0.05 | 0 | 0.973 |
+| P_control_plain | 0/75 | 0–0.05 | 0 | 0.760 |
+
+- **Cổng vật lý: FAIL** (P 5.3% < 80%). Transfer P: method1 0, method2 0, method4 4/75, method5 0.
+- Áp luật sửa: (a) không có báo cáo lệch thước; (b) `p_plain` liveness 0.76 < 0.80, nhưng P trượt do **nhận dạng** (match bỏ liveness chỉ 5.3%, liveness P 0.973), quay lại control không thể đổi kết luận cổng → không dùng lần sửa. **Dừng thử vật lý, đóng giai đoạn B.**
+- Kết luận: mô phỏng bảng màu dự báo đúng. Chuỗi kết quả cùng gọng H09: digital M=identity 86.7% → digital có bảng màu 10.7% [0.06–0.20] → vật lý 5.3% [0.02–0.13] (hai CI sau chồng nhau). Nút thắt là dải màu in được qua camera (~0.06–0.69 mỗi kênh), không phải liveness hay hình học gọng. Liveness không chặn gọng giấy (P 0.973).

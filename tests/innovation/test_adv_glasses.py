@@ -1943,6 +1943,7 @@ def test_evaluate_physical_no_eyes_and_no_face_handling(tmp_path, monkeypatch):
     assert summary["eval_frames"] == 2
     assert summary["gate_to_stage_B"] is None
     assert summary["physical_sessions"] == {"P": str(phys_dir)}
+    assert summary["smoother_warmup_frames"] == 0
     res_p = summary["results"]["method3/P"]
     assert res_p["frames"] == 2
     assert res_p["success"] == 1
@@ -1974,7 +1975,7 @@ def test_evaluate_physical_multi_tier_transfer_and_gate(tmp_path, monkeypatch):
     p_plain = tmp_path / "p_plain"
     for d, val in [(p_adv, 50), (p_rand, 150), (p_plain, 200)]:
         d.mkdir()
-        for i in range(3):
+        for i in range(10):
             cv2.imwrite(str(d / f"{i:03d}.jpg"), np.full((120, 120, 3), val, dtype=np.uint8))
 
     class UniversalDetector:
@@ -2042,10 +2043,10 @@ def test_evaluate_physical_multi_tier_transfer_and_gate(tmp_path, monkeypatch):
     with open(eval_out / "frames.csv", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
 
-    # method3 evaluated P, P_control_random, P_control_plain (3 * 3 = 9 rows)
-    # method1 evaluated ONLY P (3 rows)
-    # Total = 12 rows
-    assert len(rows) == 12
+    # method3 evaluated P, P_control_random, P_control_plain (10 * 3 = 30 rows)
+    # method1 evaluated ONLY P (10 rows)
+    # Total = 40 rows
+    assert len(rows) == 40
     m3_tiers = {r["tier"] for r in rows if r["model"] == "method3"}
     assert m3_tiers == {"P", "P_control_random", "P_control_plain"}
     m1_tiers = {r["tier"] for r in rows if r["model"] == "method1"}
@@ -2055,9 +2056,20 @@ def test_evaluate_physical_multi_tier_transfer_and_gate(tmp_path, monkeypatch):
     assert summary["gate_to_stage_B"] is None
     gate_p = summary["gate_physical"]
     assert gate_p is not None
-    assert gate_p["P_rate"] == 1.0
+    # 9 of 10 frames succeed (frame 0 is in 'Checking' because min_frames=2 and no warmup)
+    assert gate_p["P_rate"] == 0.9
     assert gate_p["control_max"] == 0.0
     assert gate_p["liveness_gated"] is True
     assert gate_p["pass"] is True
-    assert summary["smoother_warmup_frames"] > 0
+    assert summary["smoother_warmup_frames"] == 0
+
+    # Frame đầu mỗi tầng chỉ xuất hiện đúng một lần trong frames.csv (không bị warmup nhân đôi)
+    for model in ("method3", "method1"):
+        m_tiers = {"P", "P_control_random", "P_control_plain"} if model == "method3" else {"P"}
+        for tier in m_tiers:
+            tier_rows = [r for r in rows if r["model"] == model and r["tier"] == tier]
+            frame_paths = [r["frame"] for r in tier_rows]
+            assert len(frame_paths) == len(set(frame_paths)), f"duplicate frames found in {model}/{tier}"
+            first_frame = str(tmp_path / tier_rows[0]["session"] / "000.jpg")
+            assert frame_paths.count(first_frame) == 1
 
