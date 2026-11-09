@@ -1,0 +1,233 @@
+{
+  "source_run": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\results\\innovation\\20261107_213245_advglasses_impersonate",
+  "mode": "impersonate",
+  "victim": "LFW_victim",
+  "attacker": "owner",
+  "tex_res": [
+    15,
+    40
+  ],
+  "control_seed": 0,
+  "split": "dev",
+  "dev_mode": "block",
+  "eval_session_override": null,
+  "eval_session_names": [
+    "s1_day1",
+    "s2_day2"
+  ],
+  "liveness_mode": "smooth",
+  "liveness_gated": true,
+  "smoother_warmup_frames": 6,
+  "eval_frames": 30,
+  "coverage_train": {
+    "mean": 0.10690823431389454,
+    "min": 0.057765502482652664,
+    "max": 0.14978651702404022
+  },
+  "color_map_calibrated": false,
+  "gallery_per_id": 5,
+  "models": {
+    "method3": {
+      "arch": "FaceCNN_ArcFace",
+      "keys": 74,
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "input_size": 112
+    }
+  },
+  "results": {
+    "method3/baseline": {
+      "frames": 29,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.11697359446555587
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0957,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/baseline@dim": {
+      "frames": 1,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.7934567085261071
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": -0.0175,
+      "windows_3s": 1,
+      "windows_with_success": 0.0
+    },
+    "method3/D": {
+      "frames": 30,
+      "success": 17,
+      "rate": 0.5666666666666667,
+      "wilson95": [
+        0.39197009545408734,
+        0.7262276256938489
+      ],
+      "match_ignoring_liveness": 0.5666666666666667,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.5256,
+      "windows_3s": 2,
+      "windows_with_success": 1.0
+    },
+    "method3/control_random": {
+      "frames": 30,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        -1.2302421700937121e-17,
+        0.11351709139047801
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0843,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain": {
+      "frames": 29,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.11697359446555587
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.1374,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain@dim": {
+      "frames": 1,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.7934567085261071
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": 0.0074,
+      "windows_3s": 1,
+      "windows_with_success": 0.0
+    },
+    "method3/D_EOT": {
+      "frames": 29,
+      "success": 12,
+      "rate": 0.41379310344827586,
+      "wilson95": [
+        0.2551293527964552,
+        0.5926247152148476
+      ],
+      "match_ignoring_liveness": 0.41379310344827586,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.4663,
+      "windows_3s": 2,
+      "windows_with_success": 1.0
+    },
+    "method3/D_EOT@dim": {
+      "frames": 1,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.7934567085261071
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": 0.3385,
+      "windows_3s": 1,
+      "windows_with_success": 0.0
+    },
+    "method3/baseline_EOT": {
+      "frames": 29,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.11697359446555587
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0579,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/baseline_EOT@dim": {
+      "frames": 1,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.7934567085261071
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": -0.0124,
+      "windows_3s": 1,
+      "windows_with_success": 0.0
+    },
+    "method3/control_random_EOT": {
+      "frames": 30,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        -1.2302421700937121e-17,
+        0.11351709139047801
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0347,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain_EOT": {
+      "frames": 30,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        -1.2302421700937121e-17,
+        0.11351709139047801
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0294,
+      "windows_3s": 2,
+      "windows_with_success": 0.0
+    }
+  },
+  "gate_to_stage_B": null
+}

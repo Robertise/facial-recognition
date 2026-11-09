@@ -1,0 +1,189 @@
+{
+  "source_run": "results\\innovation\\20261107_210429_advglasses_impersonate",
+  "mode": "impersonate",
+  "victim": "LFW_victim",
+  "attacker": "owner",
+  "tex_res": [
+    15,
+    40
+  ],
+  "control_seed": 0,
+  "split": "eval",
+  "dev_mode": null,
+  "eval_session_override": "s6_vary",
+  "eval_session_names": [
+    "s6_vary"
+  ],
+  "liveness_mode": "smooth",
+  "liveness_gated": true,
+  "smoother_warmup_frames": 0,
+  "eval_frames": 75,
+  "coverage_train": {
+    "mean": 0.08681604595711598,
+    "min": 0.04685133323073387,
+    "max": 0.12163957208395004
+  },
+  "color_map_calibrated": false,
+  "gallery_per_id": 5,
+  "models": {
+    "method3": {
+      "arch": "FaceCNN_ArcFace",
+      "keys": 74,
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "input_size": 112
+    }
+  },
+  "results": {
+    "method3/baseline": {
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.04872554590470005
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0229,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/D": {
+      "frames": 75,
+      "success": 15,
+      "rate": 0.2,
+      "wilson95": [
+        0.12512038203120296,
+        0.3041149455116171
+      ],
+      "match_ignoring_liveness": 0.2,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.4097,
+      "windows_3s": 5,
+      "windows_with_success": 0.6
+    },
+    "method3/control_random": {
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.04872554590470005
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0534,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain": {
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.04872554590470005
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.14,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/D_EOT": {
+      "frames": 75,
+      "success": 4,
+      "rate": 0.05333333333333334,
+      "wilson95": [
+        0.020933088960043117,
+        0.1292617320481556
+      ],
+      "match_ignoring_liveness": 0.06666666666666667,
+      "liveness_pass": 0.7733333333333333,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.3593,
+      "windows_3s": 5,
+      "windows_with_success": 0.6
+    },
+    "method3/baseline_EOT": {
+      "frames": 71,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.05132974174790491
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.971830985915493,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0105,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/baseline_EOT@dim": {
+      "frames": 4,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.48990002040399916
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 1.0,
+      "no_face": 0.0,
+      "enhancer_applied": 1.0,
+      "victim_sim_mean": -0.0204,
+      "windows_3s": 3,
+      "windows_with_success": 0.0
+    },
+    "method3/control_random_EOT": {
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.04872554590470005
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0145,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    },
+    "method3/control_plain_EOT": {
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.04872554590470005
+      ],
+      "match_ignoring_liveness": 0.0,
+      "liveness_pass": 0.9733333333333334,
+      "no_face": 0.0,
+      "enhancer_applied": 0.0,
+      "victim_sim_mean": 0.0756,
+      "windows_3s": 5,
+      "windows_with_success": 0.0
+    }
+  },
+  "gate_to_stage_B": {
+    "D_rate": 0.2,
+    "control_max": 0.0,
+    "liveness_gated": true,
+    "pass": false
+  }
+}

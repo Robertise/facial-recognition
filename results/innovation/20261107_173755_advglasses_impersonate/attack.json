@@ -1,0 +1,336 @@
+{
+  "mode": "impersonate",
+  "attacker_id": "owner",
+  "victim": "LFW_victim",
+  "target": "LFW_victim",
+  "checkpoint": "checkpoints/method3_best.pth",
+  "model": {
+    "arch": "FaceCNN_ArcFace",
+    "keys": 74,
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "input_size": 112
+  },
+  "gallery": "data/innovation/gallery",
+  "gallery_per_id": 5,
+  "gallery_report": {
+    "LFW_0001": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0002": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0003": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0004": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0005": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0006": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0007": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0008": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0009": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0010": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0011": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0012": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0013": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0014": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0015": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0016": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0017": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0018": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0019": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0020": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0021": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0022": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0023": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0024": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0025": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0026": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0027": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0028": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0029": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0030": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0031": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0032": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0033": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0034": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0035": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0036": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0037": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0038": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0039": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0040": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0041": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0042": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0043": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0044": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0045": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0046": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0047": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0048": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0049": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_0050": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_victim": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_victim_easy": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "LFW_victim_hard": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "owner": {
+      "used": 5,
+      "skipped_no_face": 0
+    },
+    "uneven": []
+  },
+  "identities": [
+    "LFW_0001",
+    "LFW_0002",
+    "LFW_0003",
+    "LFW_0004",
+    "LFW_0005",
+    "LFW_0006",
+    "LFW_0007",
+    "LFW_0008",
+    "LFW_0009",
+    "LFW_0010",
+    "LFW_0011",
+    "LFW_0012",
+    "LFW_0013",
+    "LFW_0014",
+    "LFW_0015",
+    "LFW_0016",
+    "LFW_0017",
+    "LFW_0018",
+    "LFW_0019",
+    "LFW_0020",
+    "LFW_0021",
+    "LFW_0022",
+    "LFW_0023",
+    "LFW_0024",
+    "LFW_0025",
+    "LFW_0026",
+    "LFW_0027",
+    "LFW_0028",
+    "LFW_0029",
+    "LFW_0030",
+    "LFW_0031",
+    "LFW_0032",
+    "LFW_0033",
+    "LFW_0034",
+    "LFW_0035",
+    "LFW_0036",
+    "LFW_0037",
+    "LFW_0038",
+    "LFW_0039",
+    "LFW_0040",
+    "LFW_0041",
+    "LFW_0042",
+    "LFW_0043",
+    "LFW_0044",
+    "LFW_0045",
+    "LFW_0046",
+    "LFW_0047",
+    "LFW_0048",
+    "LFW_0049",
+    "LFW_0050",
+    "LFW_victim",
+    "LFW_victim_easy",
+    "LFW_victim_hard",
+    "owner"
+  ],
+  "frame_shape": {
+    "frame_source": "photo",
+    "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+    "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+    "grow_px": 8.0,
+    "clearance_mm": 16.0,
+    "ipd_mm": 63.0
+  },
+  "tex_res": [
+    15,
+    40
+  ],
+  "dev_frac": 0.2,
+  "dev_mode": "block",
+  "no_eot": false,
+  "coverage_train": {
+    "mean": 0.09421557896569663,
+    "min": 0.04685133323073387,
+    "max": 0.15287618339061737
+  },
+  "prepare_report": {
+    "no_face": 0,
+    "no_mesh": 0,
+    "enhancer_applied": 45,
+    "used": 255
+  },
+  "color_map_calibrated": false,
+  "final": {
+    "step": 3000,
+    "loss": 0.8947897553443909,
+    "main": 0.5867813229560852,
+    "margin": 0.17299732565879822,
+    "margin_vs_attacker": 0.10046017915010452,
+    "tv": 0.03490006923675537,
+    "nps": 0.09552188962697983,
+    "target_cos": 0.4257762134075165,
+    "batch_success": 0.5,
+    "seconds": 1004.5
+  },
+  "frame_source": "photo",
+  "frame_mask": "data/innovation/frame/owner_frame_mask.png",
+  "frame_lens": "data/innovation/frame/owner_frame_lens.png",
+  "grow_px": 8.0,
+  "clearance_mm": 16.0,
+  "ipd_mm": 63.0
+}
