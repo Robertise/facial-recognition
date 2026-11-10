@@ -111,3 +111,10 @@ Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink 
 ## 2026-11-09 Đóng phần tấn công kính
 - Thử vật lý một lần theo luật: P 5.3%, trượt cổng; mô phỏng bảng màu (10.7%) khớp. Không in lại, không tối ưu lại cấu hình khác (luật chỉ cho sửa lỗi đo; tăng bước/tex-res/giảm NPS là đổi thí nghiệm). In gọng hoãn vô thời hạn.
 - Bằng chứng tấn công dùng cho report và phòng thủ: R2b (digital, 82.7% s6) và H09 (gọng thật, digital, 86.7% s6) + chuỗi suy giảm printability → vật lý. Từ đây dồn thời gian cho phòng thủ.
+
+## 2026-11-09 Thiết kế phòng thủ: xoá cố định vùng gọng + inpainting, gallery đối xứng
+- **Chọn:** purifier luôn xoá toàn bộ vùng gọng (band dựng từ mọi gọng đã tấn công) và vẽ lại bằng U-Net có identity loss; gallery đi qua cùng purifier; kèm bộ phát hiện nhất quán (danh tính trước/sau làm sạch). Lý do: đầu ra không phụ thuộc hoa văn trong band nên chịu được cả tấn công thích ứng trong mô hình "kính"; train chỉ cần ảnh LFW sạch, không cần sinh gọng giả.
+- **Loại: purifier "mù" (học khôi phục ảnh có gọng giả → ảnh sạch, không xoá cố định).** Kẻ tấn công thích ứng tối ưu xuyên qua được mạng khôi phục; dữ liệu gọng giả không phủ được mọi hoa văn adversarial.
+- **Loại: chỉ che xám (không học).** Giữ làm baseline `gray`; S2 cho thấy che làm mặt thật giảm ~22% điểm, dự kiến hại GAR.
+- **Loại: dùng frame owner/p01 để train purifier.** Gây rò rỉ sang tập đánh giá.
+- Giai đoạn B vật lý đã đóng (xem 2026-11-09 "Đóng phần tấn công kính"); kết quả vật lý chỉ dùng trong report như phát hiện printability, không dùng cho demo.

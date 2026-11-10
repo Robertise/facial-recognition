@@ -696,3 +696,25 @@ Mẫu:
 - **Cổng vật lý: FAIL** (P 5.3% < 80%). Transfer P: method1 0, method2 0, method4 4/75, method5 0.
 - Áp luật sửa: (a) không có báo cáo lệch thước; (b) `p_plain` liveness 0.76 < 0.80, nhưng P trượt do **nhận dạng** (match bỏ liveness chỉ 5.3%, liveness P 0.973), quay lại control không thể đổi kết luận cổng → không dùng lần sửa. **Dừng thử vật lý, đóng giai đoạn B.**
 - Kết luận: mô phỏng bảng màu dự báo đúng. Chuỗi kết quả cùng gọng H09: digital M=identity 86.7% → digital có bảng màu 10.7% [0.06–0.20] → vật lý 5.3% [0.02–0.13] (hai CI sau chồng nhau). Nút thắt là dải màu in được qua camera (~0.06–0.69 mỗi kênh), không phải liveness hay hình học gọng. Liveness không chặn gọng giấy (P 0.973).
+
+## 2026-11-09 Luật đặt trước: S2 trên H09 (plan `plan_signatures_h09.md`; TRƯỚC khi có code/số)
+- Câu hỏi: chữ ký S2 (che dải, độ giảm điểm) còn tách được tấn công khi gọng là gọng thật fill-lens H09, không phải elip C3/R2b?
+- Dương tính: `A_H09` + `A_H09_EOT`, dán lên s5_vary và s6_vary (session eval của H09; không dán lên s2). Âm tính chính `R_p01_s2_all`; báo thêm owner, controls, LFW. Gallery = chính + `gallery_people`.
+- Luật: **S2 đứng vững với H09** nếu `s2_maxdrop` hoặc `s2_conc` đạt AUC(A_H09 vs R_p01_s2_all) ≥ 0.90 VÀ FPR trên p01/s2 ≤ 10% tại ngưỡng TPR 95% của A_H09. Không đạt: S2 chỉ còn là đặc trưng phụ, purifier + kiểm nhất quán là phòng thủ chính.
+
+## 2026-11-09 Luật đặt trước: p01 giả danh owner (kẻ tấn công thứ hai; plan `plan_p01_attack.md`; TRƯỚC khi quay)
+- Mục đích: kiểm tấn công gọng H09 với người tấn công khác, camera/phòng khác; tạo dương tính thứ hai cho phòng thủ.
+- Dữ liệu: `frames/p01_attack/` gồm a1_day, a2_day (tối ưu), a3_vary, a4_vary (giữ ra). Hướng dẫn quay: `capture_p01_attack.md`. Gallery 1:N = gallery chính + `gallery_people/p01`.
+- Cấu hình **y hệt H09** (g_out 8, clearance 9, tex-res 15×40, 3000 bước, lr 0.03, seed 0, EOT, M = identity, dev block 20%), `--eval-sessions a3_vary a4_vary`. Một lần tối ưu, **không chỉnh tham số theo kết quả**.
+- Bước A (chỉ tầng baseline, trước mọi đánh giá tấn công) trên a3_vary: giống bước A của s4–s6: liveness_pass ≥ 0.80, no_face ≤ 0.10, ≥ 50/75 frame ánh sáng thường; thêm: tỉ lệ baseline khớp owner ≤ 20%. Trượt → bước A trên a4_vary. Cả hai trượt → không có session hợp lệ, báo nguyên trạng.
+- Bước B: chấm đầy đủ **một lần** trên session đạt bước A, có `--liveness` và transfer method1/2/4/5. Cổng: D ≥ 80% VÀ hai control ≤ 20%. Trượt vẫn báo nguyên trạng và các frame tấn công vẫn dùng làm dương tính cho phòng thủ (ghi rõ tỉ lệ thành công).
+
+## 2026-11-09 Luật đặt trước: purifier (plan `plan_purifier.md`; TRƯỚC khi có code/số)
+- Một lần train duy nhất với siêu tham số trong plan; checkpoint chọn theo identity cos trên **LFW val** (danh tính tách riêng), **không bao giờ** theo số trên owner/p01.
+- Đánh giá trên ánh sáng thường, liveness gated, 3 chế độ none / gray / purifier, gallery đi qua cùng chế độ.
+- **(1) Chặn tấn công:** tỉ lệ thành công ở mode purifier ≤ 10% cho H09 và R2b trên s6 (và p01→owner nếu đã có).
+- **(2) Không hại người thật:** GAR(purifier) ≥ 0.90 × GAR(none) trên owner/s6 VÀ trên p01/s2.
+- **Purifier đạt** nếu (1) và (2). **Hơn gray** nếu GAR cao hơn gray ≥ 5 điểm % trên cả hai tập người thật, hoặc gray trượt (2) mà purifier đạt.
+- **Bộ phát hiện nhất quán** là đặc trưng chính nếu AUC(tấn công vs người thật) ≥ 0.90 VÀ FPR ≤ 10% tại TPR 95% trên từng tập người thật (owner/s6, p01/s2, owner đeo control).
+- Trượt (2): báo đánh đổi nguyên trạng. Hướng sau (chưa làm, cần luật mới): fine-tune recognizer trên mặt đã làm sạch.
+- Biết trước: bảo đảm "hoa văn trong band không ảnh hưởng đầu ra" chỉ đúng khi phụ kiện nằm trong band; kẻ tấn công thích ứng phải dùng phụ kiện lớn hơn vùng gọng (ngoài mô hình đe doạ "kính"), sẽ đo ở bước tấn công thích ứng.

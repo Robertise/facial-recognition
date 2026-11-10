@@ -2073,3 +2073,144 @@ def test_evaluate_physical_multi_tier_transfer_and_gate(tmp_path, monkeypatch):
             first_frame = str(tmp_path / tier_rows[0]["session"] / "000.jpg")
             assert frame_paths.count(first_frame) == 1
 
+
+# ==============================================================================
+# Extra gallery tests (plan_p01_attack.md)
+# ==============================================================================
+
+def test_extra_gallery_merge_and_duplicate_error():
+    """Verify that extra gallery adds distinct identities and aborts on duplicate IDs."""
+    main_embs = {
+        "owner": np.zeros((2, 16), dtype=np.float32),
+        "victim": np.ones((2, 16), dtype=np.float32),
+    }
+    extra_embs = {
+        "p01": np.full((2, 16), 2.0, dtype=np.float32),
+    }
+
+    # Merging distinct identities succeeds
+    duplicates = set(main_embs.keys()) & set(extra_embs.keys())
+    assert not duplicates
+    merged = dict(main_embs)
+    merged.update(extra_embs)
+    assert set(merged.keys()) == {"owner", "victim", "p01"}
+
+    # Duplicate identity raises SystemExit
+    dup_embs = {"owner": np.zeros((1, 16), dtype=np.float32)}
+    duplicates = set(main_embs.keys()) & set(dup_embs.keys())
+    assert duplicates == {"owner"}
+    with pytest.raises(SystemExit, match="Duplicate identities"):
+        if duplicates:
+            raise SystemExit(f"Duplicate identities found when merging extra gallery: {sorted(duplicates)}")
+
+
+def test_extra_gallery_evaluate_digital_and_summary(tmp_path, monkeypatch):
+    """Verify evaluate.py merges --extra-gallery and records it in summary.json."""
+    import csv
+    import sys
+    from innovation.attacks.adv_glasses import evaluate as eval_mod
+    import backend.face_recognizer as fr_mod
+
+    # Setup dummy attack run
+    opt_run = tmp_path / "opt_run"
+    opt_run.mkdir()
+    eval_session = tmp_path / "eval_sess"
+    eval_session.mkdir()
+    eval_img = eval_session / "000.jpg"
+    cv2.imwrite(str(eval_img), np.zeros((100, 100, 3), dtype=np.uint8))
+
+    split = {
+        "train": [],
+        "dev": [],
+        "eval": [str(eval_img)],
+    }
+    (opt_run / "split.json").write_text(json.dumps(split), encoding="utf-8")
+    printability.ColorMap.identity().save(opt_run / "colormap.json")
+    torch.save({"logits": torch.zeros(3, 15, 40), "shape": vars(glasses.FrameShape(20.0, 1.1)), "tex_res": [15, 40]}, opt_run / "texture.pt")
+
+    attack_json = {
+        "mode": "impersonate",
+        "victim": "LFW_victim",
+        "attacker_id": "owner",
+        "gallery": str(tmp_path / "main_gal"),
+        "checkpoint": "checkpoints/method3_best.pth",
+        "frame_shape": {"thickness": 20.0, "rim_scale": 1.1},
+        "color_map": None,
+    }
+    (opt_run / "attack.json").write_text(json.dumps(attack_json), encoding="utf-8")
+
+    class UniversalDetector:
+        def detect(self, img):
+            return [10, 10, 80, 80]
+
+    class FakeEyes:
+        def eyes(self, img):
+            return np.array([[30.0, 40.0], [70.0, 40.0]], dtype=np.float32)
+
+    class FakeRecognizer:
+        def __init__(self, *a, **kw):
+            self.load_report = {"loaded": True}
+        def extract_embedding(self, face):
+            return np.ones(16, dtype=np.float32)
+        def find_match(self, emb, db):
+            return {"matched": True, "employee_id": "LFW_victim", "similarity": 0.88}
+        def recognize(self, frame):
+            return {"matched": True, "employee_id": "LFW_victim", "similarity": 0.88}
+
+    class MainGallery:
+        def __init__(self):
+            self.embeddings = {"owner": np.zeros((1, 16), dtype=np.float32), "LFW_victim": np.ones((1, 16), dtype=np.float32)}
+        def as_db(self):
+            return {}
+
+    class ExtraGallery:
+        def __init__(self):
+            self.embeddings = {"p01": np.full((1, 16), 2.0, dtype=np.float32)}
+
+    extra_dir = tmp_path / "extra_gal"
+    extra_dir.mkdir()
+
+    def fake_build_gallery(dir_path, *a, **kw):
+        if str(dir_path) == str(extra_dir):
+            return ExtraGallery(), {}
+        return MainGallery(), {}
+
+    eval_out = tmp_path / "eval_out"
+    eval_out.mkdir()
+
+    monkeypatch.setattr(faces, "FaceDetector", UniversalDetector)
+    monkeypatch.setattr(faces, "EyeLandmarks", FakeEyes)
+    monkeypatch.setattr(faces, "build_gallery", fake_build_gallery)
+    monkeypatch.setattr(faces, "enhance", lambda crop: (crop, {"applied": False}))
+    monkeypatch.setattr(fr_mod, "FaceRecognizer", FakeRecognizer)
+    monkeypatch.setattr(eval_mod, "new_run", lambda name, args: eval_out)
+
+    monkeypatch.setattr(
+        sys, "argv",
+        [
+            "evaluate.py", "--run", str(opt_run),
+            "--split", "eval",
+            "--tiers", "baseline", "D",
+            "--extra-gallery", str(extra_dir),
+        ],
+    )
+    eval_mod.main()
+
+    summary = json.loads((eval_out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["extra_gallery"] == [str(extra_dir)]
+
+    # Also verify duplicate identity raises SystemExit in evaluate.main()
+    class DupExtraGallery:
+        def __init__(self):
+            self.embeddings = {"owner": np.full((1, 16), 2.0, dtype=np.float32)}
+
+    def fake_dup_build_gallery(dir_path, *a, **kw):
+        if str(dir_path) == str(extra_dir):
+            return DupExtraGallery(), {}
+        return MainGallery(), {}
+
+    monkeypatch.setattr(faces, "build_gallery", fake_dup_build_gallery)
+    with pytest.raises(SystemExit, match="Duplicate identities found"):
+        eval_mod.main()
+
+

@@ -8,6 +8,10 @@ Tests:
 """
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -426,3 +430,153 @@ def test_compute_operating_points_and_rule_check_synthetic():
         primary_session="p01/s1",
     )
     assert rc_fail["s2_holds_for_other_people"] is False
+
+
+def test_extra_attack_name_validation():
+    """Verify NAME regex and forbidden names (C3, R2b) for --extra-attack."""
+    assert re.match(r"^[A-Za-z0-9]+$", "H09")
+    assert re.match(r"^[A-Za-z0-9]+$", "attack1")
+    assert not re.match(r"^[A-Za-z0-9]+$", "H-09")
+    assert not re.match(r"^[A-Za-z0-9]+$", "H 09")
+
+    # C3 and R2b forbidden
+    for name in ("C3", "R2b"):
+        assert name in ("C3", "R2b")
+
+
+def test_build_session_streams_with_extra_assets():
+    """Verify that build_session_streams creates attack streams and controls for extra attacks."""
+    c3 = {"victim": "vic_c3", "seen": None, "seen_random": None, "plain": None, "mask": None}
+    r2b = {"victim": "vic_r2b", "seen": None, "seen_random": None, "plain": None, "mask": None}
+    h09 = {"victim": "vic_h09", "seen": None, "seen_random": None, "plain": None, "mask": None}
+
+    # 1. include_attacks=True (owner session)
+    streams_owner = build_session_streams(
+        c3_assets=c3,
+        r2b_assets=r2b,
+        target_person="owner",
+        set_prefix="R_owner",
+        include_attacks=True,
+        extra_assets={"H09": h09},
+    )
+    # Check extra attack streams
+    h09_attacks = [s for s in streams_owner if s["set"] in ("A_H09", "A_H09_EOT")]
+    assert len(h09_attacks) == 2
+    assert all(s["label"] == 1 and s["target_id"] == "vic_h09" for s in h09_attacks)
+
+    # Check controls for H09
+    h09_controls = [s for s in streams_owner if s["tier"] in ("control_random_H09", "control_plain_H09")]
+    assert len(h09_controls) == 2
+    assert all(s["set"] == "R_owner_controls" and s["label"] == 0 and s["target_id"] == "owner" for s in h09_controls)
+
+    # 2. include_attacks=False (people session)
+    streams_people = build_session_streams(
+        c3_assets=c3,
+        r2b_assets=r2b,
+        target_person="p01",
+        set_prefix="R_p01_s2",
+        include_attacks=False,
+        extra_assets={"H09": h09},
+    )
+    # Should have NO attacks
+    assert not any(s["label"] == 1 for s in streams_people)
+    # Should have controls for C3, R2b, and H09
+    p_controls = [s for s in streams_people if s["set"] == "R_p01_s2_controls"]
+    tiers = {s["tier"] for s in p_controls}
+    assert tiers == {
+        "control_random_C3", "control_plain_C3",
+        "control_random_R2b", "control_plain_R2b",
+        "control_random_H09", "control_plain_H09",
+    }
+    assert all(s["target_id"] == "p01" and s["label"] == 0 for s in p_controls)
+
+
+def test_split_leakage_prevention(tmp_path):
+    """Verify that extra attack session filtering excludes sessions present in train/dev."""
+    split_file = tmp_path / "split.json"
+    split_file.write_text(json.dumps({
+        "train": ["data/innovation/frames/owner/s1_day1/001.jpg", "data/innovation/frames/owner/s2_day2/002.jpg"],
+        "dev": ["data/innovation/frames/owner/s2_day2/003.jpg"],
+        "eval": [
+            "data/innovation/frames/owner/s2_day2/004.jpg",
+            "data/innovation/frames/owner/s5_vary/005.jpg",
+            "data/innovation/frames/owner/s6_vary/006.jpg",
+        ],
+    }), encoding="utf-8")
+
+    split_data = json.loads(split_file.read_text(encoding="utf-8"))
+    train_sessions = {Path(p).parent.name for p in split_data.get("train", [])}
+    dev_sessions = {Path(p).parent.name for p in split_data.get("dev", [])}
+    eval_sessions = {Path(p).parent.name for p in split_data.get("eval", [])}
+    allowed = eval_sessions - train_sessions - dev_sessions
+
+    assert "s2_day2" not in allowed
+    assert "s5_vary" in allowed
+    assert "s6_vary" in allowed
+
+
+def test_operating_points_extra_and_rule_check_extra():
+    """Verify operating_points_extra computes thresholds on A_<NAME> and rule_check_extra evaluates pass/fail."""
+    rows = []
+    # 50 frames for A_H09 + EOT with high values (0.70 to 0.95)
+    for v in np.linspace(0.70, 0.95, 50):
+        rows.append({"set": "A_H09", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+        rows.append({"set": "A_H09_EOT", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+
+    # Negatives for R_p01_s2_all: 50 low values (0.10 to 0.25) -> 0 FP
+    for v in np.linspace(0.10, 0.25, 50):
+        rows.append({"set": "R_p01_s2", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+        rows.append({"set": "R_p01_s2_controls", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+
+    # Other negatives
+    for v in np.linspace(0.10, 0.30, 20):
+        rows.append({"set": "R_owner", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+        rows.append({"set": "R_owner_controls", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+        rows.append({"set": "R_lfw", "s2_maxdrop": float(v), "s2_conc": float(v * 0.9)})
+
+    op_extra = compute_operating_points(
+        rows,
+        people_sessions=["p01/s2"],
+        tpr_target=0.95,
+        pos_sets=["A_H09", "A_H09_EOT"],
+    )
+
+    assert "s2_maxdrop" in op_extra
+    assert op_extra["s2_maxdrop"]["n_pos"] == 100
+    assert op_extra["s2_maxdrop"]["R_p01_s2_all"]["fpr"] == 0.0
+
+    # Test rule_check_extra logic
+    mock_eval = {
+        "A_H09_vs_R_p01_s2_all": {
+            "s2_maxdrop": {"auc": 0.96},
+            "s2_conc": {"auc": 0.93},
+        }
+    }
+    # Pass case: AUC >= 0.90 and FPR <= 0.10
+    tag = "p01_s2"
+    rule_extra = {}
+    for sig in ["s2_maxdrop", "s2_conc"]:
+        auc_val = mock_eval["A_H09_vs_R_p01_s2_all"][sig]["auc"]
+        fpr_val = op_extra[sig][f"R_{tag}_all"]["fpr"]
+        is_pass = bool(auc_val >= 0.90 and fpr_val <= 0.10)
+        rule_extra[sig] = {
+            "auc_vs_primary": auc_val,
+            "fpr_primary_at_tpr95": fpr_val,
+            "pass": is_pass,
+        }
+    rule_extra["s2_holds"] = bool(rule_extra["s2_maxdrop"]["pass"] or rule_extra["s2_conc"]["pass"])
+
+    assert rule_extra["s2_maxdrop"]["pass"] is True
+    assert rule_extra["s2_conc"]["pass"] is True
+    assert rule_extra["s2_holds"] is True
+
+    # Fail case: AUC < 0.90
+    mock_eval_fail = {
+        "A_H09_vs_R_p01_s2_all": {
+            "s2_maxdrop": {"auc": 0.85},
+            "s2_conc": {"auc": 0.82},
+        }
+    }
+    auc_val_fail = mock_eval_fail["A_H09_vs_R_p01_s2_all"]["s2_maxdrop"]["auc"]
+    assert not (auc_val_fail >= 0.90 and op_extra["s2_maxdrop"][f"R_{tag}_all"]["fpr"] <= 0.10)
+

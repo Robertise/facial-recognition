@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -271,12 +272,14 @@ def compute_operating_points(
     all_rows: list[dict[str, Any]],
     people_sessions: list[str] | None = None,
     tpr_target: float = 0.95,
+    pos_sets: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Compute threshold at TPR 95% on pooled attacks (A_C3 + A_C3_EOT + A_R2b + A_R2b_EOT)
+    """Compute threshold at TPR 95% on pooled attacks (default: A_C3 + A_C3_EOT + A_R2b + A_R2b_EOT)
     and report FPR across negative groups: R_owner (+EOT), R_owner_controls, R_lfw,
     and for each person session: R_<tag>, R_<tag>_controls, R_<tag>_all.
     """
-    pos_sets = ["A_C3", "A_C3_EOT", "A_R2b", "A_R2b_EOT"]
+    if pos_sets is None:
+        pos_sets = ["A_C3", "A_C3_EOT", "A_R2b", "A_R2b_EOT"]
     groups_def: dict[str, list[str]] = {
         "R_owner": ["R_owner", "R_owner_EOT"],
         "R_owner_controls": ["R_owner_controls"],
@@ -472,6 +475,51 @@ def plot_signature_histograms(
         plt.close(fig)
 
 
+def plot_extra_signature_histograms(
+    frames: list[dict],
+    extra_name: str,
+    signatures: list[str],
+    out_dir: Path,
+) -> None:
+    """Generates hist_<extra_name>_<signature>.png for each scalar signature comparing
+    extra attack (A_<extra_name> pooled) vs pooled negatives.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    neg_frames = [r for r in frames if r["label"] == 0]
+    extra_frames = [r for r in frames if r["set"] in (f"A_{extra_name}", f"A_{extra_name}_EOT")]
+
+    for sig in signatures:
+        neg_vals = [float(r[sig]) for r in neg_frames if r[sig] != "" and r[sig] is not None]
+        extra_vals = [float(r[sig]) for r in extra_frames if r[sig] != "" and r[sig] is not None]
+
+        if not neg_vals and not extra_vals:
+            continue
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        all_vals = neg_vals + extra_vals
+        vmin, vmax = min(all_vals), max(all_vals)
+        bins = np.linspace(vmin, vmax, 30) if vmin < vmax else 10
+
+        if neg_vals:
+            ax.hist(neg_vals, bins=bins, alpha=0.5, label=f"Real / Negatives (N={len(neg_vals)})", color="forestgreen", density=True)
+        if extra_vals:
+            ax.hist(extra_vals, bins=bins, alpha=0.5, label=f"A_{extra_name} + EOT (N={len(extra_vals)})", color="purple", density=True)
+
+        ax.set_title(f"Signature Distribution ({extra_name}): {sig}", fontsize=12, fontweight="bold")
+        ax.set_xlabel(f"{sig} (higher = more suspect)", fontsize=10)
+        ax.set_ylabel("Density", fontsize=10)
+        ax.legend(loc="upper right")
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        fig.tight_layout()
+        plot_path = out_dir / f"hist_{extra_name}_{sig}.png"
+        fig.savefig(plot_path, dpi=150)
+        plt.close(fig)
+
+
 # ==============================================================================
 # Pipeline & Data Collection
 # ==============================================================================
@@ -507,6 +555,7 @@ def build_session_streams(
     target_person: str = "owner",
     set_prefix: str = "R_owner",
     include_attacks: bool = True,
+    extra_assets: Optional[dict[str, dict[str, Any]]] = None,
 ) -> list[dict[str, Any]]:
     """Build list of streams for continuous session processing.
     When include_attacks is False, generates only negative streams with target_id=target_person.
@@ -527,6 +576,14 @@ def build_session_streams(
                 {"set": f"{set_prefix}_controls", "tier": "control_random_R2b", "assets": r2b_assets, "label": 0, "target_id": target_person},
                 {"set": f"{set_prefix}_controls", "tier": "control_plain_R2b", "assets": r2b_assets, "label": 0, "target_id": target_person},
             ])
+        if extra_assets is not None:
+            for extra_name, assets in extra_assets.items():
+                streams.extend([
+                    {"set": f"A_{extra_name}", "tier": "D", "assets": assets, "label": 1, "target_id": assets["victim"]},
+                    {"set": f"A_{extra_name}_EOT", "tier": "D_EOT", "assets": assets, "label": 1, "target_id": assets["victim"]},
+                    {"set": f"{set_prefix}_controls", "tier": f"control_random_{extra_name}", "assets": assets, "label": 0, "target_id": target_person},
+                    {"set": f"{set_prefix}_controls", "tier": f"control_plain_{extra_name}", "assets": assets, "label": 0, "target_id": target_person},
+                ])
     else:
         # Negative-only streams for extra people sessions
         # Baseline and baseline_EOT share set = set_prefix; controls share f"{set_prefix}_controls"
@@ -541,6 +598,12 @@ def build_session_streams(
                 {"set": f"{set_prefix}_controls", "tier": "control_random_R2b", "assets": r2b_assets, "label": 0, "target_id": target_person},
                 {"set": f"{set_prefix}_controls", "tier": "control_plain_R2b", "assets": r2b_assets, "label": 0, "target_id": target_person},
             ])
+        if extra_assets is not None:
+            for extra_name, assets in extra_assets.items():
+                streams.extend([
+                    {"set": f"{set_prefix}_controls", "tier": f"control_random_{extra_name}", "assets": assets, "label": 0, "target_id": target_person},
+                    {"set": f"{set_prefix}_controls", "tier": f"control_plain_{extra_name}", "assets": assets, "label": 0, "target_id": target_person},
+                ])
     return streams
 
 
@@ -558,6 +621,7 @@ def process_continuous_session(
     set_prefix: str = "R_owner",
     include_attacks: bool = True,
     session_source: Optional[str] = None,
+    extra_assets: Optional[dict[str, dict[str, Any]]] = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """
     Process one continuous session (e.g. s2_day2, s5_vary, s6_vary, or people session).
@@ -597,6 +661,7 @@ def process_continuous_session(
         target_person=target_person,
         set_prefix=set_prefix,
         include_attacks=include_attacks,
+        extra_assets=extra_assets,
     )
 
     session_rows: list[dict[str, Any]] = []
@@ -799,6 +864,7 @@ def run_signatures_study(
     control_seed: int = 0,
     n_boot: int = 2000,
     output_dir: Optional[Path] = None,
+    extra_attack: Optional[list[str]] = None,
 ) -> Path:
     """Main execution of signatures feasibility evaluation (v2 supporting extra gallery and people sessions)."""
     run_dir = output_dir or new_run("signatures", {
@@ -810,6 +876,7 @@ def run_signatures_study(
         "extra_gallery": str(extra_gallery) if extra_gallery else None,
         "people_sessions": people_sessions or [],
         "primary_session": primary_session,
+        "extra_attack": extra_attack or [],
         "seed": seed,
         "control_seed": control_seed,
         "bootstrap_iterations": n_boot,
@@ -833,6 +900,39 @@ def run_signatures_study(
         else:
             raise FileNotFoundError(f"Extra gallery directory not found: {extra_path}")
 
+    extra_attacks: dict[str, Path] = {}
+    if extra_attack:
+        for item in extra_attack:
+            if "=" not in item:
+                raise SystemExit(f"invalid --extra-attack format, expected NAME=RUN_DIR, got: {item}")
+            name, run_dir_str = item.split("=", 1)
+            name = name.strip()
+            run_dir_path = Path(run_dir_str.strip())
+            if not re.match(r"^[A-Za-z0-9]+$", name):
+                raise SystemExit(f"Extra attack NAME must match [A-Za-z0-9]+, got '{name}'")
+            if name in ("C3", "R2b"):
+                raise SystemExit(f"Extra attack NAME cannot be C3 or R2b: '{name}'")
+            if not run_dir_path.exists():
+                raise FileNotFoundError(f"Extra attack run directory not found: {run_dir_path}")
+            extra_attacks[name] = run_dir_path
+
+    extra_assets_all: dict[str, dict[str, Any]] = {}
+    allowed_sessions_map: dict[str, set[str]] = {}
+    for name, r_path in extra_attacks.items():
+        assets = load_texture_assets(r_path, control_seed=control_seed)
+        extra_assets_all[name] = assets
+        split_path = r_path / "split.json"
+        if not split_path.exists():
+            raise FileNotFoundError(f"split.json not found in extra attack run: {r_path}")
+        split_data = json.loads(split_path.read_text(encoding="utf-8"))
+        train_sessions = {Path(p).parent.name for p in split_data.get("train", [])}
+        dev_sessions = {Path(p).parent.name for p in split_data.get("dev", [])}
+        eval_sessions = {Path(p).parent.name for p in split_data.get("eval", [])}
+        allowed = eval_sessions - train_sessions - dev_sessions
+        allowed_sessions_map[name] = allowed
+        applied = sorted([s for s in ("s2_day2", "s5_vary", "s6_vary") if s in allowed])
+        print(f"Extra attack '{name}': applied to sessions {applied}")
+
     c3_assets = load_texture_assets(c3_run, control_seed=control_seed)
     r2b_assets = load_texture_assets(r2b_run, control_seed=control_seed)
 
@@ -840,32 +940,38 @@ def run_signatures_study(
     all_rows: list[dict[str, Any]] = []
 
     # 1. Process s2_day2: only C3 applies (C3 trained on s1)
+    extra_assets_s2 = {name: assets for name, assets in extra_assets_all.items() if "s2_day2" in allowed_sessions_map[name]}
     s2_dir = frames_dir / "s2_day2"
     if s2_dir.exists():
         rows_s2, _ = process_continuous_session(
             s2_dir, detector, eyes_finder, recognizer, gallery_embs, rng,
             c3_assets=c3_assets, r2b_assets=None, skipped_counts=skipped_counts,
             target_person="owner", set_prefix="R_owner", include_attacks=True,
+            extra_assets=extra_assets_s2,
         )
         all_rows.extend(rows_s2)
 
     # 2. Process s5_vary: both C3 and R2b apply (R2b trained on s1 + s2)
+    extra_assets_s5 = {name: assets for name, assets in extra_assets_all.items() if "s5_vary" in allowed_sessions_map[name]}
     s5_dir = frames_dir / "s5_vary"
     if s5_dir.exists():
         rows_s5, _ = process_continuous_session(
             s5_dir, detector, eyes_finder, recognizer, gallery_embs, rng,
             c3_assets=c3_assets, r2b_assets=r2b_assets, skipped_counts=skipped_counts,
             target_person="owner", set_prefix="R_owner", include_attacks=True,
+            extra_assets=extra_assets_s5,
         )
         all_rows.extend(rows_s5)
 
     # 3. Process s6_vary: both C3 and R2b apply
+    extra_assets_s6 = {name: assets for name, assets in extra_assets_all.items() if "s6_vary" in allowed_sessions_map[name]}
     s6_dir = frames_dir / "s6_vary"
     if s6_dir.exists():
         rows_s6, _ = process_continuous_session(
             s6_dir, detector, eyes_finder, recognizer, gallery_embs, rng,
             c3_assets=c3_assets, r2b_assets=r2b_assets, skipped_counts=skipped_counts,
             target_person="owner", set_prefix="R_owner", include_attacks=True,
+            extra_assets=extra_assets_s6,
         )
         all_rows.extend(rows_s6)
 
@@ -899,6 +1005,7 @@ def run_signatures_study(
                 set_prefix=f"R_{tag}",
                 include_attacks=False,
                 session_source=tag,
+                extra_assets=extra_assets_all,
             )
             all_rows.extend(rows_ps)
             session_recogs[ps_clean] = recog_stats
@@ -969,6 +1076,30 @@ def run_signatures_study(
             if r2b_assets is not None:
                 comparisons_def[f"A_R2b_vs_R_{tag}_all"] = (["A_R2b", "A_R2b_EOT"], neg_sets)
 
+    if extra_attacks:
+        for extra_name in extra_attacks:
+            extra_pos = [f"A_{extra_name}", f"A_{extra_name}_EOT"]
+            comparisons_def[f"A_{extra_name}_vs_pooled_negatives"] = (
+                extra_pos,
+                ["R_owner", "R_owner_EOT", "R_owner_controls", "R_lfw"],
+            )
+            comparisons_def[f"A_{extra_name}_vs_R_owner_controls"] = (
+                extra_pos,
+                ["R_owner_controls"],
+            )
+            comparisons_def[f"A_{extra_name}_vs_R_lfw"] = (
+                extra_pos,
+                ["R_lfw"],
+            )
+            if people_sessions:
+                for ps in people_sessions:
+                    ps_clean = ps.strip().replace("\\", "/")
+                    if not ps_clean:
+                        continue
+                    tag = ps_clean.replace("/", "_")
+                    neg_sets = [f"R_{tag}", f"R_{tag}_controls"]
+                    comparisons_def[f"A_{extra_name}_vs_R_{tag}_all"] = (extra_pos, neg_sets)
+
     eval_results: dict[str, dict[str, Any]] = {}
     for comp_name, (pos_sets, neg_sets) in comparisons_def.items():
         comp_res: dict[str, Any] = {}
@@ -999,6 +1130,45 @@ def run_signatures_study(
         primary_session=primary_session,
     )
 
+    operating_points_extra: dict[str, dict[str, Any]] = {}
+    rule_check_extra: dict[str, dict[str, Any]] = {}
+    if extra_attacks:
+        for extra_name in extra_attacks:
+            op_extra = compute_operating_points(
+                all_rows,
+                people_sessions=people_sessions,
+                tpr_target=0.95,
+                pos_sets=[f"A_{extra_name}", f"A_{extra_name}_EOT"],
+            )
+            operating_points_extra[extra_name] = op_extra
+
+            if primary_session:
+                prim_clean = primary_session.strip().replace("\\", "/")
+                tag = prim_clean.replace("/", "_")
+                comp_key = f"A_{extra_name}_vs_R_{tag}_all"
+                comp_res = eval_results.get(comp_key, {})
+                rule_name: dict[str, Any] = {
+                    "primary_session": primary_session,
+                }
+                for sig in ["s2_maxdrop", "s2_conc"]:
+                    auc_val = comp_res.get(sig, {}).get("auc") if isinstance(comp_res, dict) else None
+                    fpr_val = op_extra.get(sig, {}).get(f"R_{tag}_all", {}).get("fpr") if isinstance(op_extra.get(sig), dict) else None
+                    is_pass = bool(auc_val is not None and fpr_val is not None and auc_val >= 0.90 and fpr_val <= 0.10)
+                    rule_name[sig] = {
+                        "auc_vs_primary": auc_val,
+                        "fpr_primary_at_tpr95": fpr_val,
+                        "pass": is_pass,
+                    }
+                rule_name["s2_holds"] = bool(rule_name["s2_maxdrop"]["pass"] or rule_name["s2_conc"]["pass"])
+                rule_check_extra[extra_name] = rule_name
+            else:
+                rule_check_extra[extra_name] = {
+                    "primary_session": None,
+                    "s2_maxdrop": {"auc_vs_primary": None, "fpr_primary_at_tpr95": None, "pass": False},
+                    "s2_conc": {"auc_vs_primary": None, "fpr_primary_at_tpr95": None, "pass": False},
+                    "s2_holds": None,
+                }
+
     # Counts by set
     set_counts: dict[str, int] = {}
     for r in all_rows:
@@ -1017,10 +1187,17 @@ def run_signatures_study(
         "counts": set_counts,
         "skipped": skipped_counts,
     }
+    if extra_attacks:
+        summary["extra_attacks"] = {k: str(v) for k, v in extra_attacks.items()}
+        summary["operating_points_extra"] = operating_points_extra
+        summary["rule_check_extra"] = rule_check_extra
     write_json(run_dir / "summary.json", summary)
 
     # Plot histograms
     plot_signature_histograms(all_rows, SIGNATURE_SCALARS, run_dir)
+    if extra_attacks:
+        for extra_name in extra_attacks:
+            plot_extra_signature_histograms(all_rows, extra_name, SIGNATURE_SCALARS, run_dir)
 
     # Print AUC table
     print("\n" + "=" * 88)
@@ -1072,6 +1249,41 @@ def run_signatures_study(
         print(f"Conclusion: s2_holds_for_other_people = {holds} -> {holds_str}")
         print("=" * 88 + "\n")
 
+    # Print Operating Points for Extra Attacks
+    if extra_attacks and operating_points_extra:
+        for extra_name, op_extra in operating_points_extra.items():
+            print("\n" + "=" * 88)
+            print(f"OPERATING POINTS AT 95% TPR ON EXTRA ATTACK: {extra_name}")
+            print("=" * 88)
+            print(f"{'Signature':<14} {'Thresh@95':<12} {'Negative Group':<32} {'FPR':<8} {'N_neg':<7} {'N_fp':<7}")
+            print("-" * 88)
+            for sig, op in op_extra.items():
+                thresh_str = f"{op['threshold_tpr95']:.4f}" if op.get("threshold_tpr95") is not None else "N/A"
+                groups = op.get("groups", {})
+                for grp_name, g_stats in groups.items():
+                    fpr_str = f"{g_stats['fpr']:.4f}" if g_stats.get("fpr") is not None else "N/A"
+                    print(f"{sig:<14} {thresh_str:<12} {grp_name:<32} {fpr_str:<8} {g_stats['n_neg']:<7} {g_stats['n_fp']:<7}")
+                print("-" * 88)
+
+    # Print Rule Check for Extra Attacks
+    if extra_attacks and rule_check_extra and primary_session:
+        print("\n" + "=" * 88)
+        print("RULE CHECK: S2 ON EXTRA ATTACKS")
+        print("=" * 88)
+        for extra_name, r_info in rule_check_extra.items():
+            print(f"Extra Attack: {extra_name} | Primary Session: {primary_session}")
+            for sig in ["s2_maxdrop", "s2_conc"]:
+                v = r_info[sig]
+                status = "PASS" if v["pass"] else "FAIL"
+                auc_str = f"{v['auc_vs_primary']:.4f}" if v['auc_vs_primary'] is not None else "N/A"
+                fpr_str = f"{v['fpr_primary_at_tpr95']:.4f}" if v['fpr_primary_at_tpr95'] is not None else "N/A"
+                print(f"  {sig:<12}: AUC_vs_primary = {auc_str} (>=0.90?), FPR@95% = {fpr_str} (<=0.10?) -> {status}")
+            holds = r_info.get("s2_holds")
+            holds_str = "PASS (S2 holds for extra attack)" if holds else "FAIL (S2 does not hold on primary session)"
+            print(f"Conclusion for {extra_name}: s2_holds = {holds} -> {holds_str}")
+            print("-" * 88)
+        print("=" * 88 + "\n")
+
     print(f"Artifacts written to: {run_dir}")
     return run_dir
 
@@ -1094,6 +1306,8 @@ def main() -> None:
                     help="Relative session paths for extra people (e.g. p01/s2 p01/s1)")
     ap.add_argument("--primary-session", default=None,
                     help="Primary session for rule check decision (e.g. p01/s2)")
+    ap.add_argument("--extra-attack", nargs="*", default=None,
+                    help="Extra attack runs in NAME=RUN_DIR format (e.g. H09=results/innovation/20261107_214538_advglasses_impersonate)")
     ap.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap and EOT")
     ap.add_argument("--control-seed", type=int, default=0, help="Random seed for control random spatial shuffle")
     ap.add_argument("--bootstrap-iterations", type=int, default=2000, help="Number of bootstrap iterations for CI")
@@ -1113,6 +1327,7 @@ def main() -> None:
         control_seed=args.control_seed,
         n_boot=args.bootstrap_iterations,
         output_dir=Path(args.output_dir) if args.output_dir else None,
+        extra_attack=args.extra_attack,
     )
 
 

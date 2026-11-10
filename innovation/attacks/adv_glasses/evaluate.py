@@ -184,6 +184,8 @@ def main():
     ap.add_argument("--grow-px", type=float, default=None, help="override outward dilation for PhotoFrame")
     ap.add_argument("--clearance-mm", type=float, default=None, help="override pupil clearance radius in mm for PhotoFrame")
     ap.add_argument("--ipd-mm", type=float, default=None, help="override interpupillary distance in mm for PhotoFrame")
+    ap.add_argument("--extra-gallery", nargs="*", default=None,
+                    help="extra gallery directory/directories to merge into main gallery")
     ap.add_argument("--physical", nargs="+", default=None,
                     help="evaluate physical tiers: TIER=DIR [TIER=DIR ...]")
     args = ap.parse_args()
@@ -191,6 +193,7 @@ def main():
     src = Path(args.run)
     attack = json.loads((src / "attack.json").read_text())
     split = json.loads((src / "split.json").read_text())
+    extra_gallery_paths = args.extra_gallery if args.extra_gallery is not None else (attack.get("extra_gallery") or [])
 
     if args.physical is not None:
         tier_dirs: dict[str, tuple[Path, list[Path]]] = {}
@@ -266,6 +269,17 @@ def main():
             gallery, _ = faces.build_gallery(Path(attack["gallery"]), recognizer, detector,
                                              attack.get("gallery_per_id", faces.GALLERY_PER_ID),
                                              cache_dir=src.parent / "_cache")
+            for eg_path in extra_gallery_paths:
+                eg_dir = Path(eg_path)
+                if not eg_dir.exists():
+                    raise SystemExit(f"extra gallery directory not found: {eg_dir}")
+                eg_gal, _ = faces.build_gallery(eg_dir, recognizer, detector,
+                                                attack.get("gallery_per_id", faces.GALLERY_PER_ID),
+                                                cache_dir=src.parent / "_cache")
+                duplicates = set(gallery.embeddings.keys()) & set(eg_gal.embeddings.keys())
+                if duplicates:
+                    raise SystemExit(f"Duplicate identities found when merging extra gallery: {sorted(duplicates)}")
+                gallery.embeddings.update(eg_gal.embeddings)
             db = gallery.as_db()
 
             tiers_to_run = list(tier_dirs.keys()) if model == "method3" else [t for t in tier_dirs.keys() if t == "P"]
@@ -341,7 +355,9 @@ def main():
             "eval_frames": sum(len(f) for _, (_, f) in tier_dirs.items()),
             "coverage_train": attack.get("coverage_train"),
             "color_map_calibrated": attack.get("color_map_calibrated"),
-            "gallery_per_id": attack.get("gallery_per_id"), "models": model_info, "results": {},
+            "gallery_per_id": attack.get("gallery_per_id"),
+            "extra_gallery": [str(p) for p in extra_gallery_paths],
+            "models": model_info, "results": {},
             "physical_sessions": {t: str(p_dir) for t, (p_dir, _) in tier_dirs.items()},
         }
 
@@ -552,6 +568,17 @@ def main():
         gallery, _ = faces.build_gallery(Path(attack["gallery"]), recognizer, detector,
                                          attack.get("gallery_per_id", faces.GALLERY_PER_ID),
                                          cache_dir=src.parent / "_cache")
+        for eg_path in extra_gallery_paths:
+            eg_dir = Path(eg_path)
+            if not eg_dir.exists():
+                raise SystemExit(f"extra gallery directory not found: {eg_dir}")
+            eg_gal, _ = faces.build_gallery(eg_dir, recognizer, detector,
+                                            attack.get("gallery_per_id", faces.GALLERY_PER_ID),
+                                            cache_dir=src.parent / "_cache")
+            duplicates = set(gallery.embeddings.keys()) & set(eg_gal.embeddings.keys())
+            if duplicates:
+                raise SystemExit(f"Duplicate identities found when merging extra gallery: {sorted(duplicates)}")
+            gallery.embeddings.update(eg_gal.embeddings)
         db = gallery.as_db()
         tiers = args.tiers if model == "method3" else [t for t in args.tiers if t in ("baseline", "D")]
         for tier in tiers:
@@ -627,7 +654,9 @@ def main():
                "smoother_warmup_frames": sum(len(v) for v in warmup_by_session.values()),
                "eval_frames": len(prepared), "coverage_train": attack.get("coverage_train"),
                "color_map_calibrated": attack.get("color_map_calibrated"),
-               "gallery_per_id": attack.get("gallery_per_id"), "models": model_info, "results": {}}
+               "gallery_per_id": attack.get("gallery_per_id"),
+               "extra_gallery": [str(p) for p in extra_gallery_paths],
+               "models": model_info, "results": {}}
     # normal light and dim light (enhancer fired) are separate tiers, never pooled
     for model in models:
         for tier in args.tiers:

@@ -237,6 +237,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--attacker-frames", required=True)
     ap.add_argument("--gallery", required=True)
+    ap.add_argument("--extra-gallery", nargs="*", default=None,
+                    help="extra gallery directory/directories to merge into main gallery")
     ap.add_argument("--attacker-id", required=True, help="the attacker's folder name in the gallery")
     ap.add_argument("--victim", help="the victim's folder name in the gallery (impersonate)")
     ap.add_argument("--mode", choices=("impersonate", "dodge"), default="impersonate")
@@ -290,6 +292,22 @@ def main():
                                             cache_dir=run.parent / "_cache")
     if g_report.get("uneven"):
         print(f"WARNING: fewer than {args.max_gallery} usable images for {g_report['uneven']}")
+
+    extra_gallery_report = {}
+    extra_gallery_list = [str(p) for p in args.extra_gallery] if args.extra_gallery else []
+    if args.extra_gallery:
+        for eg_path in args.extra_gallery:
+            eg_dir = Path(eg_path)
+            if not eg_dir.exists():
+                raise SystemExit(f"extra gallery directory not found: {eg_dir}")
+            eg_gal, eg_rep = faces.build_gallery(eg_dir, recognizer, detector, args.max_gallery,
+                                                cache_dir=run.parent / "_cache")
+            duplicates = set(gallery.embeddings.keys()) & set(eg_gal.embeddings.keys())
+            if duplicates:
+                raise SystemExit(f"Duplicate identities found when merging extra gallery: {sorted(duplicates)}")
+            gallery.embeddings.update(eg_gal.embeddings)
+            extra_gallery_report[str(eg_path)] = eg_rep
+
     if args.attacker_id not in gallery.embeddings:
         raise SystemExit(f"attacker '{args.attacker_id}' has no usable images in the gallery")
     if args.mode == "impersonate" and args.victim not in gallery.embeddings:
@@ -407,6 +425,17 @@ def main():
         attack_meta["grow_px"] = float(args.grow_px)
         attack_meta["clearance_mm"] = float(args.clearance_mm)
         attack_meta["ipd_mm"] = float(args.ipd_mm)
+    if args.extra_gallery:
+        attack_meta["extra_gallery"] = extra_gallery_list
+        attack_meta["extra_gallery_report"] = extra_gallery_report
+        meta_file = run / "meta.json"
+        if meta_file.exists():
+            try:
+                meta_json = json.loads(meta_file.read_text(encoding="utf-8"))
+                meta_json["extra_gallery"] = extra_gallery_list
+                write_json(meta_file, meta_json)
+            except Exception:
+                pass
     write_json(run / "attack.json", attack_meta)
     print(f"results: {run}")
 
