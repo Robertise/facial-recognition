@@ -1,0 +1,40 @@
+{
+  "run_id": "20261112_160724_purifier_eval",
+  "started": "2026-11-12T16:07:24",
+  "git_commit": "b017968bbfc6fb8938062bc9128c320f05a7f396",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\defense\\eval_purifier.py --modes none gray purifier --purifier-ckpt results/innovation/20261112_004047_purifier_train/best.pt --extra-gallery data/innovation/gallery_people --liveness --attack H09s1=results/innovation/20261112_112957_advglasses_impersonate:data/innovation/frames/owner/s6_vary H09s2=results/innovation/20261112_115550_advglasses_impersonate:data/innovation/frames/owner/s6_vary",
+  "args": {
+    "modes": [
+      "none",
+      "gray",
+      "purifier"
+    ],
+    "purifier_ckpt": "results\\innovation\\20261112_004047_purifier_train\\best.pt",
+    "h09_run": "results\\innovation\\20261107_214538_advglasses_impersonate",
+    "r2b_run": "results\\innovation\\20261106_132526_advglasses_impersonate",
+    "owner_s6_dir": "data\\innovation\\frames\\owner\\s6_vary",
+    "p01_root": "data\\innovation\\frames\\p01",
+    "extra_attacks": [
+      "H09s1=results/innovation/20261112_112957_advglasses_impersonate:data/innovation/frames/owner/s6_vary",
+      "H09s2=results/innovation/20261112_115550_advglasses_impersonate:data/innovation/frames/owner/s6_vary"
+    ],
+    "gallery_dir": "data\\innovation\\gallery",
+    "extra_gallery": [
+      "data/innovation/gallery_people"
+    ],
+    "checkpoint": "checkpoints\\method3_best.pth",
+    "liveness": true,
+    "control_seed": 0,
+    "device": "cpu"
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}

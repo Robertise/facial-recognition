@@ -718,3 +718,86 @@ Mẫu:
 - **Bộ phát hiện nhất quán** là đặc trưng chính nếu AUC(tấn công vs người thật) ≥ 0.90 VÀ FPR ≤ 10% tại TPR 95% trên từng tập người thật (owner/s6, p01/s2, owner đeo control).
 - Trượt (2): báo đánh đổi nguyên trạng. Hướng sau (chưa làm, cần luật mới): fine-tune recognizer trên mặt đã làm sạch.
 - Biết trước: bảo đảm "hoa văn trong band không ảnh hưởng đầu ra" chỉ đúng khi phụ kiện nằm trong band; kẻ tấn công thích ứng phải dùng phụ kiện lớn hơn vùng gọng (ngoài mô hình đe doạ "kính"), sẽ đo ở bước tấn công thích ứng.
+
+## 2026-11-10 Kết quả S2 trên H09 (run `20261110_212841_signatures`)
+- `--extra-attack H09=20261107_214538`, áp lên s5_vary + s6_vary; 213 frame dương tính (A_H09 + EOT). Gallery = chính + `gallery_people`.
+- **Luật: PASS (`s2_holds = true`).** `s2_maxdrop`: AUC vs R_p01_s2_all 0.9999 [0.9998–1.0], FPR p01/s2 0/469 tại TPR 95% (ngưỡng 0.642). `s2_conc`: AUC 0.976, FPR 5.97%.
+- FPR `s2_maxdrop` tại ngưỡng H09: owner 0/380, owner đeo control 0/937, p01/s1 controls 0/202, **LFW 7/50 = 14%** (như v2: điểm yếu trên ảnh LFW, nhiều khả năng do domain ảnh báo chí).
+- AUC `s2_maxdrop` H09 vs: pooled 0.998, owner controls 1.0, LFW 0.952 [0.905–0.987].
+- Kết luận: S2 tách được tấn công gọng thật fill-lens như với elip; vẫn là 1 kẻ tấn công (owner), digital, không thích ứng. Lưu ý so sánh C3/R2b trong run này dùng tập control lớn hơn v2 (xem verification_log 2026-11-10); rule_check cũ vẫn pass (p01/s2 maxdrop min AUC 0.9995, FPR 0).
+
+## 2026-11-12 Purifier: train (`20261112_004047_purifier_train`) và eval (`20261112_103208_purifier_eval`)
+- Train trên vast.ai (torch 2.14.1+cu132, khác bản 2.2.2 local; checkpoint nạp được trên laptop). Đúng siêu tham số plan: 30 epoch, batch 64, lr 2e-4, seed 0; 11 388 train / 1 206 val (LFW, danh tính tách). 346 s. **Best epoch 25, val identity cos 0.744** (gray trên cùng val: 0.390). Chọn theo val LFW, đúng luật.
+- Eval: 3 mode, gallery qua cùng mode, liveness gated, `extra_gallery = gallery_people`. band_ok 100% mọi tập (không frame nào bị từ chối vì thiếu band). Mode none tái lập H09 trên s6 đúng 65/75 như eval cổng → luồng eval nhất quán.
+
+| Tập | none | gray | **purifier** |
+|---|---|---|---|
+| Tấn công H09 (s6) | 86.7% | 0% | **0%** [0–4.9%] |
+| Tấn công R2b (s6) | 82.7% | 0% | **0%** [0–4.9%] |
+| GAR owner/s6 | 97.3% | 86.7% | **90.7%** [82–95%] |
+| GAR p01/s2 | 97.3% | 94.7% | **96.0%** |
+| GAR owner + control_random | 97.3% | 96.0% | 92.0% |
+| GAR owner + control_plain | 66.7% | 76.0% | 74.7% |
+
+- **Luật: purifier PASS.** (1) tấn công 0% ≤ 10%. (2) owner 90.7% ≥ 0.9 × 97.3% = 87.6%; p01 96.0% ≥ 87.6%. **beats_gray = true nhưng sát:** đạt nhờ vế "gray trượt (2)" (gray owner 86.7% < 87.6%, thiếu 1 frame); chênh GAR purifier − gray chỉ +4.0 điểm owner (3 frame) và +1.3 điểm p01, CI chồng nhau hoàn toàn. Purifier vượt ngưỡng (2) ở owner chỉ ~2 frame.
+- **Bộ phát hiện nhất quán: PASS**, AUC 1.0 và FPR 0 trên mọi tập người thật cho cả purifier lẫn gray. Ngưỡng TPR95 của purifier (0.425) cao gấp đôi gray (0.199): khoảng cách tấn công/người thật rộng hơn.
+- Diễn giải trung thực: trên dữ liệu thật của mình, phần lớn tác dụng chặn tấn công đến từ **xoá cố định vùng gọng** (gray đã chặn 0%). Phần học (U-Net + identity loss) cải thiện rõ trên LFW val (cos 0.39 → 0.74) nhưng trên owner/p01 chỉ thêm vài điểm GAR. Hạn chế: tấn công không thích ứng; 1 kẻ tấn công (owner); 75 frame mỗi tập; recognizer chưa từng thấy mặt đã làm sạch.
+
+## 2026-11-12 Luật đặt trước: nhiều seed (TRƯỚC khi có số seed 1, 2)
+- Mục đích: báo dao động do tối ưu/train, không phải để chọn lại. **Kết luận chính giữ nguyên ở seed 0** (cổng H09 s6 86.7% PASS; purifier `20261112_103208` PASS). Seed 1, 2 chỉ là mô tả: báo từng seed, trung bình, min, max và số seed đạt luật (k/3). Không bỏ seed nào, không chạy thêm seed để "gỡ".
+- **H09 seed 1, 2:** optimize y hệt `20261107_214538` (s1+s2, `--eval-sessions s3_vary s4_vary s5_vary s6_vary`, dev block, g_out 8, clearance 9, tex-res 15×40, 3000 bước, lr 0.03, EOT, M = identity), chỉ đổi `--seed`. Mỗi seed chấm s6 **một lần** (`--eval-session s6_vary --liveness`). Không dùng dev để chọn.
+- **Purifier seed 1, 2:** train y hệt `20261112_004047`, chỉ đổi `--seed`; checkpoint chọn theo val LFW như cũ. Mỗi seed eval **một lần** với lệnh như `20261112_103208` cộng `--attack` cho H09 seed 1 và 2 trên s6. Checkpoint seed 0 cũng eval lại một lần với các tập tấn công thêm này (mô tả; số chính seed 0 vẫn là run `20261112_103208`).
+- Báo cáo purifier: theo seed, purifier_pass, GAR owner/p01, chênh với gray, consistency_pass; và tỉ lệ chặn trên cả 3 hoa văn H09.
+- Tấn công thích ứng chỉ dùng purifier seed 0.
+
+## 2026-11-12 Luật đặt trước: tấn công thích ứng (plan `plan_adaptive.md`; TRƯỚC khi có code/số)
+- Kẻ tấn công biết toàn bộ pipeline, đặt hoa văn trên vành rộng r px ngoài band (khung đệm). r ∈ {8, 16, 32, 48} px template (≈ 2.8 / 5.6 / 11 / 17 mm). Mỗi r: một lần tối ưu (seed 0, 3000 bước, lr 0.03, EOT, M = identity, loss trên cả nhánh purifier và nhánh none), một lần chấm s6. Không chỉnh tham số theo kết quả.
+- Chỉ số chính: `success_full` = khớp victim ở mode purifier + liveness + không bị bộ nhất quán gắn cờ (ngưỡng cố định 0.4253 từ `20261112_103208`). Báo kèm success ở none/gray, `flag_rate`, độ phủ vành trên crop.
+- **Luật:** (a) **Phòng thủ đứng vững trong mô hình đe doạ "kính"** nếu `success_full` ≤ 20% ở cả r = 8 và r = 16. (b) **Cái giá kẻ tấn công** = r nhỏ nhất có `success_full` ≥ 50% (kèm độ phủ band + vành trên crop); không r nào đạt thì báo "> 48 px (17 mm)". (c) Nếu r = 8 đã ≥ 50%: phòng thủ yếu với phần mở rộng mỏng; báo nguyên trạng; hướng sửa (nới band, đổi lại GAR) cần luật mới.
+- Kiểm hợp lệ trước khi đọc số: `control_random` trên vành phải ≤ 20% ở mọi r (nếu không, lỗi đo: dừng, báo Claude).
+
+## 2026-11-12 H09 nhiều seed trên s6 (mô tả; kết luận chính vẫn seed 0)
+- Claude kiểm meta: seed 1 `20261112_112957`, seed 2 `20261112_115550` khác `20261107_214538` đúng một tham số `seed`. Mỗi seed chấm s6 một lần: `20261112_115503` (seed 1), `20261112_122426` (seed 2).
+
+| Seed | Run optimize | s6 D | Cổng |
+|---|---|---|---|
+| 0 | 20261107_214538 | 65/75 = 86.7% | PASS |
+| 1 | 20261112_112957 | 52/75 = 69.3% | FAIL |
+| 2 | 20261112_115550 | 60/75 = 80.0% | PASS (đúng ngưỡng) |
+
+- TB 78.7%, min 69.3%, max 86.7%; **2/3 seed qua cổng**, control 0 ở cả ba. Report phải ghi tỉ lệ thành công H09 là khoảng 69–87% theo seed, không chỉ 86.7%.
+- Ghi chú: `results/innovation/20261112_114419_adaptive_eval/` do pytest (`tests/innovation/test_adaptive.py`) ghi vào thư mục kết quả thật, không phải run thật; test nên dùng `tmp_path`.
+
+## 2026-11-12 Purifier 3 seed (mô tả; kết luận chính seed 0 run `20261112_103208`)
+- Train: seed 0 `20261112_004047` (best ep 25, val cos 0.7439), seed 1 `20261112_043800` (ep 20, 0.7435), seed 2 `20261112_044408` (ep 26, 0.7441). Gray val cos 0.3900.
+- Eval (mỗi checkpoint một lần, kèm H09 seed 1/2 trên s6): seed 0 `20261112_160724`, seed 1 `20261112_160820`, seed 2 `20261112_173637` (lần chạy seed 2 trước `20261112_161115` bị dừng giữa chừng, chưa ghi số nào, thư mục đã xoá).
+
+| Purifier | H09 s0/s1/s2, R2b | GAR owner/s6 | GAR p01/s2 | owner + ctrl random | owner + ctrl plain | Luật |
+|---|---|---|---|---|---|---|
+| seed 0 | 0/0/0/0 | 90.7% | 96.0% | 92.0% | 74.7% | PASS |
+| seed 1 | 0/0/0/0 | 94.7% | 96.0% | 94.7% | 77.3% | PASS |
+| seed 2 | 0/0/0/0 | 89.3% | 96.0% | 93.3% | 76.0% | PASS |
+| gray | 0/0/0/0 | 86.7% | 94.7% | 96.0% | 76.0% | (trượt (2) owner) |
+
+- **3/3 seed PASS** (chặn 0% trên cả 4 hoa văn; GAR ≥ 87.6%; beats_gray; consistency). GAR owner TB 91.6% (89.3–94.7) so với gray 86.7% và none 97.3%. Seed 2 vượt ngưỡng 87.6% chỉ 1 frame. beats_gray mọi seed đều nhờ vế "gray trượt (2)", không nhờ chênh ≥ 5 điểm.
+- Verify plan_adaptive §6: `run_eval_adaptive(output_dir=...)`, test truyền `output_dir` vào tmp; thư mục rác `20261112_114419_adaptive_eval` đã xoá; pytest `lastfailed` rỗng (test_p0 hết fail).
+
+## 2026-11-13 Tấn công thích ứng: huỷ bộ run 11-12 làm kết quả chính; luật chạy lại (TRƯỚC khi có số mới)
+- Bộ run 11-12 **không dùng làm kết quả chính**. Optimize (vast.ai): r8 `20261112_120403`, r16 `20261112_120550`, r32 `20261112_120730`, r48 `20261112_120911`. Eval s6 (chạy trên vast.ai, CUDA, lệch quy ước chấm trên laptop): `20261112_120528`, `20261112_120713`, `20261112_120854`, `20261112_121037`.
+- Lỗi đo: trong `cmd_optimize`, nhánh purifier so ảnh đã làm sạch với gallery **sạch** (`faces.build_gallery`); `run_eval_adaptive` so với gallery **đi qua purifier** (`build_gallery_for_mode(mode="purifier")`, đúng thiết kế 2026-11-09). Kẻ tấn công vì vậy tối ưu tới template mà hệ thống không dùng, trái mô hình đe doạ "biết toàn bộ pipeline". Plan §2 không ghi rõ gallery của nhánh purifier; verify 11-12 bỏ sót.
+- Dấu hiệu (cos tới victim; TB 12 dòng log cuối `loss.csv` → TB `target_sim` tầng D trên s6):
+
+| r | none: train → s6 | purifier: train → s6 | \|Δpur − Δnone\| |
+|---|---|---|---|
+| 8 | 0.143 → 0.153 | 0.141 → 0.013 | 0.139 |
+| 16 | 0.202 → 0.220 | 0.210 → 0.063 | 0.165 |
+| 32 | 0.308 → 0.322 | 0.347 → 0.149 | 0.212 |
+| 48 | 0.412 → 0.432 | 0.479 → 0.182 | 0.317 |
+
+- Số thô, chỉ lưu, không áp luật: `success_full` 0/75 mọi r; D/none 0, 0, 0, 4/75 (r48 5.3%); D/gray 0; control_random 0 mọi mode mọi r. Giữ nguyên 8 thư mục, nhãn "kẻ tấn công nhắm gallery sạch (sai mô hình)".
+- Ghi nhận (bộ cũ): r8, r16 loss đi ngang từ khoảng bước 1000; r48 còn tăng ở bước 3000 (batch_success_pur 0.33 → 0.42 giữa bước 2000 và 3000).
+- **Sửa:** `plan_adaptive.md` §7: nhánh purifier chấm với gallery mode purifier, dựng bằng đúng lời gọi của eval. Nhánh none giữ nguyên. Không đổi tham số nào khác: r ∈ {8, 16, 32, 48}, seed 0, 3000 bước, lr 0.03, batch 8, EOT, M = identity, tex 20×51, TV/NPS mặc định, purifier seed 0 `20261112_004047`, ngưỡng nhất quán 0.4253.
+- Mỗi r: một lần optimize mới (vast.ai, `runbook_vast_adaptive_v2.md`), một lần chấm s6 **trên laptop** (CPU, như mọi eval chính thức khác). Chấm lại s6 vì cấu hình tấn công đã khác; không có lần chấm thứ ba cho cùng cấu hình.
+- Luật (a), (b), (c) và kiểm `control_random` ≤ 20% giữ nguyên mục 2026-11-12.
+- **Kiểm hợp lệ thêm, trước khi đọc success:** mỗi r, Δ_mode = (TB cột `target_cos_pur` hoặc `target_cos_none` trên 12 dòng cuối `loss.csv`) − (TB `target_sim` tầng D, mode tương ứng, trên s6). Yêu cầu |Δ_purifier − Δ_none| ≤ 0.10. Bộ cũ trượt cả 4 r (bảng trên). Run mới trượt ở r nào thì dừng, coi là lỗi đo, báo Claude, không đọc success của r đó.
+- Nếu ở bộ mới r48 vẫn chưa hội tụ: report ghi là hạn chế; không chạy thêm bước.

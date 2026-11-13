@@ -1,0 +1,25 @@
+{
+  "run_id": "20261112_043800_purifier_train",
+  "started": "2026-11-12T04:38:00",
+  "git_commit": "",
+  "git_dirty": false,
+  "command": "/workspace/innovation/defense/train_purifier.py --data data/innovation/defense/lfw_crops --device cuda --seed 1",
+  "args": {
+    "data": "data/innovation/defense/lfw_crops",
+    "checkpoint": "checkpoints/method3_best.pth",
+    "epochs": 30,
+    "batch": 64,
+    "lr": 0.0002,
+    "device": "cuda",
+    "seed": 1
+  },
+  "machine": {
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "processor": "x86_64",
+    "cpu_count": 20,
+    "torch": "2.14.1+cu132",
+    "torch_threads": 14,
+    "cuda": true
+  }
+}

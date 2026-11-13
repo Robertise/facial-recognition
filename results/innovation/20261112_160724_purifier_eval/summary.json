@@ -1,0 +1,1475 @@
+{
+  "modes": [
+    "none",
+    "gray",
+    "purifier"
+  ],
+  "purifier_ckpt": "results\\innovation\\20261112_004047_purifier_train\\best.pt",
+  "h09_run": "results\\innovation\\20261107_214538_advglasses_impersonate",
+  "r2b_run": "results\\innovation\\20261106_132526_advglasses_impersonate",
+  "owner_s6_dir": "data\\innovation\\frames\\owner\\s6_vary",
+  "p01_root": "data\\innovation\\frames\\p01",
+  "extra_attacks": [
+    "H09s1=results/innovation/20261112_112957_advglasses_impersonate:data/innovation/frames/owner/s6_vary",
+    "H09s2=results/innovation/20261112_115550_advglasses_impersonate:data/innovation/frames/owner/s6_vary"
+  ],
+  "gallery_dir": "data\\innovation\\gallery",
+  "extra_gallery": [
+    "data/innovation/gallery_people"
+  ],
+  "checkpoint": "checkpoints\\method3_best.pth",
+  "liveness": true,
+  "control_seed": 0,
+  "device": "cpu",
+  "run_dir": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\results\\innovation\\20261112_160724_purifier_eval",
+  "attack_sets": [
+    "H09",
+    "R2b",
+    "H09s1",
+    "H09s2"
+  ],
+  "genuine_sets": [
+    "owner_s6",
+    "owner_control_random",
+    "owner_control_plain",
+    "p01_s2"
+  ],
+  "results": {
+    "none/H09": {
+      "mode": "none",
+      "set": "H09",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 65,
+      "rate": 0.8667,
+      "wilson95": [
+        0.7717,
+        0.9259
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.5933,
+      "top1_drop_mean": 0.0,
+      "attack_success_rate": 0.8667
+    },
+    "none/R2b": {
+      "mode": "none",
+      "set": "R2b",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 62,
+      "rate": 0.8267,
+      "wilson95": [
+        0.7257,
+        0.8958
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.84,
+      "target_sim_mean": 0.7109,
+      "top1_drop_mean": 0.0,
+      "attack_success_rate": 0.8267
+    },
+    "none/H09s1": {
+      "mode": "none",
+      "set": "H09s1",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 52,
+      "rate": 0.6933,
+      "wilson95": [
+        0.5817,
+        0.7861
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.5412,
+      "top1_drop_mean": 0.0,
+      "attack_success_rate": 0.6933
+    },
+    "none/H09s2": {
+      "mode": "none",
+      "set": "H09s2",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 60,
+      "rate": 0.8,
+      "wilson95": [
+        0.6959,
+        0.8749
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.5806,
+      "top1_drop_mean": 0.0,
+      "attack_success_rate": 0.8
+    },
+    "none/owner_s6": {
+      "mode": "none",
+      "set": "owner_s6",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 73,
+      "rate": 0.9733,
+      "wilson95": [
+        0.9079,
+        0.9927
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7711,
+      "top1_drop_mean": 0.0,
+      "gar": 0.9733
+    },
+    "none/owner_control_random": {
+      "mode": "none",
+      "set": "owner_control_random",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 73,
+      "rate": 0.9733,
+      "wilson95": [
+        0.9079,
+        0.9927
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.6623,
+      "top1_drop_mean": 0.0,
+      "gar": 0.9733
+    },
+    "none/owner_control_plain": {
+      "mode": "none",
+      "set": "owner_control_plain",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 50,
+      "rate": 0.6667,
+      "wilson95": [
+        0.5542,
+        0.7629
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.8,
+      "target_sim_mean": 0.5777,
+      "top1_drop_mean": 0.0,
+      "gar": 0.6667
+    },
+    "none/p01_s2": {
+      "mode": "none",
+      "set": "p01_s2",
+      "kind": "genuine",
+      "target_id": "p01",
+      "frames": 75,
+      "success": 73,
+      "rate": 0.9733,
+      "wilson95": [
+        0.9079,
+        0.9927
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7022,
+      "top1_drop_mean": 0.0,
+      "gar": 0.9733
+    },
+    "gray/H09": {
+      "mode": "gray",
+      "set": "H09",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.2899,
+      "top1_drop_mean": 0.3033,
+      "attack_success_rate": 0.0
+    },
+    "gray/R2b": {
+      "mode": "gray",
+      "set": "R2b",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.84,
+      "target_sim_mean": 0.3051,
+      "top1_drop_mean": 0.4058,
+      "attack_success_rate": 0.0
+    },
+    "gray/H09s1": {
+      "mode": "gray",
+      "set": "H09s1",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.2766,
+      "top1_drop_mean": 0.2646,
+      "attack_success_rate": 0.0
+    },
+    "gray/H09s2": {
+      "mode": "gray",
+      "set": "H09s2",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.2675,
+      "top1_drop_mean": 0.3131,
+      "attack_success_rate": 0.0
+    },
+    "gray/owner_s6": {
+      "mode": "gray",
+      "set": "owner_s6",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 65,
+      "rate": 0.8667,
+      "wilson95": [
+        0.7717,
+        0.9259
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7583,
+      "top1_drop_mean": 0.0128,
+      "gar": 0.8667
+    },
+    "gray/owner_control_random": {
+      "mode": "gray",
+      "set": "owner_control_random",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 72,
+      "rate": 0.96,
+      "wilson95": [
+        0.8889,
+        0.9863
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7619,
+      "top1_drop_mean": -0.0996,
+      "gar": 0.96
+    },
+    "gray/owner_control_plain": {
+      "mode": "gray",
+      "set": "owner_control_plain",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 57,
+      "rate": 0.76,
+      "wilson95": [
+        0.6522,
+        0.8425
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.8,
+      "target_sim_mean": 0.7533,
+      "top1_drop_mean": -0.1746,
+      "gar": 0.76
+    },
+    "gray/p01_s2": {
+      "mode": "gray",
+      "set": "p01_s2",
+      "kind": "genuine",
+      "target_id": "p01",
+      "frames": 75,
+      "success": 71,
+      "rate": 0.9467,
+      "wilson95": [
+        0.8707,
+        0.9791
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7656,
+      "top1_drop_mean": -0.0634,
+      "gar": 0.9467
+    },
+    "purifier/H09": {
+      "mode": "purifier",
+      "set": "H09",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.0307,
+      "top1_drop_mean": 0.5626,
+      "attack_success_rate": 0.0
+    },
+    "purifier/R2b": {
+      "mode": "purifier",
+      "set": "R2b",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.84,
+      "target_sim_mean": 0.0803,
+      "top1_drop_mean": 0.6306,
+      "attack_success_rate": 0.0
+    },
+    "purifier/H09s1": {
+      "mode": "purifier",
+      "set": "H09s1",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.0209,
+      "top1_drop_mean": 0.5203,
+      "attack_success_rate": 0.0
+    },
+    "purifier/H09s2": {
+      "mode": "purifier",
+      "set": "H09s2",
+      "kind": "attack",
+      "target_id": "LFW_victim",
+      "frames": 75,
+      "success": 0,
+      "rate": 0.0,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.0607,
+      "top1_drop_mean": 0.52,
+      "attack_success_rate": 0.0
+    },
+    "purifier/owner_s6": {
+      "mode": "purifier",
+      "set": "owner_s6",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 68,
+      "rate": 0.9067,
+      "wilson95": [
+        0.8197,
+        0.9541
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7592,
+      "top1_drop_mean": 0.0119,
+      "gar": 0.9067
+    },
+    "purifier/owner_control_random": {
+      "mode": "purifier",
+      "set": "owner_control_random",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 69,
+      "rate": 0.92,
+      "wilson95": [
+        0.8363,
+        0.9628
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7459,
+      "top1_drop_mean": -0.0836,
+      "gar": 0.92
+    },
+    "purifier/owner_control_plain": {
+      "mode": "purifier",
+      "set": "owner_control_plain",
+      "kind": "genuine",
+      "target_id": "owner",
+      "frames": 75,
+      "success": 56,
+      "rate": 0.7467,
+      "wilson95": [
+        0.6379,
+        0.8314
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.8,
+      "target_sim_mean": 0.7437,
+      "top1_drop_mean": -0.1629,
+      "gar": 0.7467
+    },
+    "purifier/p01_s2": {
+      "mode": "purifier",
+      "set": "p01_s2",
+      "kind": "genuine",
+      "target_id": "p01",
+      "frames": 75,
+      "success": 72,
+      "rate": 0.96,
+      "wilson95": [
+        0.8889,
+        0.9863
+      ],
+      "face_rate": 1.0,
+      "band_ok_rate": 1.0,
+      "rejected_no_band_rate": 0.0,
+      "liveness_pass": 0.9733,
+      "target_sim_mean": 0.7225,
+      "top1_drop_mean": -0.0203,
+      "gar": 0.96
+    }
+  },
+  "by_mode": {
+    "none": {
+      "H09": {
+        "mode": "none",
+        "set": "H09",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 65,
+        "rate": 0.8667,
+        "wilson95": [
+          0.7717,
+          0.9259
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.5933,
+        "top1_drop_mean": 0.0,
+        "attack_success_rate": 0.8667
+      },
+      "R2b": {
+        "mode": "none",
+        "set": "R2b",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 62,
+        "rate": 0.8267,
+        "wilson95": [
+          0.7257,
+          0.8958
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.84,
+        "target_sim_mean": 0.7109,
+        "top1_drop_mean": 0.0,
+        "attack_success_rate": 0.8267
+      },
+      "H09s1": {
+        "mode": "none",
+        "set": "H09s1",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 52,
+        "rate": 0.6933,
+        "wilson95": [
+          0.5817,
+          0.7861
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.5412,
+        "top1_drop_mean": 0.0,
+        "attack_success_rate": 0.6933
+      },
+      "H09s2": {
+        "mode": "none",
+        "set": "H09s2",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 60,
+        "rate": 0.8,
+        "wilson95": [
+          0.6959,
+          0.8749
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.5806,
+        "top1_drop_mean": 0.0,
+        "attack_success_rate": 0.8
+      },
+      "owner_s6": {
+        "mode": "none",
+        "set": "owner_s6",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 73,
+        "rate": 0.9733,
+        "wilson95": [
+          0.9079,
+          0.9927
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7711,
+        "top1_drop_mean": 0.0,
+        "gar": 0.9733
+      },
+      "owner_control_random": {
+        "mode": "none",
+        "set": "owner_control_random",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 73,
+        "rate": 0.9733,
+        "wilson95": [
+          0.9079,
+          0.9927
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.6623,
+        "top1_drop_mean": 0.0,
+        "gar": 0.9733
+      },
+      "owner_control_plain": {
+        "mode": "none",
+        "set": "owner_control_plain",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 50,
+        "rate": 0.6667,
+        "wilson95": [
+          0.5542,
+          0.7629
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.8,
+        "target_sim_mean": 0.5777,
+        "top1_drop_mean": 0.0,
+        "gar": 0.6667
+      },
+      "p01_s2": {
+        "mode": "none",
+        "set": "p01_s2",
+        "kind": "genuine",
+        "target_id": "p01",
+        "frames": 75,
+        "success": 73,
+        "rate": 0.9733,
+        "wilson95": [
+          0.9079,
+          0.9927
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7022,
+        "top1_drop_mean": 0.0,
+        "gar": 0.9733
+      }
+    },
+    "gray": {
+      "H09": {
+        "mode": "gray",
+        "set": "H09",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.2899,
+        "top1_drop_mean": 0.3033,
+        "attack_success_rate": 0.0
+      },
+      "R2b": {
+        "mode": "gray",
+        "set": "R2b",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.84,
+        "target_sim_mean": 0.3051,
+        "top1_drop_mean": 0.4058,
+        "attack_success_rate": 0.0
+      },
+      "H09s1": {
+        "mode": "gray",
+        "set": "H09s1",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.2766,
+        "top1_drop_mean": 0.2646,
+        "attack_success_rate": 0.0
+      },
+      "H09s2": {
+        "mode": "gray",
+        "set": "H09s2",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.2675,
+        "top1_drop_mean": 0.3131,
+        "attack_success_rate": 0.0
+      },
+      "owner_s6": {
+        "mode": "gray",
+        "set": "owner_s6",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 65,
+        "rate": 0.8667,
+        "wilson95": [
+          0.7717,
+          0.9259
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7583,
+        "top1_drop_mean": 0.0128,
+        "gar": 0.8667
+      },
+      "owner_control_random": {
+        "mode": "gray",
+        "set": "owner_control_random",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 72,
+        "rate": 0.96,
+        "wilson95": [
+          0.8889,
+          0.9863
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7619,
+        "top1_drop_mean": -0.0996,
+        "gar": 0.96
+      },
+      "owner_control_plain": {
+        "mode": "gray",
+        "set": "owner_control_plain",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 57,
+        "rate": 0.76,
+        "wilson95": [
+          0.6522,
+          0.8425
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.8,
+        "target_sim_mean": 0.7533,
+        "top1_drop_mean": -0.1746,
+        "gar": 0.76
+      },
+      "p01_s2": {
+        "mode": "gray",
+        "set": "p01_s2",
+        "kind": "genuine",
+        "target_id": "p01",
+        "frames": 75,
+        "success": 71,
+        "rate": 0.9467,
+        "wilson95": [
+          0.8707,
+          0.9791
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7656,
+        "top1_drop_mean": -0.0634,
+        "gar": 0.9467
+      }
+    },
+    "purifier": {
+      "H09": {
+        "mode": "purifier",
+        "set": "H09",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.0307,
+        "top1_drop_mean": 0.5626,
+        "attack_success_rate": 0.0
+      },
+      "R2b": {
+        "mode": "purifier",
+        "set": "R2b",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.84,
+        "target_sim_mean": 0.0803,
+        "top1_drop_mean": 0.6306,
+        "attack_success_rate": 0.0
+      },
+      "H09s1": {
+        "mode": "purifier",
+        "set": "H09s1",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.0209,
+        "top1_drop_mean": 0.5203,
+        "attack_success_rate": 0.0
+      },
+      "H09s2": {
+        "mode": "purifier",
+        "set": "H09s2",
+        "kind": "attack",
+        "target_id": "LFW_victim",
+        "frames": 75,
+        "success": 0,
+        "rate": 0.0,
+        "wilson95": [
+          0.0,
+          0.0487
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.0607,
+        "top1_drop_mean": 0.52,
+        "attack_success_rate": 0.0
+      },
+      "owner_s6": {
+        "mode": "purifier",
+        "set": "owner_s6",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 68,
+        "rate": 0.9067,
+        "wilson95": [
+          0.8197,
+          0.9541
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7592,
+        "top1_drop_mean": 0.0119,
+        "gar": 0.9067
+      },
+      "owner_control_random": {
+        "mode": "purifier",
+        "set": "owner_control_random",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 69,
+        "rate": 0.92,
+        "wilson95": [
+          0.8363,
+          0.9628
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7459,
+        "top1_drop_mean": -0.0836,
+        "gar": 0.92
+      },
+      "owner_control_plain": {
+        "mode": "purifier",
+        "set": "owner_control_plain",
+        "kind": "genuine",
+        "target_id": "owner",
+        "frames": 75,
+        "success": 56,
+        "rate": 0.7467,
+        "wilson95": [
+          0.6379,
+          0.8314
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.8,
+        "target_sim_mean": 0.7437,
+        "top1_drop_mean": -0.1629,
+        "gar": 0.7467
+      },
+      "p01_s2": {
+        "mode": "purifier",
+        "set": "p01_s2",
+        "kind": "genuine",
+        "target_id": "p01",
+        "frames": 75,
+        "success": 72,
+        "rate": 0.96,
+        "wilson95": [
+          0.8889,
+          0.9863
+        ],
+        "face_rate": 1.0,
+        "band_ok_rate": 1.0,
+        "rejected_no_band_rate": 0.0,
+        "liveness_pass": 0.9733,
+        "target_sim_mean": 0.7225,
+        "top1_drop_mean": -0.0203,
+        "gar": 0.96
+      }
+    }
+  },
+  "consistency": {
+    "gray": {
+      "threshold_tpr95": 0.1819,
+      "n_pos": 300,
+      "groups": {
+        "owner_s6": {
+          "auc": 0.9995,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_control_random": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_control_plain": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "p01_s2": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_controls": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 150,
+          "n_fp": 0
+        },
+        "pooled_genuine": {
+          "auc": 0.9999,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 300,
+          "n_fp": 0
+        }
+      },
+      "by_attack": {
+        "H09": {
+          "threshold_tpr95": 0.18,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 0.9998,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "R2b": {
+          "threshold_tpr95": 0.261,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "H09s1": {
+          "threshold_tpr95": 0.1687,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 0.9984,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 0.9996,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "H09s2": {
+          "threshold_tpr95": 0.1911,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 0.9998,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        }
+      }
+    },
+    "purifier": {
+      "threshold_tpr95": 0.3992,
+      "n_pos": 300,
+      "groups": {
+        "owner_s6": {
+          "auc": 0.9998,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_control_random": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_control_plain": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "p01_s2": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 75,
+          "n_fp": 0
+        },
+        "owner_controls": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 150,
+          "n_fp": 0
+        },
+        "pooled_genuine": {
+          "auc": 1.0,
+          "fpr_at_tpr95": 0.0,
+          "n_pos": 300,
+          "n_neg": 300,
+          "n_fp": 0
+        }
+      },
+      "by_attack": {
+        "H09": {
+          "threshold_tpr95": 0.4275,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "R2b": {
+          "threshold_tpr95": 0.4214,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "H09s1": {
+          "threshold_tpr95": 0.3955,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        },
+        "H09s2": {
+          "threshold_tpr95": 0.356,
+          "n_pos": 75,
+          "groups": {
+            "owner_s6": {
+              "auc": 0.9993,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_random": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_control_plain": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "p01_s2": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 75
+            },
+            "owner_controls": {
+              "auc": 1.0,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 150
+            },
+            "pooled_genuine": {
+              "auc": 0.9998,
+              "fpr_at_tpr95": 0.0,
+              "n_pos": 75,
+              "n_neg": 300
+            }
+          }
+        }
+      }
+    }
+  },
+  "rule_check": {
+    "rule1_block_attacks": true,
+    "attack_rates_purifier": {
+      "H09": 0.0,
+      "R2b": 0.0,
+      "H09s1": 0.0,
+      "H09s2": 0.0
+    },
+    "rule2_preserve_genuine": true,
+    "owner_s6_gar": {
+      "none": 0.9733,
+      "gray": 0.8667,
+      "purifier": 0.9067,
+      "pass": true
+    },
+    "p01_s2_gar": {
+      "none": 0.9733,
+      "gray": 0.9467,
+      "purifier": 0.96,
+      "pass": true
+    },
+    "purifier_pass": true,
+    "beats_gray": true,
+    "consistency_group_pass": {
+      "owner_s6": true,
+      "owner_controls": true,
+      "p01_s2": true
+    },
+    "consistency_pass": true
+  }
+}

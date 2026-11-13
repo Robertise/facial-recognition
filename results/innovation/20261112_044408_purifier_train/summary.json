@@ -1,0 +1,17 @@
+{
+  "data": "data/innovation/defense/lfw_crops",
+  "checkpoint": "checkpoints/method3_best.pth",
+  "epochs": 30,
+  "batch": 64,
+  "lr": 0.0002,
+  "device": "cuda",
+  "seed": 2,
+  "run_dir": "/workspace/results/innovation/20261112_044408_purifier_train",
+  "n_parameters": 3699267,
+  "n_train": 11388,
+  "n_val": 1206,
+  "val_gray_cos": 0.390006,
+  "best_epoch": 26,
+  "best_val_cos": 0.744095,
+  "best_checkpoint": "/workspace/results/innovation/20261112_044408_purifier_train/best.pt"
+}

@@ -84,3 +84,27 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 - **purifier:** band = hợp C3 + R2b + PhotoFrame fill-lens g16 + dilate 4 → 95.2% template; phủ 17.2% crop 112 trên owner/s1 (9.4–23.7%), 75/75 frame có band. `prepare` loại đúng 53 danh tính LFW của gallery (gồm LFW_victim/easy/hard), split theo danh tính 5126/570; chạy thử `--limit 200`: 0 lỗi. U-Net 3.7M, xoá band thành xám trước khi vào mạng, ghép giữ nguyên pixel ngoài band (cả bản uint8). Identity loss dùng method3 đóng băng, tiền xử lý khớp `extract_embedding`. Checkpoint chọn theo val cos LFW. Gallery đi qua cùng mode.
 - **Lỗi cần sửa (plan §7):** fail-open khi không có landmark mắt (`transform_crop112` trả nguyên crop). Lỗi do plan không nêu cách xử lý.
 - pytest: `.pytest_cache/lastfailed` còn `test_p0.py::test_flag_on_mounts_router_and_probe_works` (ghi lúc 2026-11-09 22:36), chưa rõ còn fail hay không; owner chạy lại toàn bộ `tests/innovation/` để xác nhận.
+
+## 2026-11-10 (tối). Verify plan_purifier §7 (fail-closed)
+- `eval_purifier.py`: mode gray/purifier với `band_ok == 0` → `rejected_no_band = 1`, `match_id = ""`, `success = 0`; điểm nhất quán = +inf khi tính AUC/ngưỡng (percentile xử lý inf). Thiếu `p01_s2` → luật (2) và `purifier_pass` = null. Đã commit trong `1190667`.
+- `prepare` đầy đủ: 12 597 ảnh, 11 388 train / 1 206 val, 3 ảnh không có mắt, 320 ảnh enhancer bật.
+- Run `results/innovation/20261110_220052_purifier_train` chỉ có `meta.json` (chạy `--device cuda` trên laptop torch CPU): run hỏng, không dùng.
+- `lastfailed` vẫn ghi `test_p0.py::test_flag_on_mounts_router_and_probe_works`; cần owner xác nhận.
+
+## 2026-11-12. Verify plan_adaptive.md (`innovation/defense/adaptive.py`, chưa commit)
+- Khung đệm P = 56 (512×262), mắt dời +P, `similarity_padded` qua `src_eyes`; không đụng hằng số `glasses.py`. Vành `ring(r) = dilate(band_padded, r) − band_padded`.
+- `ring_meta.json` (owner/s1, 53 frame dùng được): độ phủ vành trên crop 112: r8 2.4%, r16 5.0%, r32 10.2%, r48 15.8% (ngoài band 17.2%). Giao với band trong crop TB 80 px (0.6% crop, viền nội suy 1 px; vùng này bị purifier xoá nên vô hại).
+- Optimize: chia dữ liệu như H09 (s1+s2, eval s3–s6, dev block), band mỗi frame tính trên frame gốc và giữ cố định, U-Net đóng băng, hai nhánh none + purifier cùng loss giả danh như `optimize.py` (main + margin tổng), TV + NPS, EOT, M = identity, tex-res 20×51. Embedding qua `FrozenMethod3Embedder` (tương đương `pipeline.embed`: resize 112 không antialias, BGR→RGB, chuẩn hoá).
+- Eval: ngưỡng nhất quán mặc định đọc từ `20261112_103208` (0.4253); `success_full` = khớp victim ở purifier + liveness + không bị gắn cờ; fail-closed khi thiếu band.
+- **Cần sửa (plan §6):** `run_eval_adaptive` luôn gọi `new_run`, nên `test_adaptive.py` ghi một thư mục vào `results/innovation/` mỗi lần chạy pytest (đã sinh `20261112_114419_adaptive_eval`).
+
+## 2026-11-13. Kiểm bộ run adaptive 11-12 (bỏ sót ở verify 11-12)
+- 4 optimize + 4 eval: split đúng (train s1+s2, eval s3–s6), prepare_report 78/42/0/0, tham số đúng luật, control_random 0.
+- **Lỗi bỏ sót lúc verify plan:** nhánh purifier của `cmd_optimize` dùng gallery sạch (`faces.build_gallery`), eval dùng gallery qua purifier. Dấu hiệu: cos victim nhánh none train→s6 gần nguyên, nhánh purifier tụt 0.13–0.30 ở mọi r. Huỷ bộ run làm kết quả chính; sửa ở `plan_adaptive.md` §7; chạy lại theo `runbook_vast_adaptive_v2.md`.
+- Eval bộ cũ chạy trên vast.ai (CUDA), lệch quy ước; bộ mới chấm trên laptop.
+
+## 2026-11-13. Verify plan_adaptive §7 (`adaptive.py`, `test_adaptive.py`, chưa commit)
+- Hàm mới `build_adaptive_optimize_galleries`: E từ `faces.build_gallery` (như cũ), E_pur từ `build_gallery_for_mode(mode="purifier")` với đúng đối số của `run_eval_adaptive` (thêm `max_per_id=args.max_gallery`, mặc định 5 như eval). Kiểm `set(E_pur) == set(E)`, victim/attacker có trong cả hai.
+- Nhánh purifier (`s_target_pur`, `s_others_pur`, `hard_pur`) dùng E_pur; nhánh none, `target`, `others` giữ E. `attack.json` thêm `purifier_branch_gallery`, `gallery_pur_report`; không đổi key, cột, CLI. Gallery dựng trước khi đặt seed, không ảnh hưởng RNG tối ưu.
+- Test mới: A (cmd_optimize ghi vào tmp_path, có 2 key mới), B (E_pur victim trùng gallery purifier của eval, atol 1e-5; khác gallery sạch). pytest 170 test, `lastfailed` rỗng. Không file tracked nào ngoài docs bị sửa; không thư mục rác trong `results/innovation/`.
+- Không thấy bằng chứng trực tiếp của lần chạy thử 5 bước trên dữ liệu thật (thư mục đã xoá, gallery purifier lấy từ cache sẵn có). Bước 5 của `runbook_vast_adaptive_v2.md` sẽ kiểm lại trên vast.

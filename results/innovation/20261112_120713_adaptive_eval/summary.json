@@ -1,0 +1,89 @@
+{
+  "run_id": "20261112_120713_adaptive_eval",
+  "adaptive_optimize_run": "results/innovation/20261112_120550_adaptive_optimize",
+  "ring_px": 16,
+  "ring_coverage_s6": {
+    "mean": 0.0552,
+    "min": 0.0426,
+    "max": 0.0694
+  },
+  "eval_session": "s6_vary",
+  "liveness_enabled": true,
+  "consistency_threshold": 0.4253,
+  "purifier_ckpt": "results/innovation/20261112_004047_purifier_train/best.pt",
+  "checkpoint": "checkpoints/method3_best.pth",
+  "victim": "LFW_victim",
+  "attacker_id": "owner",
+  "results": {
+    "D/none": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ]
+    },
+    "D/gray": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ]
+    },
+    "D/purifier": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "success_full_rate": 0.0,
+      "success_full_k": 0,
+      "success_full_wilson95": [
+        0.0,
+        0.0487
+      ],
+      "flag_rate": 0.0,
+      "flag_k": 0
+    },
+    "control_random/none": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ]
+    },
+    "control_random/gray": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ]
+    },
+    "control_random/purifier": {
+      "rate": 0.0,
+      "k": 0,
+      "n": 75,
+      "wilson95": [
+        0.0,
+        0.0487
+      ],
+      "success_full_rate": 0.0,
+      "success_full_k": 0,
+      "success_full_wilson95": [
+        0.0,
+        0.0487
+      ],
+      "flag_rate": 0.0,
+      "flag_k": 0
+    }
+  }
+}
