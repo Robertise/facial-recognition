@@ -801,3 +801,49 @@ Mẫu:
 - Luật (a), (b), (c) và kiểm `control_random` ≤ 20% giữ nguyên mục 2026-11-12.
 - **Kiểm hợp lệ thêm, trước khi đọc success:** mỗi r, Δ_mode = (TB cột `target_cos_pur` hoặc `target_cos_none` trên 12 dòng cuối `loss.csv`) − (TB `target_sim` tầng D, mode tương ứng, trên s6). Yêu cầu |Δ_purifier − Δ_none| ≤ 0.10. Bộ cũ trượt cả 4 r (bảng trên). Run mới trượt ở r nào thì dừng, coi là lỗi đo, báo Claude, không đọc success của r đó.
 - Nếu ở bộ mới r48 vẫn chưa hội tụ: report ghi là hạn chế; không chạy thêm bước.
+- **Bộ chạy lại (code commit `b94703b`, vast.ai, torch 2.14.1+cu132, Python 3.12.15):** optimize r8 `20261113_074527`, r16 `20261113_074700`, r32 `20261113_074829`, r48 `20261113_075000`. Claude kiểm trước eval: `purifier_branch_gallery = purifier`; gallery purifier 54 danh tính, LFW_victim và owner đều 5/5 ảnh, band_ok 5/5; prepare_report 78/42/0/0; split train s1+s2 (120), dev 30 (s1+s2), eval s3–s6 (300); purifier `20261112_004047`; tex 20×51, EOT bật. Log: `adaptive_log_v2.txt`. Eval s6 trên laptop (CPU), mỗi r một lần.
+
+## 2026-11-13 Kết quả tấn công thích ứng (bộ chạy lại, commit `b94703b`; áp luật 2026-11-12 + kiểm hợp lệ 2026-11-13)
+- Eval s6 trên laptop (torch 2.2.2 CPU, liveness bật, ngưỡng nhất quán 0.4253, purifier `20261112_004047`), mỗi r một lần: r8 `20261113_173745`, r16 `20261113_173823`, r32 `20261113_173856`, r48 `20261113_175051`. 75 frame mỗi tầng, 73 frame qua liveness ở mọi mode (2 frame đầu "Checking").
+
+| r (mm) | Vành s6 | Band + vành | D/none | D/gray | D/purifier = `success_full` (Wilson 95%) | flag D | control_random (none/gray/pur) | \|Δpur − Δnone\| |
+|---|---|---|---|---|---|---|---|---|
+| 8 (2.8) | 2.7% | ~19.9% | 0/75 | 0/75 | 0/75 [0, 4.9%] | 0 | 0/0/0 | **0.110 (trượt)** |
+| 16 (5.6) | 5.6% | ~22.8% | 0/75 | 0/75 | 0/75 [0, 4.9%] | 0 | 0/0/0 | 0.082 |
+| 32 (11) | 11.8% | ~29.0% | 0/75 | 0/75 | 1/75 = 1.3% [0.2, 7.2%] | 0 | 0/0/0 | 0.097 |
+| 48 (17) | 17.4% | ~34.6% | 33/75 = 44.0% | 0/75 | **42/75 = 56.0% [44.8, 66.7%]** | 0 | 0/0/0 | 0.037 |
+
+(Band + vành = band 17.2% đo trên owner/s1 cộng độ phủ vành TB trên s6; xấp xỉ.)
+- Kiểm `control_random` ≤ 20%: đạt ở mọi r (0 ở mọi mode).
+- Kiểm |Δpur − Δnone| ≤ 0.10: đạt ở r16, r32, r48; **trượt ở r8 (0.110)**. Theo luật: r8 coi là lỗi đo, **không đọc success của r8**. Ghi chú mô tả (không đổi luật): lỗi gallery đã sửa (test B; r48 0.317 → 0.037, r32 0.212 → 0.097, r16 0.165 → 0.082), nhưng còn độ lệch dư có hệ thống ở nhánh purifier (Δpur − Δnone = 0.04–0.11 ở cả 4 r). Ngưỡng 0.10 được đặt từ bộ có lỗi, chưa biết mức dư này.
+- **Luật (a)** (success_full ≤ 20% ở r8 VÀ r16): **không xác định được theo luật** vì r8 trượt kiểm hợp lệ. Ở r16, kiểm đạt và success_full 0/75. Lập luận (không phải số đo): vành r16 chứa trọn vành r8 nên kẻ tấn công r8 không mạnh hơn r16; report được nói "chặn 0% ở vành 5.6 mm, r8 không kết luận do kiểm hợp lệ", không được nói "đạt (a)".
+- **Luật (b)** cái giá kẻ tấn công: r nhỏ nhất có success_full ≥ 50% là **r = 48 px (≈17 mm)**, band + vành phủ ≈ 35% crop 112. r32 (11 mm, ≈29%) chỉ 1/75.
+- Luật (c) không áp dụng.
+- Phát hiện phải ghi trong report: (1) ở r48 bộ phát hiện nhất quán **không gắn cờ frame nào** (flag 0/75 tầng D) vì hoa văn đã tối ưu để là victim ở cả hai nhánh (D/none 33/75); bộ phát hiện không có tác dụng với kẻ tấn công thích ứng. (2) Ở r48 purifier còn làm tấn công dễ hơn none (56% vs 44%; train cũng vậy: target_cos_pur 0.54 > none 0.44). (3) D/gray 0% ở mọi r nhưng **không** phải bằng chứng gray mạnh hơn purifier: tấn công không tối ưu cho nhánh gray. (4) r48 chưa hội tụ ở 3000 bước (batch_success_pur 0.65 → 0.71 giữa bước 2000 và 3000); cái giá thật có thể thấp hơn chút. Đây là hạn chế, không chạy thêm bước.
+
+## 2026-11-14 Luật đặt trước: phòng thủ có chứng nhận bằng đồng thuận nhiều mask (plan `plan_certified.md`; TRƯỚC khi có code/số)
+**Pipeline và mệnh đề.**
+- Với mỗi mask m trong tập S (neo theo hai tâm mắt, toạ độ template): crop 112 → vùng m thay xám → enhancer chạy trên crop đã che → inpainter (xoá lại m, vẽ lại) → method3 → khớp 1:N với gallery đã qua cùng nhánh. **Chấp nhận danh tính X ⇔ mọi m ∈ S cho top-1 = X với sim ≥ 0.5** (cộng liveness như mọi eval). Thiếu landmark mắt → từ chối.
+- Mệnh đề: phụ kiện nằm gọn trong vùng `region_m` của một m ∈ S, và landmark mắt lệch ≤ δ, thì nhánh m chỉ phụ thuộc pixel ngoài phụ kiện; kẻ tấn công chỉ được chấp nhận là V nếu mặt sạch của chính nó (cùng hình học crop) đã được nhánh m nhận là V. Đúng với mọi thuật toán tấn công.
+- Giả định phải ghi trong report: (i) landmark mắt lệch ≤ δ = 8 px template (2.8 mm); (ii) bbox detector chịu ảnh hưởng của phụ kiện, chỉ đổi hình học crop của mặt sạch (đo IoU); (iii) phụ kiện chỉ nằm trong **một** vùng; phụ kiện trải nhiều vùng không được bảo vệ.
+
+**Tập mask ứng viên** (dựng trước khi có số, không chỉnh sau khi thấy số owner/p01):
+- Họ kính `G_r`, r ∈ {0, 16, 32, 48} px template: `region` = band ⊕ r, mask = band ⊕ (r + δ).
+- `L` (nửa dưới mặt: khẩu trang, khăn): oval mặt dưới đường ngang qua landmark 6, nới xuống 27 px dưới cằm. `F` (trán: mũ, băng đô): trên mép trên lông mày, trong bề ngang oval, tới mép crop.
+- `region_L`, `region_F` = pixel được phủ ở ≥ 5% ảnh LFW train (sau khi đưa về toạ độ template); mask = region ⊕ δ.
+
+**Inpainter:** một lần train, seed 0, kiến trúc + loss + siêu tham số như purifier (30 epoch, batch 64, lr 2e-4). Mỗi mẫu bốc đều một mask trong {G0, G16, G32, G48, L, F}, dịch ±3 px. Checkpoint theo TB val cos LFW trên 6 mask, không bao giờ theo owner/p01.
+
+**Chọn tập S trên dev** (TRƯỚC khi chạy test):
+- Dev: `owner/s3_vary + s4_vary + s5_vary` (người thật, không tấn công) và LFW val (gallery 1 ảnh/người, probe ảnh còn lại, danh tính ≥ 2 ảnh). Không dùng `p01/s1` (recognizer không nhận p01 khi bỏ kính, log 2026-11-07).
+- Pass(S) ⇔ GAR_dev(S, inpaint) ≥ 0.90 × GAR_dev(none) trên **cả hai** tập dev.
+- Thứ tự ưu tiên (owner chọn bao quát phụ kiện trước, độ rộng kính sau): {G_r, L, F} với r = 48, 32, 16, 0 → nếu không đạt: {G_r, L} hoặc {G_r, F} với r = 48 → 0 (cùng r cả hai đạt thì lấy tập có min GAR dev cao hơn) → {G_r} với r = 48 → 0. Không tập nào đạt: phương pháp trượt ở dev, báo nguyên trạng, không dùng test để chọn lại.
+- Ghi tập S đã chọn vào log trước khi chạy test. Họ phụ kiện không được chọn ghi là hạn chế (kèm GAR dev của nó).
+
+**Luật trên test** (`owner/s6_vary`, `p01/s2`; chạy một lần; mọi nhánh đơn và mọi tập đều tính để báo mô tả):
+- **(V) Kiểm hợp lệ chứng nhận:** với S đã chọn, tỉ lệ thành công = 0 cho mọi tấn công nằm trong vùng chứng nhận: H09 seed 0/1/2, R2b, tấn công thích ứng có r ≤ r* của S (texture bộ 11-13). Có bất kỳ frame thành công → lỗi cài đặt/đo, dừng, báo Claude.
+- **(1) Ranh giới:** tấn công thích ứng r > r* (nếu có) báo tỉ lệ thành công (mô tả; là cận dưới, vì texture được tối ưu cho purifier band chứ không cho S).
+- **(2) GAR:** GAR_test(S, inpaint) ≥ 0.90 × GAR_test(none) trên owner/s6 VÀ p01/s2 → **phòng thủ chứng nhận ĐẠT**. Trượt: báo đánh đổi nguyên trạng.
+- **(3) Phần học:** inpaint hơn gray nếu GAR cao hơn ≥ 5 điểm trên cả hai tập test, hoặc gray trượt (2) mà inpaint đạt.
+- **(4) Báo kèm:** tỉ lệ frame sạch được chứng nhận (owner/s6, p01/s2); `eye_shift_px` và `bbox_iou` giữa frame sạch và bị tấn công (H09 s0, ADA_r48): TB, p95, max, tỉ lệ frame lệch > δ; chi phí của tập đầy đủ {G48, L, F} dù có được chọn hay không; GAR từng nhánh đơn (gray / inpaint) trên dev và test.
+- Ngưỡng 0.5 giữ chung cho mọi nhánh. Chỉnh ngưỡng theo nhánh, fine-tune recognizer, hay đổi hình mask đều cần luật mới.

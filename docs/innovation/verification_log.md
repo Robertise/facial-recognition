@@ -108,3 +108,16 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 - Nhánh purifier (`s_target_pur`, `s_others_pur`, `hard_pur`) dùng E_pur; nhánh none, `target`, `others` giữ E. `attack.json` thêm `purifier_branch_gallery`, `gallery_pur_report`; không đổi key, cột, CLI. Gallery dựng trước khi đặt seed, không ảnh hưởng RNG tối ưu.
 - Test mới: A (cmd_optimize ghi vào tmp_path, có 2 key mới), B (E_pur victim trùng gallery purifier của eval, atol 1e-5; khác gallery sạch). pytest 170 test, `lastfailed` rỗng. Không file tracked nào ngoài docs bị sửa; không thư mục rác trong `results/innovation/`.
 - Không thấy bằng chứng trực tiếp của lần chạy thử 5 bước trên dữ liệu thật (thư mục đã xoá, gallery purifier lấy từ cache sẵn có). Bước 5 của `runbook_vast_adaptive_v2.md` sẽ kiểm lại trên vast.
+
+## 2026-11-14. Verify plan_certified.md (4 module mới + test, chưa commit)
+- Không file tracked nào ngoài docs bị sửa; không có thư mục rác trong `results/innovation/`, `data/innovation/defense/`. pytest 176 test, `lastfailed` rỗng.
+- Đúng plan: canvas 800×900 offset (200, 300), δ = 8, Q = 0.05; G_r = band ⊕ (r + δ); L/F theo chỉ số landmark của plan, tần suất trên LFW train; nhánh (m, fill): che 128 → enhancer trên crop đã che → gray / inpaint; gallery qua cùng nhánh, cache theo tên run inpainter + hash mask; fail-closed khi thiếu mắt; light theo nhánh none; 8 tấn công test đúng run; thứ tự chọn S đúng luật.
+- **Lỗi nghiêm trọng (plan §8):** (1) `prepare_landmarks` thụt lề sai, mỗi split chỉ xử lý shard cuối; (2) ghép shard crop↔landmark bằng `zip` theo thứ tự, thiếu shard là lệch im lặng (gộp với (1) sẽ train inpainter trên mask sai mà không báo lỗi); (3) GAR gộp owner/s6 + p01/s2, thiếu GAR(none) và nhánh đơn theo từng set; (4) thiếu session/run tấn công thì bỏ qua im lặng, làm kiểm (V) có thể rỗng; (5) maskset tạo L/F rỗng khi không có landmark.
+- Cần sửa: lfwval fail-open khi mask None; test bất biến chưa phủ bước resize từ độ phân giải gốc; preview thiếu ảnh LFW; thiếu `--extra-genuine`.
+- Ghi nhận, không sửa: nhánh (m, fill) resize crop về 112 rồi mới che + enhancer, khác thứ tự backend (enhancer trên crop gốc rồi resize); nhất quán giữa gallery và probe nên chấp nhận, ghi trong report.
+
+## 2026-11-14 (tối). Verify plan_certified §8
+- (1) `prepare_landmarks`: thân vòng lặp đã vào trong `for sf`; report theo shard; kiểm đủ shard + số dòng khi không `--limit`. (2) Dataset train và lfwval ghép shard theo tên, kiểm số dòng và `paths` từng dòng. (3) GAR/certified theo từng set + mục gộp `owner_dev`; mục `branches` có none và 12 nhánh đơn theo set; bỏ fallback. (4) Thiếu session/run → SystemExit. (5) maskset `n_used == 0` → SystemExit.
+- lfwval bắt buộc ckpt, fail-closed khi mask None, dùng `score_against_gallery`. Test bất biến ở độ phân giải gốc (G0, G48, L, F; ca tối assert enhancer bật) qua. Preview có 4 LFW val. Có `--extra-genuine`. pytest 177, `lastfailed` rỗng.
+- Còn nhỏ, chấp nhận: lfwval vẫn cho cắt shard landmark ngắn hơn shard crop nếu là tiền tố, và không báo khi thiếu shard landmark của một shard crop val; sẽ kiểm `total_probes` khi chạy. Thêm §9 (in tiến độ mỗi epoch/shard) để theo dõi trên vast.
+- §9 đã làm: `train_inpainter` in mỗi epoch (flush) và ghi `train_log.csv` sau mỗi epoch; `prepare_landmarks` in mỗi shard. pytest chạy lại sau sửa (nodeids 13:40), `lastfailed` rỗng.

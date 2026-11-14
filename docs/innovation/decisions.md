@@ -118,3 +118,15 @@ Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink 
 - **Loại: chỉ che xám (không học).** Giữ làm baseline `gray`; S2 cho thấy che làm mặt thật giảm ~22% điểm, dự kiến hại GAR.
 - **Loại: dùng frame owner/p01 để train purifier.** Gây rò rỉ sang tập đánh giá.
 - Giai đoạn B vật lý đã đóng (xem 2026-11-09 "Đóng phần tấn công kính"); kết quả vật lý chỉ dùng trong report như phát hiện printability, không dùng cho demo.
+
+## 2026-11-14 Phòng thủ có chứng nhận: đồng thuận nhiều mask neo theo mắt
+- **Chọn:** mở rộng purifier một vùng thành tập mask S (họ kính G_r, nửa dưới mặt L, trán F), mỗi mask một nhánh che + inpaint + nhận dạng; chỉ chấp nhận khi mọi nhánh đồng thuận. Chứng nhận "không giả danh được" với mọi phụ kiện nằm gọn trong một vùng của S (giả định landmark mắt đúng trong lề δ). Plan `plan_certified.md`, luật `experiment_log.md` 2026-11-14.
+- **Lý do:** tấn công thích ứng 11-13 vượt purifier ở r48 (56%), bộ phát hiện nhất quán gắn cờ 0/75; mọi phòng thủ thực nghiệm sẽ lại bị kẻ thích ứng vòng sau phá. Chứng nhận không phụ thuộc thuật toán tấn công. Phần học (inpainter) có vai trò thật khi che vùng lớn, sửa điểm yếu "phần học chỉ thêm vài điểm GAR". Nền: PatchCleanser (USENIX Sec 2022) vòng một, Minority Reports (2020); khác ở: mask neo landmark theo loại phụ kiện, chứng nhận bất đối xứng cho 1:N có ngưỡng, inpainting có học giữ được chứng nhận.
+- **Phạm vi phụ kiện:** owner chọn bao quát cả ba họ. Nếu GAR không đủ, luật chọn tập trên dev quyết định; họ bị loại ghi là hạn chế.
+- **Neo chỉ theo hai tâm mắt** (không theo landmark miệng/mũi): phụ kiện ở vùng đó (khẩu trang) làm lệch chính landmark vùng đó; neo theo mắt giữ một giả định duy nhất. Hình mask L/F lấy từ thống kê landmark LFW train, không từ owner.
+- **Enhancer chạy trên crop đã che:** để quyết định và hệ số enhancer không phụ thuộc pixel phụ kiện (nếu chạy trên crop gốc thì phụ kiện có một kênh ảnh hưởng toàn ảnh).
+- **Loại: adversarial training purifier/recognizer chống tấn công vành.** Mèo vờn chuột, không bảo đảm.
+- **Loại: recognizer bỏ phiếu theo vùng (derandomized smoothing).** Phải train nhiều recognizer theo vùng trên dataset nhiều danh tính; không kịp hạn, rủi ro accuracy thấp.
+- **Loại: thêm bộ phát hiện (chữ ký, nhất quán).** Kẻ thích ứng vừa vô hiệu hoá bộ phát hiện nhất quán (11-13).
+- **Loại: che kép PatchCleanser đầy đủ.** K² lượt, chỉ cần khi muốn chứng nhận nhận đúng người; điểm danh chỉ cần chứng nhận không giả danh (người thật bị từ chối thì thử lại).
+- **Hoãn (cần luật mới):** ngưỡng riêng từng nhánh; fine-tune recognizer trên mặt đã inpaint.
