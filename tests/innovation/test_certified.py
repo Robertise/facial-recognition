@@ -23,12 +23,17 @@ from innovation.defense.eval_certified import (
     transform_branch_crop,
 )
 from innovation.defense.maskset import (
+    BROW_TOP,
     CANVAS_EYES,
     CANVAS_H,
     CANVAS_OFF,
     CANVAS_W,
     DELTA,
+    EYE_ZONE_RECTS,
+    FACE_OVAL,
+    L_TOP_LANDMARK,
     MASK_NAMES,
+    build_maskset,
     mask_in_crop,
     mask_in_window,
     similarity_canvas,
@@ -454,4 +459,60 @@ def test_eval_certified_run_smoke_fixture(tmp_path):
     summary_data = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
     assert "branches" in summary_data
     assert "sets_evaluated" in summary_data
+
+
+def test_maskset_eye_zone_check_and_landmark_195(tmp_path):
+    """Test build_maskset eye zone check: landmark 195 below eyes passes, landmark 195 at eye level raises SystemExit."""
+    landmarks_dir = tmp_path / "landmarks"
+    landmarks_dir.mkdir()
+    crops_dir = tmp_path / "crops"
+    crops_dir.mkdir()
+    out_dir_pass = tmp_path / "maskset_pass"
+    out_dir_fail = tmp_path / "maskset_fail"
+
+    def make_shard(path: Path, lm195_y: float):
+        eyes = np.array([[[310.0, 380.0], [490.0, 380.0]]], dtype=np.float32)
+        mesh = np.zeros((1, 468, 2), dtype=np.float32)
+        angles = np.linspace(0, 2 * np.pi, len(FACE_OVAL), endpoint=False)
+        for idx, ang in zip(FACE_OVAL, angles):
+            mesh[0, idx] = [400.0 + 180.0 * np.cos(ang), 480.0 + 200.0 * np.sin(ang)]
+        for idx in BROW_TOP:
+            mesh[0, idx] = [400.0, 280.0]
+        mesh[0, L_TOP_LANDMARK] = [400.0, lm195_y]
+        ok = np.array([1], dtype=np.uint8)
+        win = np.array([[100, 100, 700, 800]], dtype=np.int32)
+        np.savez_compressed(path, eyes=eyes, mesh=mesh, window=win, ok=ok, paths=["dummy.jpg"])
+
+    # 1. Landmark 195 below eyes (y = 430) -> passes eye zone check with 0 overlap
+    shard_pass = landmarks_dir / "train_000.npz"
+    make_shard(shard_pass, lm195_y=430.0)
+    meta = build_maskset(
+        landmarks_dir=landmarks_dir,
+        crops_dir=crops_dir,
+        owner_s1_dir=tmp_path / "nonexistent_owner",
+        out_dir=out_dir_pass,
+    )
+    assert "eye_zone_check" in meta
+    assert meta["eye_zone_check"]["pass"] is True
+    assert meta["eye_zone_check"]["overlap_L_px"] == 0
+    assert meta["eye_zone_check"]["overlap_F_px"] == 0
+    assert meta["landmarks"]["nose_bridge"] == 195
+    assert meta["landmarks"]["l_top_landmark"] == 195
+    assert (out_dir_pass / "L.png").exists()
+    assert (out_dir_pass / "maskset_preview.png").exists()
+    prev_img = cv2.imread(str(out_dir_pass / "maskset_preview.png"))
+    assert prev_img.shape == (112, 784, 3)
+
+    # 2. Landmark 195 at eye level (y = 375) -> overlaps eye zone -> raises SystemExit
+    shard_fail = landmarks_dir / "train_000.npz"
+    make_shard(shard_fail, lm195_y=375.0)
+    with pytest.raises(SystemExit) as excinfo:
+        build_maskset(
+            landmarks_dir=landmarks_dir,
+            crops_dir=crops_dir,
+            owner_s1_dir=tmp_path / "nonexistent_owner",
+            out_dir=out_dir_fail,
+        )
+    assert "overlaps eye zone" in str(excinfo.value)
+
 

@@ -32,6 +32,12 @@ CANVAS_H = 900
 CANVAS_OFF = (200, 300)
 DELTA = 8  # margin in template pixels
 Q = 0.05   # frequency threshold for statistical masks
+L_TOP_LANDMARK = 195  # mid-nose bridge landmark for upper cutoff of L mask
+
+EYE_ZONE_RECTS = [
+    {"x_min": 270, "x_max": 350, "y_min": 366, "y_max": 394},
+    {"x_min": 450, "x_max": 530, "y_min": 366, "y_max": 394},
+]
 
 CANVAS_EYES = glasses.EYES + np.array(CANVAS_OFF, dtype=np.float32)  # [[310, 380], [490, 380]]
 
@@ -184,15 +190,15 @@ def build_maskset(
             # Polygon for FACE_OVAL
             pts_oval = np.round(mesh_c[FACE_OVAL]).astype(np.int32)
 
-            # L_i: (fill(oval) union fill(oval shifted down 27px)) intersect {y >= y(landmark 6)}
+            # L_i: (fill(oval) union fill(oval shifted down 27px)) intersect {y >= y(landmark L_TOP_LANDMARK)}
             L_i = np.zeros((CANVAS_H, CANVAS_W), dtype=np.uint8)
             cv2.fillPoly(L_i, [pts_oval], 255)
             pts_down = pts_oval.copy()
             pts_down[:, 1] += 27
             cv2.fillPoly(L_i, [pts_down], 255)
 
-            y_lm6 = mesh_c[6, 1]
-            y_cutoff = max(0, min(CANVAS_H, int(np.floor(y_lm6))))
+            y_top_l = mesh_c[L_TOP_LANDMARK, 1]
+            y_cutoff = max(0, min(CANVAS_H, int(np.floor(y_top_l))))
             L_i[:y_cutoff, :] = 0
 
             # F_i: {y <= min_y(BROW_TOP)} intersect {min_x(oval) <= x <= max_x(oval)}
@@ -228,6 +234,26 @@ def build_maskset(
     k_delta = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * delta + 1, 2 * delta + 1))
     masks["L"] = cv2.dilate(reg_L, k_delta)
     masks["F"] = cv2.dilate(reg_F, k_delta)
+
+    # Mandatory eye zone check: L and F (after dilation) MUST NOT overlap template eye zones
+    eye_zone_mask = np.zeros((CANVAS_H, CANVAS_W), dtype=np.uint8)
+    for r in EYE_ZONE_RECTS:
+        eye_zone_mask[r["y_min"] : r["y_max"] + 1, r["x_min"] : r["x_max"] + 1] = 255
+
+    overlap_L = int(np.sum((masks["L"] > 0) & (eye_zone_mask > 0)))
+    overlap_F = int(np.sum((masks["F"] > 0) & (eye_zone_mask > 0)))
+
+    if overlap_L > 0:
+        raise SystemExit(f"Mask L overlaps eye zone by {overlap_L} pixels!")
+    if overlap_F > 0:
+        raise SystemExit(f"Mask F overlaps eye zone by {overlap_F} pixels!")
+
+    eye_zone_check = {
+        "rects": EYE_ZONE_RECTS,
+        "overlap_L_px": overlap_L,
+        "overlap_F_px": overlap_F,
+        "pass": bool(overlap_L == 0 and overlap_F == 0),
+    }
 
     # Save PNG masks and regions
     for name in MASK_NAMES:
@@ -293,7 +319,13 @@ def build_maskset(
         "canvas": {"width": CANVAS_W, "height": CANVAS_H, "offset": list(CANVAS_OFF)},
         "delta": delta,
         "q": q,
-        "landmarks": {"face_oval": FACE_OVAL, "brow_top": BROW_TOP, "nose_bridge": 6},
+        "landmarks": {
+            "face_oval": FACE_OVAL,
+            "brow_top": BROW_TOP,
+            "nose_bridge": L_TOP_LANDMARK,
+            "l_top_landmark": L_TOP_LANDMARK,
+        },
+        "eye_zone_check": eye_zone_check,
         "n_lfw_train_images_used": n_used,
         "n_lfw_train_used_by_shard": n_used_by_shard,
         "coverages_owner_s1": cov_summary,
@@ -325,7 +357,7 @@ def _build_preview_image(
     crops_dir: Optional[Path] = None,
     landmarks_dir: Optional[Path] = None,
 ) -> None:
-    """Build preview image showing 6 masks overlaid with distinct colors on 4 LFW val crops + 2 owner frames."""
+    """Build preview image showing canvas overview + 4 LFW val crops + 2 owner frames."""
     colors = {
         "G0": (0, 0, 255),       # Red
         "G16": (0, 165, 255),    # Orange
@@ -334,6 +366,24 @@ def _build_preview_image(
         "L": (255, 0, 255),      # Magenta
         "F": (255, 255, 0),      # Cyan
     }
+
+    # 0. Canvas overview: 800x900 overlay with all 6 masks and eye center dots
+    canvas_vis = np.full((CANVAS_H, CANVAS_W, 3), 245, dtype=np.float32)
+    for name in ["G48", "G32", "G16", "G0", "L", "F"]:
+        m = masks[name]
+        idx = m > 0
+        c = np.array(colors[name], dtype=np.float32)
+        canvas_vis[idx] = canvas_vis[idx] * 0.4 + c * 0.6
+
+    # Eye centers: (310, 380) and (490, 380)
+    e_left = (int(CANVAS_EYES[0, 0]), int(CANVAS_EYES[0, 1]))
+    e_right = (int(CANVAS_EYES[1, 0]), int(CANVAS_EYES[1, 1]))
+    cv2.circle(canvas_vis, e_left, 10, (0, 0, 0), -1)
+    cv2.circle(canvas_vis, e_left, 5, (255, 255, 255), -1)
+    cv2.circle(canvas_vis, e_right, 10, (0, 0, 0), -1)
+    cv2.circle(canvas_vis, e_right, 5, (255, 255, 255), -1)
+
+    canvas_crop = cv2.resize(np.clip(canvas_vis, 0, 255).astype(np.uint8), (112, 112))
 
     sample_crops: list[np.ndarray] = []
 
@@ -402,7 +452,7 @@ def _build_preview_image(
         dummy = np.full((112, 112, 3), 128, dtype=np.uint8)
         owner_crops.append(dummy)
 
-    row = np.hstack(sample_crops + owner_crops)
+    row = np.hstack([canvas_crop] + sample_crops + owner_crops)
     cv2.imwrite(str(out_path), row)
 
 

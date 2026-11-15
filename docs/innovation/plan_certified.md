@@ -115,3 +115,12 @@ Chỉ sửa 4 module mới và `test_certified.py`. Không đổi tên CLI arg /
 - `train_inpainter.py`: in một dòng mỗi epoch (`flush=True`): epoch, loss TB, val cos TB, val cos 6 mask, thời gian; và ghi lại `train_log.csv` sau **mỗi** epoch (hiện chỉ ghi cuối), để theo dõi khi chạy nền trên vast.
 - `prepare_landmarks.py`: in một dòng sau mỗi shard (tên, số ảnh, số ok, thời gian, `flush=True`).
 - Không đổi gì khác. pytest lại.
+
+## 10. Sửa hình mask L (2026-11-15, trước khi train, trước mọi số GAR)
+Lý do: ở canvas, mắt template nằm ở y = 380. Landmark 6 trên LFW train có trung vị y = 389, p5 = 373 (gần như ngang tầm mắt). Vì vậy vùng L dựng theo đường ngang qua landmark 6, sau khi lấy hợp 95% và nới δ, bắt đầu từ y = 365, **phủ cả hai mắt**. Nhánh L khi đó chỉ còn trán và lông mày, không ai được nhận ra, và vùng đó không còn là "khẩu trang" nữa. Đây là lỗi đặc tả của Claude ở §2.2. Phát hiện trên canvas LFW, không dựa trên số nào của owner/p01.
+- `maskset.py`: đường cắt trên của `L_i` dùng **landmark 195** (giữa sống mũi; LFW train: p5 403, trung vị 431, p95 454) thay cho landmark 6. Mọi thứ khác giữ nguyên: dịch oval xuống 27 px, Q = 0.05, δ = 8, F và họ G không đổi.
+- Thêm hằng `L_TOP_LANDMARK = 195`. Trong `maskset_meta.json`: `landmarks.nose_bridge` ghi đúng chỉ số đang dùng (195) và thêm `landmarks.l_top_landmark: 195`.
+- Thêm kiểm bắt buộc trong `build`: vùng mắt template = hai hình chữ nhật x ∈ [270, 350] và [450, 530], y ∈ [366, 394] (tâm mắt ± 40 px ngang, ± 14 px dọc). Mask `L` và `F` (sau δ) **không được giao** vùng mắt; giao → `SystemExit` (in số pixel giao). Ghi kết quả kiểm vào meta (`eye_zone_check`).
+- Thêm vào `maskset_preview.png` một ảnh canvas (mỗi mask một màu, đánh dấu hai tâm mắt) để thấy hình mask không phụ thuộc mặt cụ thể.
+- Test: dựng maskset trên landmark giả có landmark 195 ở dưới mắt → L không giao vùng mắt; landmark giả đặt 195 ngang mắt → `SystemExit`.
+- Không chạy lại `prepare_landmarks`. Owner chỉ chạy lại `python -m innovation.defense.maskset build`.

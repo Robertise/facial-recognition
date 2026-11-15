@@ -847,3 +847,9 @@ Mẫu:
 - **(3) Phần học:** inpaint hơn gray nếu GAR cao hơn ≥ 5 điểm trên cả hai tập test, hoặc gray trượt (2) mà inpaint đạt.
 - **(4) Báo kèm:** tỉ lệ frame sạch được chứng nhận (owner/s6, p01/s2); `eye_shift_px` và `bbox_iou` giữa frame sạch và bị tấn công (H09 s0, ADA_r48): TB, p95, max, tỉ lệ frame lệch > δ; chi phí của tập đầy đủ {G48, L, F} dù có được chọn hay không; GAR từng nhánh đơn (gray / inpaint) trên dev và test.
 - Ngưỡng 0.5 giữ chung cho mọi nhánh. Chỉnh ngưỡng theo nhánh, fine-tune recognizer, hay đổi hình mask đều cần luật mới.
+
+## 2026-11-15 Sửa hình mask L trước khi train (bổ sung luật 2026-11-14; TRƯỚC mọi số GAR)
+- Landmark LFW (`lfw_landmarks/report.json`, commit `0977f61`): 12 594/12 594 ảnh ok, band dựng lại trùng band đã lưu (IoU 1.0 mọi shard).
+- `maskset build` lần đầu: vùng L bắt đầu từ y = 365 trên canvas, trong khi mắt template ở y = 380. Nguyên nhân: đặc tả L dùng đường ngang qua landmark 6, mà landmark 6 gần như ngang tầm mắt (LFW train trung vị y 389, p5 373); lấy hợp 95% và nới δ làm L phủ cả hai mắt. Độ phủ L trên owner/s1 TB 53.9% crop.
+- Lỗi đặc tả (Claude), phát hiện trên canvas dựng từ LFW, chưa có số nhận dạng nào. Sửa (`plan_certified.md` §10): đường cắt trên của L dùng landmark 195 (giữa sống mũi; LFW train p5 403, trung vị 431). Thêm điều kiện hình học đặt trước: L và F không được giao vùng mắt template (tâm mắt ± 40 px ngang, ± 14 px dọc); vi phạm thì dừng. G và F không đổi; Q, δ không đổi.
+- Lý do giữ mắt ngoài L: phụ kiện che cả mắt lẫn nửa dưới mặt là loại khác (mặt nạ trùm), nằm ngoài mô hình đe doạ; và nhánh L phải còn đủ thông tin để nhận người thật.

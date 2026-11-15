@@ -121,3 +121,11 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 - lfwval bắt buộc ckpt, fail-closed khi mask None, dùng `score_against_gallery`. Test bất biến ở độ phân giải gốc (G0, G48, L, F; ca tối assert enhancer bật) qua. Preview có 4 LFW val. Có `--extra-genuine`. pytest 177, `lastfailed` rỗng.
 - Còn nhỏ, chấp nhận: lfwval vẫn cho cắt shard landmark ngắn hơn shard crop nếu là tiền tố, và không báo khi thiếu shard landmark của một shard crop val; sẽ kiểm `total_probes` khi chạy. Thêm §9 (in tiến độ mỗi epoch/shard) để theo dõi trên vast.
 - §9 đã làm: `train_inpainter` in mỗi epoch (flush) và ghi `train_log.csv` sau mỗi epoch; `prepare_landmarks` in mỗi shard. pytest chạy lại sau sửa (nodeids 13:40), `lastfailed` rỗng.
+
+## 2026-11-15. Kiểm landmark LFW + maskset lần đầu
+- `prepare_landmarks`: đủ 14 shard, 12 594 ảnh ok, 0 band lệch, IoU 1.0, 147 s. `maskset`: 11 388 ảnh train dùng; band ⊆ G0 trên 53 frame owner/s1 (leak 0). Độ phủ owner/s1: G0 19.1%, G16 24.3%, G32 29.7%, G48 35.3%, L 53.9%, F 19.4%.
+- **Lỗi hình L:** L phủ cả hai mắt (bắt đầu y 365 < mắt 380) do đặc tả dùng landmark 6. Sửa ở `plan_certified.md` §10 (landmark 195 + kiểm vùng mắt bắt buộc). F (y ≤ 333) và họ G hợp lý.
+
+## 2026-11-15 (tối). Verify plan_certified §10 + maskset dựng lại
+- Diff `maskset.py`: `L_TOP_LANDMARK = 195`, kiểm vùng mắt chạy trước khi ghi file, meta có `l_top_landmark`, `eye_zone_check`; preview thêm canvas. Test mới (195 dưới mắt đạt, ngang mắt dừng) qua.
+- Maskset dựng lại (14:04 UTC): `eye_zone_check` đạt (giao L 0 px, F 0 px). L trên canvas bắt đầu y = 395 (mắt 380). Độ phủ owner/s1: L 49.2% (trước 53.9%), G và F không đổi. Band ⊆ G0 (leak 0). Canvas và 6 ảnh preview: L từ giữa sống mũi xuống cằm, F trên lông mày, dải mắt để trống giữa F và L. Đạt, sẵn sàng train.
