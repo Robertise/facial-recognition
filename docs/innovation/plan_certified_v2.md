@@ -54,3 +54,11 @@ Trên vast.ai (GPU, không liveness): train `student_gray`, `student_inpaint`; r
 - C5: cấu hình tốt hơn trong C3/C4 + ngưỡng hiệu chỉnh.
 - (C6, nếu còn thời gian: inpainter v2 `--cosine --webcam-aug --base-width 64 --epochs 60 --patience 8` + student_inpaint trên inpainter v2.)
 Test (`run --split test --liveness`) chỉ chạy **một lần** trên laptop với cấu hình và tập S chọn theo luật.
+
+## 7. Sửa sau verify (2026-11-16) — trước khi chạy thật
+1. **Lật ảnh lệch giữa student và teacher** (`train_student.py`): `apply_webcam_aug` lật ngang ảnh student (và mask) nhưng teacher vẫn nhận crop chưa lật, nên mục tiêu embedding sai với một nửa số mẫu lật. Sửa: quyết định lật một lần cho mỗi mẫu, áp cho **cả** crop sạch của teacher lẫn ảnh student và mask (các phép aug khác chỉ áp cho student như cũ).
+2. **Chọn S theo đúng fill của student** (`summarize --select`): đang luôn đọc nhánh `inpaint`. Thêm `--fill {inpaint,gray}` (mặc định `inpaint` = như cũ); `selection.json` ghi `fill` và `metric`. `train_student` lưu `fill` vào `best.pt`; `eval_certified` ghi `student_fill` vào `config` của `summary.json` (lấy từ ckpt).
+3. **Nạp inpainter có `base_channels`**: `eval_certified.py` (run, lfwval, calibrate) và `train_student.py` đang dùng `load_purifier_checkpoint` (luôn dựng kênh 32), sẽ lỗi với inpainter v2 `--base-width 64`. Đổi sang `train_inpainter.load_inpainter_checkpoint` (nạp được cả ckpt cũ).
+4. `load_student`: suy `num_classes` (và `embed_dim`) từ shape trong `state_dict` thay vì cố định 4000; lưu `preprocess` từ `recognizer.preprocess` thay vì hằng số.
+5. Ghi nhận, không sửa: ở `gallery-mode symmetric`, gallery nhánh che vẫn dùng method3 dù có `--student-ckpt` (v2 chỉ dùng student với `clean`). Thêm cảnh báo khi gặp tổ hợp `symmetric` + `--student-ckpt`.
+pytest lại; chạy thử `train_student --limit 128 --epochs 1 --device cpu --fill gray --output-dir <tạm>` và `--fill inpaint --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt`; xoá thư mục tạm.

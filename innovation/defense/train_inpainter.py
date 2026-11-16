@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
 import torch
@@ -29,6 +34,36 @@ from innovation.defense.purifier import (
 )
 from innovation.defense.train_purifier import shift_band_mask
 from innovation.eval.runs import new_run, write_json
+
+
+def load_inpainter_checkpoint(ckpt_path: str | Path, device: str | torch.device = "cpu") -> PurifierUNet:
+    """Load a PurifierUNet from a saved checkpoint file, supporting custom base_channels."""
+    p = Path(ckpt_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Inpainter checkpoint not found: {p}")
+    state = torch.load(str(p), map_location=device, weights_only=False)
+    base_channels = (32, 64, 128, 256)
+    if isinstance(state, dict):
+        if "base_channels" in state and state["base_channels"] is not None:
+            base_channels = tuple(state["base_channels"])
+        if "model_state_dict" in state:
+            state_dict = state["model_state_dict"]
+        elif "state_dict" in state:
+            state_dict = state["state_dict"]
+        else:
+            state_dict = state
+    else:
+        state_dict = state
+
+    # If base_channels was not explicitly in metadata, infer from first layer weights
+    if "enc1.net.0.weight" in state_dict:
+        c1 = int(state_dict["enc1.net.0.weight"].shape[0])
+        base_channels = (c1, c1 * 2, c1 * 4, c1 * 8)
+
+    model = PurifierUNet(base_channels=base_channels).to(device)
+    model.load_state_dict(state_dict, strict=True)
+    model.eval()
+    return model
 
 DEFAULT_DATA_DIR = Path("data/innovation/defense/lfw_crops")
 DEFAULT_LANDMARKS_DIR = Path("data/innovation/defense/lfw_landmarks")
@@ -48,10 +83,12 @@ class LFWMultiMaskDataset(Dataset):
         augment: bool = False,
         seed: int = 0,
         limit: Optional[int] = None,
+        webcam_aug: bool = False,
     ):
         super().__init__()
         self.split = split
         self.augment = augment
+        self.webcam_aug = webcam_aug
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.masks = load_maskset(maskset_dir)
@@ -157,23 +194,30 @@ class LFWMultiMaskDataset(Dataset):
             mask112 = np.zeros((112, 112), dtype=np.uint8)
 
         if self.augment:
-            # 1. Horizontal flip
-            if self.rng.random() < 0.5:
-                crop = np.ascontiguousarray(crop[:, ::-1, :])
-                mask112 = np.ascontiguousarray(mask112[:, ::-1])
+            if self.webcam_aug:
+                if self.rng.random() < 0.5:
+                    crop = np.ascontiguousarray(crop[:, ::-1, :])
+                    mask112 = np.ascontiguousarray(mask112[:, ::-1])
+                from innovation.defense.train_student import apply_webcam_aug
+                crop, mask112 = apply_webcam_aug(crop, mask112, self.rng)
+            else:
+                # 1. Horizontal flip
+                if self.rng.random() < 0.5:
+                    crop = np.ascontiguousarray(crop[:, ::-1, :])
+                    mask112 = np.ascontiguousarray(mask112[:, ::-1])
 
-            # 2. Brightness and contrast jitter
-            b_gain = float(self.rng.uniform(-0.10, 0.10))
-            c_gain = float(self.rng.uniform(-0.10, 0.10))
-            mean_val = float(crop.mean())
-            crop = (crop - mean_val) * (1.0 + c_gain) + mean_val + b_gain
-            crop = np.clip(crop, 0.0, 1.0)
+                # 2. Brightness and contrast jitter
+                b_gain = float(self.rng.uniform(-0.10, 0.10))
+                c_gain = float(self.rng.uniform(-0.10, 0.10))
+                mean_val = float(crop.mean())
+                crop = (crop - mean_val) * (1.0 + c_gain) + mean_val + b_gain
+                crop = np.clip(crop, 0.0, 1.0)
 
-            # 3. Shift mask by +-3 px
-            dx = int(self.rng.integers(-3, 4))
-            dy = int(self.rng.integers(-3, 4))
-            if dx != 0 or dy != 0:
-                mask112 = shift_band_mask(mask112, dx, dy)
+                # 3. Shift mask by +-3 px
+                dx = int(self.rng.integers(-3, 4))
+                dy = int(self.rng.integers(-3, 4))
+                if dx != 0 or dy != 0:
+                    mask112 = shift_band_mask(mask112, dx, dy)
 
         crop_t = torch.from_numpy(np.ascontiguousarray(crop.transpose(2, 0, 1))).float()
         mask_t = torch.from_numpy(np.ascontiguousarray(mask112.astype(np.float32))).unsqueeze(0)
@@ -249,9 +293,15 @@ def train_inpainter(
     seed: int = 0,
     limit: Optional[int] = None,
     output_dir: Optional[Path] = None,
+    cosine: bool = False,
+    patience: Optional[int] = None,
+    webcam_aug: bool = False,
+    base_width: int = 32,
 ) -> Path:
     torch.manual_seed(seed)
     np.random.seed(seed)
+
+    base_channels = (32, 64, 128, 256) if base_width == 32 else (64, 128, 256, 512)
 
     meta_args = {
         "data": str(data_dir),
@@ -264,6 +314,11 @@ def train_inpainter(
         "device": str(device),
         "seed": int(seed),
         "limit": limit,
+        "cosine": bool(cosine),
+        "patience": patience,
+        "webcam_aug": bool(webcam_aug),
+        "base_width": int(base_width),
+        "base_channels": list(base_channels),
     }
 
     if output_dir is not None:
@@ -281,6 +336,7 @@ def train_inpainter(
         augment=True,
         seed=seed,
         limit=limit,
+        webcam_aug=webcam_aug,
     )
     val_ds = LFWMultiMaskDataset(
         crops_dir=data_dir,
@@ -300,10 +356,11 @@ def train_inpainter(
         drop_last=False,
     )
 
-    model = PurifierUNet().to(device)
+    model = PurifierUNet(base_channels=base_channels).to(device)
     rec = FaceRecognizer(ckpt_path=checkpoint, strict=True)
     embedder = FrozenMethod3Embedder(rec, device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs) if cosine else None
 
     fieldnames = [
         "epoch", "loss_total", "loss_band", "loss_full", "loss_id", "val_cos_mean",
@@ -314,6 +371,7 @@ def train_inpainter(
     best_epoch = -1
     best_val_cos_per_mask: dict[str, float] = {}
     best_val_gray_per_mask: dict[str, float] = {}
+    patience_cnt = 0
 
     t0 = time.time()
     for ep in range(1, epochs + 1):
@@ -336,6 +394,9 @@ def train_inpainter(
             ep_band.append(loss_dict["l1_band"])
             ep_full.append(loss_dict["l1_full"])
             ep_id.append(loss_dict["id_loss"])
+
+        if scheduler is not None:
+            scheduler.step()
 
         val_cos_mean, val_cos_per_mask, val_gray_per_mask = evaluate_inpainter_val(
             model=model,
@@ -377,6 +438,7 @@ def train_inpainter(
             best_epoch = ep
             best_val_cos_per_mask = val_cos_per_mask
             best_val_gray_per_mask = val_gray_per_mask
+            patience_cnt = 0
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
@@ -385,9 +447,15 @@ def train_inpainter(
                     "val_cos_per_mask": val_cos_per_mask,
                     "val_gray_per_mask": val_gray_per_mask,
                     "model_class": "PurifierUNet",
+                    "base_channels": base_channels,
                 },
                 run_dir / "best.pt",
             )
+        else:
+            patience_cnt += 1
+            if patience is not None and patience_cnt >= patience:
+                print(f"Early stopping triggered at epoch {ep} (patience {patience})")
+                break
 
     with open(run_dir / "train_log.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
@@ -418,6 +486,10 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--output-dir", default=None)
+    ap.add_argument("--cosine", action="store_true")
+    ap.add_argument("--patience", type=int, default=None)
+    ap.add_argument("--webcam-aug", action="store_true")
+    ap.add_argument("--base-width", type=int, choices=(32, 64), default=32)
     args = ap.parse_args()
 
     run = train_inpainter(
@@ -432,6 +504,10 @@ def main():
         seed=args.seed,
         limit=args.limit,
         output_dir=Path(args.output_dir) if args.output_dir else None,
+        cosine=args.cosine,
+        patience=args.patience,
+        webcam_aug=args.webcam_aug,
+        base_width=args.base_width,
     )
     print(f"Inpainter training completed: {run}")
 

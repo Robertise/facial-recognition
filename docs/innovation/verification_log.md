@@ -129,3 +129,16 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 ## 2026-11-15 (tối). Verify plan_certified §10 + maskset dựng lại
 - Diff `maskset.py`: `L_TOP_LANDMARK = 195`, kiểm vùng mắt chạy trước khi ghi file, meta có `l_top_landmark`, `eye_zone_check`; preview thêm canvas. Test mới (195 dưới mắt đạt, ngang mắt dừng) qua.
 - Maskset dựng lại (14:04 UTC): `eye_zone_check` đạt (giao L 0 px, F 0 px). L trên canvas bắt đầu y = 395 (mắt 380). Độ phủ owner/s1: L 49.2% (trước 53.9%), G và F không đổi. Band ⊆ G0 (leak 0). Canvas và 6 ảnh preview: L từ giữa sống mũi xuống cằm, F trên lông mày, dải mắt để trống giữa F và L. Đạt, sẵn sàng train.
+
+## 2026-11-16. Verify plan_certified_v2 (train_student mới, eval_certified + train_inpainter thêm tuỳ chọn)
+- Đúng plan: student khởi tạo từ method3, loss cos + InfoNCE τ 0.05, AdamW 1e-4, warmup + cosine, early stopping patience 6 theo GAR val A (gallery teacher sạch), webcam aug, 15% không che; eval có `--gallery-mode clean`, `--student-ckpt`, `--thresholds`, `gar_recog`, `lfwval --val-part`, `calibrate` (FAR ≤ FAR_none trên val A, lưới 0.30–0.90); train_inpainter có `--cosine/--patience/--webcam-aug/--base-width` mặc định như cũ. pytest qua, `lastfailed` rỗng; chỉ sửa 2 file được phép + 2 file mới.
+- Cần sửa (plan v2 §7): lật ảnh chỉ áp cho student, teacher không lật (mục tiêu sai); `--select` luôn đọc fill inpaint (student_gray cần fill gray); eval/train_student nạp inpainter bằng hàm không đọc `base_channels` (inpainter v2 width 64 sẽ lỗi); `load_student` cố định num_classes 4000.
+
+## 2026-11-16 (chiều). Hoàn thành sửa theo §7 plan_certified_v2
+- (1) Lật ảnh: Quyết định lật đồng bộ 1 lần cho cả crop sạch (teacher), crop student và mask; loại bỏ flip đơn lẻ trong `apply_webcam_aug`.
+- (2) Chọn S theo fill: `summarize --select` hỗ trợ `--fill {inpaint,gray}` (mặc định inpaint); `selection.json` ghi `fill` và `metric`. `best.pt` của student lưu `fill`; `summary.json` ghi `student_fill`.
+- (3) Inpainter checkpoint: Đổi `load_purifier_checkpoint` sang `load_inpainter_checkpoint` ở cả `eval_certified` và `train_student`, tự suy luận `base_channels` từ trọng số lớp đầu nếu thiếu metadata (hỗ trợ base-width 64).
+- (4) `load_student`: Suy luận `num_classes` và `embed_dim` từ shape của `head.weight`/`classifier.weight`; lưu và nạp `preprocess` từ `FaceRecognizer.preprocess`.
+- (5) Cảnh báo: In cảnh báo khi gặp tổ hợp `--gallery-mode symmetric` và `--student-ckpt`.
+- Kiểm thử: 10/10 tests trong `test_certified_v2.py` PASSED; toàn bộ 129/129 tests trong `tests/innovation/` PASSED. Smoke test `train_student` 1 epoch trên CPU với cả `--fill gray` và `--fill inpaint` thành công, lưu đủ artifact và nạp lại đúng thuộc tính; đã dọn dẹp thư mục tạm.
+- §7 đã sửa: lật ngang quyết định một lần, áp cho cả crop teacher, ảnh student và mask (các aug khác chỉ student); `--select --fill`, `selection.json` ghi fill; ckpt student lưu `fill`, summary ghi `student_fill`; eval và train_student nạp inpainter bằng `load_inpainter_checkpoint`; `load_student` suy num_classes/embed_dim từ `head.weight`/`classifier.weight`, preprocess lấy từ recognizer; cảnh báo symmetric + student. pytest lại (05:30 UTC), `lastfailed` rỗng. Sẵn sàng chạy `runbook_vast_v2.md`.

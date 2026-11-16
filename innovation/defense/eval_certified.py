@@ -17,8 +17,13 @@ import csv
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import cv2
 import numpy as np
@@ -59,8 +64,8 @@ from innovation.defense.purifier import (
     PurifierUNet,
     apply_gray,
     apply_purifier,
-    load_purifier_checkpoint,
 )
+from innovation.defense.train_inpainter import load_inpainter_checkpoint
 from innovation.eval.runs import new_run, write_json
 
 DEFAULT_GALLERY = Path("data/innovation/gallery")
@@ -293,6 +298,7 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             tot = len(frames_s)
             pass_cnt = 0
+            pass_recog_cnt = 0
             for b_dict in frames_s:
                 r = b_dict.get(br)
                 if not r:
@@ -300,14 +306,20 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 target = r["target_id"]
                 eyes_ok = int(r.get("eyes_ok", 0)) if br != "none" else 1
                 is_real_ok = (int(r.get("is_real", 1)) == 1)
-                if eyes_ok and r.get("match_id") == target and is_real_ok:
-                    pass_cnt += 1
+                if eyes_ok and r.get("match_id") == target:
+                    pass_recog_cnt += 1
+                    if is_real_ok:
+                        pass_cnt += 1
             gar = round(float(pass_cnt / tot), 4) if tot > 0 else 0.0
+            gar_recog = round(float(pass_recog_cnt / tot), 4) if tot > 0 else 0.0
             w_lo, w_hi = wilson(pass_cnt, tot)
+            w_lo_r, w_hi_r = wilson(pass_recog_cnt, tot)
             gen_sets_dict[s] = {
                 "total": tot,
                 "gar": gar,
                 "gar_wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                "gar_recog": gar_recog,
+                "gar_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
             }
 
         # Dev split: pool owner/s3_vary, owner/s4_vary, owner/s5_vary into owner_dev
@@ -315,12 +327,17 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if dev_names:
             dev_tot = sum(gen_sets_dict[s]["total"] for s in dev_names)
             dev_pass = sum(int(round(gen_sets_dict[s]["gar"] * gen_sets_dict[s]["total"])) for s in dev_names)
+            dev_pass_r = sum(int(round(gen_sets_dict[s]["gar_recog"] * gen_sets_dict[s]["total"])) for s in dev_names)
             dev_gar = round(float(dev_pass / dev_tot), 4) if dev_tot > 0 else 0.0
+            dev_gar_r = round(float(dev_pass_r / dev_tot), 4) if dev_tot > 0 else 0.0
             w_lo, w_hi = wilson(dev_pass, dev_tot)
+            w_lo_r, w_hi_r = wilson(dev_pass_r, dev_tot)
             gen_sets_dict["owner_dev"] = {
                 "total": dev_tot,
                 "gar": dev_gar,
                 "gar_wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                "gar_recog": dev_gar_r,
+                "gar_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
             }
 
         att_sets_dict: dict[str, Any] = {}
@@ -331,6 +348,7 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             tot = len(frames_a)
             suc_cnt = 0
+            suc_recog_cnt = 0
             for b_dict in frames_a:
                 r = b_dict.get(br)
                 if not r:
@@ -338,15 +356,21 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 target = r["target_id"]
                 eyes_ok = int(r.get("eyes_ok", 0)) if br != "none" else 1
                 is_real_ok = (int(r.get("is_real", 1)) == 1)
-                if eyes_ok and r.get("match_id") == target and is_real_ok:
-                    suc_cnt += 1
+                if eyes_ok and r.get("match_id") == target:
+                    suc_recog_cnt += 1
+                    if is_real_ok:
+                        suc_cnt += 1
             rate = round(float(suc_cnt / tot), 4) if tot > 0 else 0.0
+            rate_recog = round(float(suc_recog_cnt / tot), 4) if tot > 0 else 0.0
             w_lo, w_hi = wilson(suc_cnt, tot)
+            w_lo_r, w_hi_r = wilson(suc_recog_cnt, tot)
             att_sets_dict[a] = {
                 "total": tot,
                 "success": suc_cnt,
                 "rate": rate,
                 "wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                "rate_recog": rate_recog,
+                "rate_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
             }
 
         if "owner_dev" in gen_sets_dict:
@@ -362,6 +386,8 @@ def compute_branches_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "genuine_total": pri["total"] if pri else 0,
             "gar": pri["gar"] if pri else 0.0,
             "gar_wilson_95": pri["gar_wilson_95"] if pri else [0.0, 0.0],
+            "gar_recog": pri["gar_recog"] if pri and "gar_recog" in pri else (pri["gar"] if pri else 0.0),
+            "gar_recog_wilson_95": pri["gar_recog_wilson_95"] if pri and "gar_recog_wilson_95" in pri else (pri["gar_wilson_95"] if pri else [0.0, 0.0]),
             "attacks": att_sets_dict,
         }
 
@@ -405,6 +431,7 @@ def compute_sets_summary(
 
                 tot = len(frames_s)
                 pass_cnt = 0
+                pass_recog_cnt = 0
                 cert_cnt = 0
                 for b_dict in frames_s:
                     first_r = next(iter(b_dict.values()))
@@ -429,11 +456,14 @@ def compute_sets_summary(
 
                     is_real_ok = all(int(b_dict[br].get("is_real", 1)) == 1 for br in fill_branches if br in b_dict)
                     s_accepts_id = first_match if (all_match_x and is_real_ok) else None
+                    s_accepts_id_recog = first_match if all_match_x else None
 
                     if s_accepts_id == target:
                         pass_cnt += 1
+                    if s_accepts_id_recog == target:
+                        pass_recog_cnt += 1
 
-                    # Certified ⇔ every m in S has match_id in {"", target_id}
+                    # Certified <=> every m in S has match_id in {"", target_id}
                     is_cert = True
                     for br in fill_branches:
                         br_r = b_dict.get(br)
@@ -444,13 +474,18 @@ def compute_sets_summary(
                         cert_cnt += 1
 
                 gar = round(float(pass_cnt / tot), 4) if tot > 0 else 0.0
+                gar_recog = round(float(pass_recog_cnt / tot), 4) if tot > 0 else 0.0
                 w_lo, w_hi = wilson(pass_cnt, tot)
+                w_lo_r, w_hi_r = wilson(pass_recog_cnt, tot)
                 cert_rate = round(float(cert_cnt / tot), 4) if tot > 0 else 0.0
                 gen_sets_summary[s] = {
                     "total": tot,
                     "gar": gar,
                     "gar_wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                    "gar_recog": gar_recog,
+                    "gar_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
                     "certified_rate": cert_rate,
+                    "certified_rate_recog": cert_rate,
                 }
 
             # Dev split: pool owner/s3_vary, owner/s4_vary, owner/s5_vary into owner_dev
@@ -458,15 +493,21 @@ def compute_sets_summary(
             if dev_names:
                 dev_tot = sum(gen_sets_summary[s]["total"] for s in dev_names)
                 dev_pass = sum(int(round(gen_sets_summary[s]["gar"] * gen_sets_summary[s]["total"])) for s in dev_names)
+                dev_pass_r = sum(int(round(gen_sets_summary[s]["gar_recog"] * gen_sets_summary[s]["total"])) for s in dev_names)
                 dev_cert = sum(int(round(gen_sets_summary[s]["certified_rate"] * gen_sets_summary[s]["total"])) for s in dev_names)
                 dev_gar = round(float(dev_pass / dev_tot), 4) if dev_tot > 0 else 0.0
+                dev_gar_r = round(float(dev_pass_r / dev_tot), 4) if dev_tot > 0 else 0.0
                 w_lo, w_hi = wilson(dev_pass, dev_tot)
+                w_lo_r, w_hi_r = wilson(dev_pass_r, dev_tot)
                 dev_cert_rate = round(float(dev_cert / dev_tot), 4) if dev_tot > 0 else 0.0
                 gen_sets_summary["owner_dev"] = {
                     "total": dev_tot,
                     "gar": dev_gar,
                     "gar_wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                    "gar_recog": dev_gar_r,
+                    "gar_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
                     "certified_rate": dev_cert_rate,
+                    "certified_rate_recog": dev_cert_rate,
                 }
 
             att_sets_summary: dict[str, Any] = {}
@@ -478,6 +519,7 @@ def compute_sets_summary(
 
                 tot = len(frames_a)
                 suc_cnt = 0
+                suc_recog_cnt = 0
                 for b_dict in frames_a:
                     first_r = next(iter(b_dict.values()))
                     target = first_r["target_id"]
@@ -501,17 +543,24 @@ def compute_sets_summary(
 
                     is_real_ok = all(int(b_dict[br].get("is_real", 1)) == 1 for br in fill_branches if br in b_dict)
                     s_accepts_id = first_match if (all_match_x and is_real_ok) else None
+                    s_accepts_id_recog = first_match if all_match_x else None
 
                     if s_accepts_id == target:
                         suc_cnt += 1
+                    if s_accepts_id_recog == target:
+                        suc_recog_cnt += 1
 
                 rate = round(float(suc_cnt / tot), 4) if tot > 0 else 0.0
+                rate_recog = round(float(suc_recog_cnt / tot), 4) if tot > 0 else 0.0
                 w_lo, w_hi = wilson(suc_cnt, tot)
+                w_lo_r, w_hi_r = wilson(suc_recog_cnt, tot)
                 att_sets_summary[a] = {
                     "total": tot,
                     "success": suc_cnt,
                     "rate": rate,
                     "wilson_95": [round(w_lo, 4), round(w_hi, 4)],
+                    "rate_recog": rate_recog,
+                    "rate_recog_wilson_95": [round(w_lo_r, 4), round(w_hi_r, 4)],
                 }
 
             if "owner_dev" in gen_sets_summary:
@@ -527,7 +576,10 @@ def compute_sets_summary(
                 "genuine_total": pri["total"] if pri else 0,
                 "gar": pri["gar"] if pri else 0.0,
                 "gar_wilson_95": pri["gar_wilson_95"] if pri else [0.0, 0.0],
+                "gar_recog": pri["gar_recog"] if pri and "gar_recog" in pri else (pri["gar"] if pri else 0.0),
+                "gar_recog_wilson_95": pri["gar_recog_wilson_95"] if pri and "gar_recog_wilson_95" in pri else (pri["gar_wilson_95"] if pri else [0.0, 0.0]),
                 "certified_rate": pri["certified_rate"] if pri else 0.0,
+                "certified_rate_recog": pri["certified_rate_recog"] if pri and "certified_rate_recog" in pri else (pri["certified_rate"] if pri else 0.0),
                 "attacks": att_sets_summary,
             }
 
@@ -550,6 +602,8 @@ def evaluate_certified_session(
     limit_frames: Optional[int] = None,
     attack_assets: Optional[dict[str, Any]] = None,
     attack_type: str = "glasses",
+    student: Optional[Any] = None,
+    thresholds_map: Optional[dict[str, float]] = None,
 ) -> list[dict[str, Any]]:
     """Evaluate one genuine or attacked session across all branches."""
     from liveness.temporal import make_smoother
@@ -624,6 +678,8 @@ def evaluate_certified_session(
 
         # Evaluate across all branches
         for br in branch_list:
+            tau = float(thresholds_map.get(br, 0.5)) if thresholds_map else 0.5
+
             if bbox_eval is None:
                 rows.append({
                     "set": set_name,
@@ -636,6 +692,7 @@ def evaluate_certified_session(
                     "top1_id": "",
                     "top1_sim": "",
                     "target_sim": "",
+                    "threshold": round(tau, 4),
                     "is_real": is_real,
                     "light": light,
                     "eye_shift_px": eye_shift_px,
@@ -663,6 +720,7 @@ def evaluate_certified_session(
                         "top1_id": "",
                         "top1_sim": "",
                         "target_sim": "",
+                        "threshold": round(tau, 4),
                         "is_real": is_real,
                         "light": light,
                         "eye_shift_px": eye_shift_px,
@@ -682,13 +740,20 @@ def evaluate_certified_session(
                 )
                 eyes_ok = 1
 
-            emb = recognizer.extract_embedding(crop112)
+            if br == "none":
+                emb = recognizer.extract_embedding(crop112)
+            else:
+                if student is not None:
+                    emb = student.extract_embedding(crop112)
+                else:
+                    emb = recognizer.extract_embedding(crop112)
+
             scores = score_against_gallery(emb, gal.embeddings)
 
             if scores:
                 top1_id, top1_sim = max(scores.items(), key=lambda x: x[1])
                 target_sim = scores.get(target_id, 0.0)
-                match_id = top1_id if top1_sim >= 0.5 else ""
+                match_id = top1_id if top1_sim >= tau else ""
             else:
                 top1_id = ""
                 top1_sim = 0.0
@@ -706,6 +771,7 @@ def evaluate_certified_session(
                 "top1_id": top1_id,
                 "top1_sim": round(float(top1_sim), 4),
                 "target_sim": round(float(target_sim), 4),
+                "threshold": round(float(tau), 4),
                 "is_real": is_real,
                 "light": light,
                 "eye_shift_px": eye_shift_px,
@@ -731,8 +797,36 @@ def cmd_run(args: argparse.Namespace) -> Path:
         p_ckpt = Path(args.inpainter_ckpt)
         if not p_ckpt.exists():
             raise FileNotFoundError(f"Inpainter checkpoint not found: {p_ckpt}")
-        inpainter = load_purifier_checkpoint(p_ckpt, device=device)
+        inpainter = load_inpainter_checkpoint(p_ckpt, device=device)
         inpainter_tag = p_ckpt.parent.name
+
+    student = None
+    if getattr(args, "student_ckpt", None):
+        from innovation.defense.train_student import load_student
+        p_stu = Path(args.student_ckpt)
+        if not p_stu.exists():
+            raise FileNotFoundError(f"Student checkpoint not found: {p_stu}")
+        student = load_student(p_stu, device=device)
+
+    thresholds_map = None
+    if getattr(args, "thresholds", None):
+        p_th = Path(args.thresholds)
+        if not p_th.exists():
+            raise FileNotFoundError(f"Thresholds file not found: {p_th}")
+        with open(p_th, "r", encoding="utf-8") as fh:
+            raw_th = json.load(fh)
+        if "thresholds" in raw_th and isinstance(raw_th["thresholds"], dict):
+            thresholds_map = {k: float(v) for k, v in raw_th["thresholds"].items()}
+        else:
+            thresholds_map = {k: float(v) for k, v in raw_th.items()}
+
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
 
     from liveness.liveness_detector import LivenessDetector
     live_detector = LivenessDetector() if args.liveness else None
@@ -749,20 +843,16 @@ def cmd_run(args: argparse.Namespace) -> Path:
     # Build galleries for each branch
     branch_list = ["none"] + [f"{m}/{fill}" for m in MASK_NAMES for fill in ("gray", "inpaint")]
     galleries: dict[str, faces.Gallery] = {}
-    for br in branch_list:
-        if br == "none":
-            m_canvas = None
-        else:
-            m_name, _ = br.split("/", 1)
-            m_canvas = masks[m_name]
 
-        gal, _ = build_branch_gallery(
+    if gallery_mode == "clean":
+        # clean mode: every branch is compared to gallery embeddings of 'none'
+        gal_none, _ = build_branch_gallery(
             gallery_dir=Path(args.gallery),
             recognizer=recognizer,
             detector=detector,
             eyes_finder=eyes_finder,
-            branch_name=br,
-            mask_canvas=m_canvas,
+            branch_name="none",
+            mask_canvas=None,
             inpainter=inpainter,
             inpainter_tag=inpainter_tag,
             device=device,
@@ -775,15 +865,52 @@ def cmd_run(args: argparse.Namespace) -> Path:
                     recognizer=recognizer,
                     detector=detector,
                     eyes_finder=eyes_finder,
-                    branch_name=br,
-                    mask_canvas=m_canvas,
+                    branch_name="none",
+                    mask_canvas=None,
                     inpainter=inpainter,
                     inpainter_tag=inpainter_tag,
                     device=device,
                     cache_dir=cache_dir,
                 )
-                gal.embeddings.update(eg_gal.embeddings)
-        galleries[br] = gal
+                gal_none.embeddings.update(eg_gal.embeddings)
+        for br in branch_list:
+            galleries[br] = gal_none
+    else:
+        for br in branch_list:
+            if br == "none":
+                m_canvas = None
+            else:
+                m_name, _ = br.split("/", 1)
+                m_canvas = masks[m_name]
+
+            gal, _ = build_branch_gallery(
+                gallery_dir=Path(args.gallery),
+                recognizer=recognizer,
+                detector=detector,
+                eyes_finder=eyes_finder,
+                branch_name=br,
+                mask_canvas=m_canvas,
+                inpainter=inpainter,
+                inpainter_tag=inpainter_tag,
+                device=device,
+                cache_dir=cache_dir,
+            )
+            if args.extra_gallery:
+                for eg in args.extra_gallery:
+                    eg_gal, _ = build_branch_gallery(
+                        gallery_dir=Path(eg),
+                        recognizer=recognizer,
+                        detector=detector,
+                        eyes_finder=eyes_finder,
+                        branch_name=br,
+                        mask_canvas=m_canvas,
+                        inpainter=inpainter,
+                        inpainter_tag=inpainter_tag,
+                        device=device,
+                        cache_dir=cache_dir,
+                    )
+                    gal.embeddings.update(eg_gal.embeddings)
+            galleries[br] = gal
 
     all_rows: list[dict[str, Any]] = []
 
@@ -811,6 +938,8 @@ def cmd_run(args: argparse.Namespace) -> Path:
                 device=device,
                 live_detector=live_detector,
                 limit_frames=args.limit_frames,
+                student=student,
+                thresholds_map=thresholds_map,
             )
             all_rows.extend(rows)
 
@@ -837,6 +966,8 @@ def cmd_run(args: argparse.Namespace) -> Path:
                 device=device,
                 live_detector=live_detector,
                 limit_frames=args.limit_frames,
+                student=student,
+                thresholds_map=thresholds_map,
             )
             all_rows.extend(rows)
 
@@ -873,6 +1004,8 @@ def cmd_run(args: argparse.Namespace) -> Path:
                 limit_frames=args.limit_frames,
                 attack_assets=assets,
                 attack_type=att_type,
+                student=student,
+                thresholds_map=thresholds_map,
             )
             all_rows.extend(rows)
 
@@ -898,13 +1031,15 @@ def cmd_run(args: argparse.Namespace) -> Path:
                 device=device,
                 live_detector=live_detector,
                 limit_frames=args.limit_frames,
+                student=student,
+                thresholds_map=thresholds_map,
             )
             all_rows.extend(rows)
 
     # Write frames.csv
     csv_fields = [
         "set", "kind", "frame", "target_id", "branch", "eyes_ok",
-        "match_id", "top1_id", "top1_sim", "target_sim", "is_real",
+        "match_id", "top1_id", "top1_sim", "target_sim", "threshold", "is_real",
         "light", "eye_shift_px", "bbox_iou",
     ]
     with open(run_dir / "frames.csv", "w", newline="", encoding="utf-8") as fh:
@@ -931,6 +1066,14 @@ def cmd_run(args: argparse.Namespace) -> Path:
         "sets_evaluated": sets_evaluated,
         "branches": branches_summary,
         "sets": sets_summary,
+        "config": {
+            "gallery_mode": gallery_mode,
+            "student_ckpt": getattr(args, "student_ckpt", None),
+            "student_fill": getattr(student, "fill", None) if student else None,
+            "thresholds": getattr(args, "thresholds", None),
+            "inpainter_ckpt": getattr(args, "inpainter_ckpt", None),
+            "liveness": bool(getattr(args, "liveness", False)),
+        },
     }
     write_json(run_dir / "summary.json", summary)
     return run_dir
@@ -951,7 +1094,35 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
         raise SystemExit(f"Inpainter checkpoint not found: {p_ckpt}")
 
     recognizer = FaceRecognizer(ckpt_path=args.checkpoint, strict=True)
-    inpainter = load_purifier_checkpoint(p_ckpt, device=device)
+    inpainter = load_inpainter_checkpoint(p_ckpt, device=device)
+
+    student = None
+    if getattr(args, "student_ckpt", None):
+        from innovation.defense.train_student import load_student
+        p_stu = Path(args.student_ckpt)
+        if not p_stu.exists():
+            raise SystemExit(f"Student checkpoint not found: {p_stu}")
+        student = load_student(p_stu, device=device)
+
+    thresholds_map = None
+    if getattr(args, "thresholds", None):
+        p_th = Path(args.thresholds)
+        if not p_th.exists():
+            raise SystemExit(f"Thresholds file not found: {p_th}")
+        with open(p_th, "r", encoding="utf-8") as fh:
+            raw_th = json.load(fh)
+        if "thresholds" in raw_th and isinstance(raw_th["thresholds"], dict):
+            thresholds_map = {k: float(v) for k, v in raw_th["thresholds"].items()}
+        else:
+            thresholds_map = {k: float(v) for k, v in raw_th.items()}
+
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
 
     if args.output_dir:
         run_dir = Path(args.output_dir)
@@ -1021,6 +1192,21 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
     if not eligible_ids:
         raise SystemExit("No LFW val identities with >= 2 valid images found")
 
+    # Partition A/B if requested
+    from innovation.defense.train_student import identity_is_val_a
+    val_part = getattr(args, "val_part", "all")
+    if val_part == "A":
+        eligible_ids = [pid for pid in eligible_ids if identity_is_val_a(pid)]
+        set_name = "lfw_val_A"
+    elif val_part == "B":
+        eligible_ids = [pid for pid in eligible_ids if not identity_is_val_a(pid)]
+        set_name = "lfw_val_B"
+    else:
+        set_name = "lfw_val"
+
+    if not eligible_ids:
+        raise SystemExit(f"No LFW val identities found for partition {val_part}")
+
     branch_list = ["none"] + [f"{m}/{fill}" for m in MASK_NAMES for fill in ("gray", "inpaint")]
 
     # Build gallery: first image of each eligible identity
@@ -1032,12 +1218,17 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
         gal_item = items[0]
         probe_items = items[1:]
 
-        # Gallery image for each branch
-        for br in branch_list:
-            if br == "none":
-                emb = recognizer.extract_embedding(gal_item["crop"])
-                galleries[br][pid] = np.atleast_2d(emb)
-            else:
+        emb_none = recognizer.extract_embedding(gal_item["crop"])
+        galleries["none"][pid] = np.atleast_2d(emb_none)
+
+        if gallery_mode == "clean":
+            for br in branch_list:
+                if br != "none":
+                    galleries[br][pid] = galleries["none"][pid]
+        else:
+            for br in branch_list:
+                if br == "none":
+                    continue
                 m_name, fill = br.split("/", 1)
                 m112 = mask_in_window(gal_item["window"], gal_item["eyes"], masks[m_name], size=112)
                 if m112 is not None:
@@ -1058,6 +1249,8 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
     for p_it in probes:
         pid = p_it["person"]
         for br in branch_list:
+            tau = float(thresholds_map.get(br, 0.5)) if thresholds_map else 0.5
+
             if br == "none":
                 emb = recognizer.extract_embedding(p_it["crop"])
                 scores = score_against_gallery(emb, galleries[br])
@@ -1075,13 +1268,16 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
                     c[m112 > 0] = 128
                     if fill == "inpaint":
                         c = apply_purifier(inpainter, c, m112, device=device)
-                    emb = recognizer.extract_embedding(c)
+                    if student is not None:
+                        emb = student.extract_embedding(c)
+                    else:
+                        emb = recognizer.extract_embedding(c)
                     scores = score_against_gallery(emb, galleries[br])
 
             if scores:
                 top1_id, top1_sim = max(scores.items(), key=lambda x: x[1])
                 target_sim = scores.get(pid, 0.0)
-                match_id = top1_id if top1_sim >= 0.5 else ""
+                match_id = top1_id if top1_sim >= tau else ""
             else:
                 top1_id = ""
                 top1_sim = 0.0
@@ -1089,7 +1285,7 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
                 match_id = ""
 
             all_rows.append({
-                "set": "lfw_val",
+                "set": set_name,
                 "kind": "genuine",
                 "frame": p_it["path"],
                 "target_id": pid,
@@ -1099,6 +1295,7 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
                 "top1_id": top1_id,
                 "top1_sim": round(float(top1_sim), 4),
                 "target_sim": round(float(target_sim), 4),
+                "threshold": round(float(tau), 4),
                 "is_real": 1,
                 "light": "normal",
                 "eye_shift_px": "",
@@ -1108,7 +1305,7 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
     # Write frames.csv and summary.json
     csv_fields = [
         "set", "kind", "frame", "target_id", "branch", "eyes_ok",
-        "match_id", "top1_id", "top1_sim", "target_sim", "is_real",
+        "match_id", "top1_id", "top1_sim", "target_sim", "threshold", "is_real",
         "light", "eye_shift_px", "bbox_iou",
     ]
     with open(run_dir / "frames.csv", "w", newline="", encoding="utf-8") as fh:
@@ -1120,19 +1317,219 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
     sets_summary = compute_sets_summary(all_rows, candidate_specs)
     branches_summary = compute_branches_summary(all_rows)
     summary = {
-        "split": "lfw_val",
+        "split": set_name,
         "total_probes": len(probes),
         "total_rows": len(all_rows),
-        "sets_evaluated": {"lfw_val": len(probes)},
+        "sets_evaluated": {set_name: len(probes)},
         "branches": branches_summary,
         "sets": sets_summary,
+        "config": {
+            "val_part": val_part,
+            "gallery_mode": gallery_mode,
+            "student_ckpt": getattr(args, "student_ckpt", None),
+            "student_fill": getattr(student, "fill", None) if student else None,
+            "thresholds": getattr(args, "thresholds", None),
+            "inpainter_ckpt": getattr(args, "inpainter_ckpt", None),
+            "liveness": False,
+        },
     }
     write_json(run_dir / "summary.json", summary)
     return run_dir
 
 
+def cmd_calibrate(args: argparse.Namespace) -> Path:
+    """Calibrate branch thresholds on LFW val A so each branch FAR <= FAR_none."""
+    crops_dir = Path(args.crops_dir)
+    landmarks_dir = Path(args.landmarks_dir)
+    maskset_dir = Path(args.maskset_dir)
+    masks = load_maskset(maskset_dir)
+    device = args.device
+
+    recognizer = FaceRecognizer(ckpt_path=args.checkpoint, strict=True)
+    inpainter = None
+    if getattr(args, "inpainter_ckpt", None):
+        p_ckpt = Path(args.inpainter_ckpt)
+        if not p_ckpt.exists():
+            raise SystemExit(f"Inpainter checkpoint not found: {p_ckpt}")
+        inpainter = load_inpainter_checkpoint(p_ckpt, device=device)
+
+    student = None
+    if getattr(args, "student_ckpt", None):
+        from innovation.defense.train_student import load_student
+        p_stu = Path(args.student_ckpt)
+        if not p_stu.exists():
+            raise SystemExit(f"Student checkpoint not found: {p_stu}")
+        student = load_student(p_stu, device=device)
+
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
+
+    if args.output_dir:
+        run_dir = Path(args.output_dir)
+        run_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        run_dir = new_run("certified_calib")
+
+    # Load val shards
+    val_c_map = {p.name: p for p in crops_dir.glob("val_*.npz")}
+    val_l_map = {p.name: p for p in landmarks_dir.glob("val_*.npz")}
+    if not val_c_map:
+        raise SystemExit(f"No val crop shards found in {crops_dir}")
+    if not val_l_map:
+        raise SystemExit(f"No val landmark shards found in {landmarks_dir}")
+
+    from innovation.defense.train_student import identity_is_val_a
+
+    by_identity: dict[str, list[dict[str, Any]]] = {}
+    for sname in sorted(val_l_map.keys()):
+        if sname not in val_c_map:
+            continue
+        c_data = np.load(val_c_map[sname], allow_pickle=True)
+        l_data = np.load(val_l_map[sname], allow_pickle=True)
+
+        c_paths = c_data["paths"]
+        crops = c_data["crops"]
+        identities = c_data["identities"]
+        eyes = l_data["eyes"]
+        windows = l_data["window"]
+        ok_arr = l_data["ok"]
+
+        n_items = min(len(c_paths), len(ok_arr))
+        for i in range(n_items):
+            if ok_arr[i] != 1:
+                continue
+            person = str(identities[i])
+            if not identity_is_val_a(person):
+                continue
+            if person not in by_identity:
+                by_identity[person] = []
+            by_identity[person].append({
+                "crop": crops[i],
+                "path": str(c_paths[i]),
+                "eyes": eyes[i],
+                "window": tuple(windows[i]),
+            })
+
+    eligible_ids = sorted(k for k, v in by_identity.items() if len(v) >= 2)
+    if not eligible_ids:
+        raise SystemExit("No LFW val A identities with >= 2 valid images found")
+
+    branch_list = ["none"] + [f"{m}/{fill}" for m in MASK_NAMES for fill in ("gray", "inpaint")]
+    galleries: dict[str, dict[str, np.ndarray]] = {br: {} for br in branch_list}
+    probes: list[dict[str, Any]] = []
+
+    for pid in eligible_ids:
+        items = sorted(by_identity[pid], key=lambda x: x["path"])
+        gal_item = items[0]
+        probe_items = items[1:]
+
+        emb_none = recognizer.extract_embedding(gal_item["crop"])
+        galleries["none"][pid] = np.atleast_2d(emb_none)
+
+        if gallery_mode == "clean":
+            for br in branch_list:
+                if br != "none":
+                    galleries[br][pid] = galleries["none"][pid]
+        else:
+            for br in branch_list:
+                if br == "none":
+                    continue
+                m_name, fill = br.split("/", 1)
+                m112 = mask_in_window(gal_item["window"], gal_item["eyes"], masks[m_name], size=112)
+                if m112 is not None:
+                    c = gal_item["crop"].copy()
+                    c[m112 > 0] = 128
+                    if fill == "inpaint" and inpainter is not None:
+                        c = apply_purifier(inpainter, c, m112, device=device)
+                    emb = recognizer.extract_embedding(c)
+                    galleries[br][pid] = np.atleast_2d(emb)
+
+        for p_it in probe_items:
+            probes.append({"person": pid, **p_it})
+
+    if getattr(args, "limit", None) is not None and args.limit > 0:
+        probes = probes[:args.limit]
+
+    n_probes = len(probes)
+    if n_probes == 0:
+        raise SystemExit("No probes available for calibration.")
+
+    max_impostors: dict[str, list[float]] = {br: [] for br in branch_list}
+
+    for p_it in probes:
+        pid = p_it["person"]
+        for br in branch_list:
+            if br == "none":
+                emb = recognizer.extract_embedding(p_it["crop"])
+                scores = score_against_gallery(emb, galleries[br])
+            else:
+                m_name, fill = br.split("/", 1)
+                m112 = mask_in_window(p_it["window"], p_it["eyes"], masks[m_name], size=112)
+                if m112 is None:
+                    scores = {}
+                else:
+                    c = p_it["crop"].copy()
+                    c[m112 > 0] = 128
+                    if fill == "inpaint" and inpainter is not None:
+                        c = apply_purifier(inpainter, c, m112, device=device)
+                    if student is not None:
+                        emb = student.extract_embedding(c)
+                    else:
+                        emb = recognizer.extract_embedding(c)
+                    scores = score_against_gallery(emb, galleries[br])
+
+            imp_sims = [sim for gid, sim in scores.items() if gid != pid]
+            max_imp = max(imp_sims) if imp_sims else 0.0
+            max_impostors[br].append(float(max_imp))
+
+    far_none = sum(1 for s in max_impostors["none"] if s >= 0.5) / n_probes
+
+    grid = [round(0.30 + i * 0.005, 4) for i in range(121)]
+    calibrated_thresholds: dict[str, float] = {}
+    far_by_branch: dict[str, float] = {}
+
+    for br in branch_list:
+        scores_b = max_impostors[br]
+        best_tau = 0.90
+        best_far = sum(1 for s in scores_b if s >= 0.90) / n_probes
+        for tau in grid:
+            far = sum(1 for s in scores_b if s >= tau) / n_probes
+            if far <= far_none:
+                best_tau = tau
+                best_far = far
+                break
+
+        calibrated_thresholds[br] = round(best_tau, 4)
+        far_by_branch[br] = round(best_far, 4)
+
+    out_dict = {
+        "thresholds": calibrated_thresholds,
+        "far_none": round(float(far_none), 4),
+        "num_impostors": n_probes,
+        "far_by_branch": far_by_branch,
+        "config": {
+            "gallery_mode": gallery_mode,
+            "student_ckpt": getattr(args, "student_ckpt", None),
+            "student_fill": getattr(student, "fill", None) if student else None,
+            "inpainter_ckpt": getattr(args, "inpainter_ckpt", None),
+        },
+    }
+    write_json(run_dir / "thresholds.json", out_dict)
+    write_json(run_dir / "summary.json", out_dict)
+    print(f"Calibrated thresholds saved to {run_dir / 'thresholds.json'}")
+    print(f"FAR_none: {far_none:.4f}")
+    return run_dir
+
+
 def cmd_summarize(args: argparse.Namespace) -> None:
     """Summarize sets from frames.csv or select winning mask set S on dev runs."""
+    metric_key = getattr(args, "metric", "gar") or "gar"
+    fill_mode = getattr(args, "fill", "inpaint") or "inpaint"
     if args.select:
         if not args.dev_runs or len(args.dev_runs) < 2:
             raise SystemExit("--select requires two dev runs: --dev-runs <run owner dev> <run lfwval>")
@@ -1144,10 +1541,14 @@ def cmd_summarize(args: argparse.Namespace) -> None:
         owner_sum = json.loads(owner_sum_p.read_text(encoding="utf-8")) if owner_sum_p.exists() else {}
         lfw_sum = json.loads(lfw_sum_p.read_text(encoding="utf-8")) if lfw_sum_p.exists() else {}
 
-        def get_branch_gar(sum_dict: dict[str, Any], branch_name: str, set_key: str, run_dir: Path) -> float:
+        lfw_set_key = "lfw_val_B" if ("lfw_val_B" in lfw_sum.get("sets_evaluated", {}) or lfw_sum.get("split") == "lfw_val_B") else "lfw_val"
+
+        def get_branch_metric(sum_dict: dict[str, Any], branch_name: str, set_key: str, run_dir: Path) -> float:
             br_info = sum_dict.get("branches", {}).get(branch_name, {})
             if "genuine_sets" in br_info and set_key in br_info["genuine_sets"] and br_info["genuine_sets"][set_key] is not None:
-                return float(br_info["genuine_sets"][set_key].get("gar", 0.0))
+                return float(br_info["genuine_sets"][set_key].get(metric_key, br_info["genuine_sets"][set_key].get("gar", 0.0)))
+            if metric_key in br_info:
+                return float(br_info.get(metric_key, 0.0))
             if "gar" in br_info:
                 return float(br_info.get("gar", 0.0))
             fpath = run_dir / "frames.csv"
@@ -1156,19 +1557,22 @@ def cmd_summarize(args: argparse.Namespace) -> None:
                 none_r = [r for r in f_rows if r.get("branch") == branch_name and r.get("light") == "normal"]
                 if not none_r:
                     none_r = [r for r in f_rows if r.get("branch") == branch_name]
-                pass_cnt = sum(1 for r in none_r if r.get("match_id") == r.get("target_id") and int(r.get("is_real", 1)) == 1)
+                if metric_key == "gar_recog":
+                    pass_cnt = sum(1 for r in none_r if r.get("match_id") == r.get("target_id"))
+                else:
+                    pass_cnt = sum(1 for r in none_r if r.get("match_id") == r.get("target_id") and int(r.get("is_real", 1)) == 1)
                 return float(pass_cnt / len(none_r)) if none_r else 0.0
             return 0.0
 
-        gar_none_owner = get_branch_gar(owner_sum, "none", "owner_dev", owner_dev_dir)
-        gar_none_lfw = get_branch_gar(lfw_sum, "none", "lfw_val", lfwval_dir)
+        gar_none_owner = get_branch_metric(owner_sum, "none", "owner_dev", owner_dev_dir)
+        gar_none_lfw = get_branch_metric(lfw_sum, "none", lfw_set_key, lfwval_dir)
 
         thresh_owner = 0.90 * gar_none_owner
         thresh_lfw = 0.90 * gar_none_lfw
 
-        print(f"\nSelection on Dev Runs:")
-        print(f"Owner Dev: GAR(none) = {gar_none_owner:.4f}, Pass threshold = {thresh_owner:.4f}")
-        print(f"LFW Val:   GAR(none) = {gar_none_lfw:.4f}, Pass threshold = {thresh_lfw:.4f}\n")
+        print(f"\nSelection on Dev Runs (metric={metric_key}, fill={fill_mode}):")
+        print(f"Owner Dev: {metric_key}(none) = {gar_none_owner:.4f}, Pass threshold = {thresh_owner:.4f}")
+        print(f"LFW Val ({lfw_set_key}):   {metric_key}(none) = {gar_none_lfw:.4f}, Pass threshold = {thresh_lfw:.4f}\n")
 
         candidate_order = []
         for r in (48, 32, 16, 0):
@@ -1178,11 +1582,11 @@ def cmd_summarize(args: argparse.Namespace) -> None:
         for r in (48, 32, 16, 0):
             candidate_order.append(f"G{r}")
 
-        def extract_gar(sum_dict: dict[str, Any], candidate: str, set_key: str) -> float:
-            c_info = sum_dict.get("sets", {}).get(candidate, {}).get("inpaint", {})
+        def extract_metric(sum_dict: dict[str, Any], candidate: str, set_key: str) -> float:
+            c_info = sum_dict.get("sets", {}).get(candidate, {}).get(fill_mode, {})
             if "genuine_sets" in c_info and set_key in c_info["genuine_sets"] and c_info["genuine_sets"][set_key] is not None:
-                return float(c_info["genuine_sets"][set_key].get("gar", 0.0))
-            return float(c_info.get("gar", 0.0))
+                return float(c_info["genuine_sets"][set_key].get(metric_key, c_info["genuine_sets"][set_key].get("gar", 0.0)))
+            return float(c_info.get(metric_key, c_info.get("gar", 0.0)))
 
         selected_set = None
         pass_table: dict[str, Any] = {}
@@ -1190,28 +1594,28 @@ def cmd_summarize(args: argparse.Namespace) -> None:
         for item in candidate_order:
             if isinstance(item, str):
                 s = item
-                gar_o = extract_gar(owner_sum, s, "owner_dev")
-                gar_l = extract_gar(lfw_sum, s, "lfw_val")
+                gar_o = extract_metric(owner_sum, s, "owner_dev")
+                gar_l = extract_metric(lfw_sum, s, lfw_set_key)
                 passed = bool(gar_o >= thresh_owner and gar_l >= thresh_lfw)
                 pass_table[s] = {
-                    "gar_owner": gar_o,
-                    "gar_lfw": gar_l,
+                    f"{metric_key}_owner": gar_o,
+                    f"{metric_key}_lfw": gar_l,
                     "pass": passed,
                 }
                 if passed and selected_set is None:
                     selected_set = s
             else:
                 s1, s2 = item
-                gar_o1 = extract_gar(owner_sum, s1, "owner_dev")
-                gar_l1 = extract_gar(lfw_sum, s1, "lfw_val")
+                gar_o1 = extract_metric(owner_sum, s1, "owner_dev")
+                gar_l1 = extract_metric(lfw_sum, s1, lfw_set_key)
                 pass1 = bool(gar_o1 >= thresh_owner and gar_l1 >= thresh_lfw)
 
-                gar_o2 = extract_gar(owner_sum, s2, "owner_dev")
-                gar_l2 = extract_gar(lfw_sum, s2, "lfw_val")
+                gar_o2 = extract_metric(owner_sum, s2, "owner_dev")
+                gar_l2 = extract_metric(lfw_sum, s2, lfw_set_key)
                 pass2 = bool(gar_o2 >= thresh_owner and gar_l2 >= thresh_lfw)
 
-                pass_table[s1] = {"gar_owner": gar_o1, "gar_lfw": gar_l1, "pass": pass1}
-                pass_table[s2] = {"gar_owner": gar_o2, "gar_lfw": gar_l2, "pass": pass2}
+                pass_table[s1] = {f"{metric_key}_owner": gar_o1, f"{metric_key}_lfw": gar_l1, "pass": pass1}
+                pass_table[s2] = {f"{metric_key}_owner": gar_o2, f"{metric_key}_lfw": gar_l2, "pass": pass2}
 
                 if selected_set is None:
                     if pass1 and pass2:
@@ -1224,6 +1628,8 @@ def cmd_summarize(args: argparse.Namespace) -> None:
                         selected_set = s2
 
         selection_res = {
+            "fill": fill_mode,
+            "metric": metric_key,
             "selected_set": selected_set,
             "thresholds": {"owner_dev": thresh_owner, "lfwval": thresh_lfw},
             "pass_table": pass_table,
@@ -1265,6 +1671,9 @@ def main():
     run_p.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     run_p.add_argument("--maskset-dir", default=str(DEFAULT_MASKSET_DIR))
     run_p.add_argument("--inpainter-ckpt", default=None)
+    run_p.add_argument("--student-ckpt", default=None)
+    run_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    run_p.add_argument("--thresholds", default=None)
     run_p.add_argument("--liveness", action="store_true")
     run_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     run_p.add_argument("--limit-frames", type=int, default=None)
@@ -1276,13 +1685,31 @@ def main():
     lfw_p.add_argument("--maskset-dir", default=str(DEFAULT_MASKSET_DIR))
     lfw_p.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     lfw_p.add_argument("--inpainter-ckpt", default=None)
+    lfw_p.add_argument("--student-ckpt", default=None)
+    lfw_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    lfw_p.add_argument("--thresholds", default=None)
+    lfw_p.add_argument("--val-part", choices=("all", "A", "B"), default="all")
     lfw_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     lfw_p.add_argument("--limit", type=int, default=None)
     lfw_p.add_argument("--output-dir", default=None)
 
+    cal_p = sub.add_parser("calibrate")
+    cal_p.add_argument("--crops-dir", default=str(Path("data/innovation/defense/lfw_crops")))
+    cal_p.add_argument("--landmarks-dir", default=str(Path("data/innovation/defense/lfw_landmarks")))
+    cal_p.add_argument("--maskset-dir", default=str(DEFAULT_MASKSET_DIR))
+    cal_p.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
+    cal_p.add_argument("--inpainter-ckpt", default=None)
+    cal_p.add_argument("--student-ckpt", default=None)
+    cal_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    cal_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    cal_p.add_argument("--limit", type=int, default=None)
+    cal_p.add_argument("--output-dir", default=None)
+
     sum_p = sub.add_parser("summarize")
     sum_p.add_argument("--runs", nargs="*", default=[])
     sum_p.add_argument("--sets", nargs="*", default=None)
+    sum_p.add_argument("--metric", choices=("gar", "gar_recog"), default="gar")
+    sum_p.add_argument("--fill", choices=("inpaint", "gray"), default="inpaint")
     sum_p.add_argument("--select", action="store_true")
     sum_p.add_argument("--dev-runs", nargs="*", default=[])
 
@@ -1291,6 +1718,8 @@ def main():
         cmd_run(args)
     elif args.cmd == "lfwval":
         cmd_lfwval(args)
+    elif args.cmd == "calibrate":
+        cmd_calibrate(args)
     elif args.cmd == "summarize":
         cmd_summarize(args)
     else:
