@@ -63,6 +63,7 @@ dataset/
 embeddings/
 *.pt
 *.pth
+*.tgz
 
 # Generated outputs
 liveness/tools/samples/output/

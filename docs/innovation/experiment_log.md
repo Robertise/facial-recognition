@@ -853,3 +853,42 @@ Mẫu:
 - `maskset build` lần đầu: vùng L bắt đầu từ y = 365 trên canvas, trong khi mắt template ở y = 380. Nguyên nhân: đặc tả L dùng đường ngang qua landmark 6, mà landmark 6 gần như ngang tầm mắt (LFW train trung vị y 389, p5 373); lấy hợp 95% và nới δ làm L phủ cả hai mắt. Độ phủ L trên owner/s1 TB 53.9% crop.
 - Lỗi đặc tả (Claude), phát hiện trên canvas dựng từ LFW, chưa có số nhận dạng nào. Sửa (`plan_certified.md` §10): đường cắt trên của L dùng landmark 195 (giữa sống mũi; LFW train p5 403, trung vị 431). Thêm điều kiện hình học đặt trước: L và F không được giao vùng mắt template (tâm mắt ± 40 px ngang, ± 14 px dọc); vi phạm thì dừng. G và F không đổi; Q, δ không đổi.
 - Lý do giữ mắt ngoài L: phụ kiện che cả mắt lẫn nửa dưới mặt là loại khác (mặt nạ trùm), nằm ngoài mô hình đe doạ; và nhánh L phải còn đủ thông tin để nhận người thật.
+
+## 2026-11-15 Inpainter nhiều mask: train (`20261115_144634_inpainter_train`)
+- Code commit `03790ad` (maskset landmark 195 + kiểm vùng mắt). Train trên vast.ai (torch 2.14.1+cu132, Python 3.12.15), đúng siêu tham số luật: 30 epoch, batch 64, lr 2e-4, seed 0; 571 s. Chọn checkpoint theo TB val cos LFW trên 6 mask: **best epoch 28, TB 0.694**.
+
+| Mask | inpaint (val cos) | gray | chênh |
+|---|---|---|---|
+| G0 | 0.709 | 0.366 | +0.34 |
+| G16 | 0.677 | 0.320 | +0.36 |
+| G32 | 0.644 | 0.282 | +0.36 |
+| G48 | 0.599 | 0.245 | +0.35 |
+| L | 0.702 | 0.411 | +0.29 |
+| F | 0.832 | 0.635 | +0.20 |
+
+- Mô tả: inpaint hơn gray rõ ở mọi mask trên LFW val. Thứ tự khó: G48 khó nhất (che dải mắt rộng nhất), F dễ nhất. L che ~49% crop nhưng còn dải mắt nên gray 0.41 > G0 gray 0.37 (khớp phát hiện "danh tính tập trung quanh mắt"); gray L thấp hơn G48 thì mới là dấu hiệu mask L cũ phủ mắt, ở đây không phải. So với purifier band (val cos 0.744), G0 thấp hơn chút (0.709) do một model phải học 6 mask.
+- Chưa có số nào trên owner/p01. Bước tiếp: `lfwval`, `run --split dev`, chọn S theo luật 2026-11-14, ghi S vào log trước khi chạy test.
+
+## 2026-11-15 Phòng thủ chứng nhận: kết quả dev và áp luật chọn S
+- Run: `20261115_222002_certified_lfwval` (636 probe, LFW val) và `20261115_230858_certified_eval` (dev owner s3/s4/s5, liveness bật, 222 frame ánh sáng thường). Code `03790ad`, inpainter `20261115_144634`. Hai run lỗi dừng sớm (`20261115_220956`, `20261115_221122`) chỉ có `meta.json`, không có số, không dùng.
+- **Liveness trên dev:** owner/s3_vary 0/75 frame qua liveness, s4 37/75, s5 48/75 (nhận dạng nhánh none vẫn đúng owner 75/75 ở s3). Nên GAR(none) owner_dev chỉ 82/222 = 36.9%. Liveness như nhau ở mọi nhánh nên tỉ lệ GAR(S)/GAR(none) thực chất đo trên 82 frame live. Luật không lường trước điều này; ghi nhận, không đổi luật.
+- GAR nhánh đơn (inpaint / gray), owner_dev: none 82; G0 67/67; G16 53/64; G32 37/40; G48 26/35; L 67/65; F 82/81 (frame). LFW val: none 315/636; G0 188/153; G16 172/151; G32 164/136; G48 162/129; L 253/179; F 272/257.
+- **Áp luật (fill inpaint, ngưỡng 0.90 × none: owner 0.332, LFW 0.446):** không tập nào đạt, kể cả {G0} (owner 0.302 = 0.82 × none; LFW 0.296 = 0.60 × none). `selection.json`: `selected_set = null`. **Theo luật: phương pháp trượt ở dev; báo nguyên trạng; không dùng test để chọn lại.**
+- Mô tả (cho report, không phải kết luận theo luật):
+  - Cái giá theo vùng trên owner_dev (đồng thuận, inpaint, tỉ lệ so với none): {G0} 0.82, {G0, F} 0.82 (F gần như miễn phí trên owner), {G0, L} 0.68, {G0, L, F} 0.68, {G16} 0.65, {G32} 0.45, {G48} 0.32, {G48, L, F} 0.30. Kính rộng là nguồn tốn chính; L tốn ~14 điểm.
+  - LFW: mọi tập ≤ 0.60 × none; method3 trên LFW vốn yếu (none 49.5%) và mất nhiều khi che.
+  - Phần học: trên owner_dev inpaint không hơn gray (G0 bằng nhau; G16, G48 kém hơn gray); trên LFW inpaint hơn gray 5–12 điểm. Phần học lại không chuyển được sang dữ liệu webcam thật.
+  - Tỉ lệ frame người thật "được chứng nhận" (không nhánh nào nhận ra người khác): owner_dev {G0} 0.89, {G0, L, F} 0.78, {G48, L, F} 0.53; LFW 0.45–0.74. Che làm tăng khớp nhầm sang danh tính khác.
+  - Thử mô tả trên dev (không phải luật): nới luật thành "nhánh none khớp X (≥ 0.5) và mọi nhánh che có top-1 = X" nâng {G0} owner lên 0.91 × none, nhưng LFW vẫn 0.63. Không có biến thể nào qua được vế LFW.
+
+## 2026-11-16 Luật đặt trước v2: tiếp tục tối ưu phòng thủ chứng nhận (plan `plan_certified_v2.md`; TRƯỚC khi có code/số mới)
+- **Quyết định owner:** dù v1 trượt ở dev, vẫn tối ưu tiếp. Kết quả v1 giữ nguyên trong log (trượt theo luật 2026-11-14), không xoá.
+- **Hệ quả về phương pháp:** dev (owner s3–s5, LFW val) từ đây là **tập tinh chỉnh**, số dev sẽ lạc quan. Kết luận chỉ dựa trên **test (owner/s6, p01/s2) chạy đúng một lần**, chưa từng dùng. Report phải ghi rõ: v1 trượt, v2 là các vòng tối ưu trên dev, số chính là test.
+- **Chia LFW val theo danh tính:** A = `sha1(id) % 2 == 0` (early stopping, chọn checkpoint, hiệu chỉnh ngưỡng), B = phần còn lại (đo GAR dev, chọn cấu hình và tập S). Inpainter v1 đã chọn checkpoint trên cả LFW val (theo cos, không theo GAR): ghi nhận là rò rỉ nhẹ sang B.
+- **Chỉ số dev:** GAR **không gate liveness** (`gar_recog`), vì liveness như nhau ở mọi nhánh và owner/s3 có 0/75 frame qua liveness (cỡ mẫu 82 → 222). Test vẫn gate liveness như luật v1.
+- **Cấu hình được thử** (liệt kê trước): C1 method3 + gallery sạch; C2 = C1 + ngưỡng hiệu chỉnh FAR trên LFW val A; C3 student_gray + gallery sạch; C4 student_inpaint + gallery sạch; C5 = tốt hơn của C3/C4 + ngưỡng hiệu chỉnh; C6 (tuỳ thời gian) inpainter v2 + student_inpaint. Mỗi cấu hình: một lần train mỗi model (seed 0), checkpoint theo LFW val A.
+- **Chọn tập S trong mỗi cấu hình:** như luật v1 (thứ tự ưu tiên {G_r, L, F} r = 48 → 0, rồi hai họ, rồi chỉ G), với Pass(S) ⇔ `gar_recog`(S) ≥ 0.90 × `gar_recog`(none) trên owner_dev **và** LFW val B.
+- **Chọn cấu hình:** cấu hình có tập S đứng cao nhất trong thứ tự ưu tiên; hoà thì lấy min(tỉ lệ owner_dev, tỉ lệ LFW B) cao hơn.
+- **Hạn tối ưu:** hết 2026-11-19 23:59. Có cấu hình đạt thì chạy test một lần với cấu hình + S đó. Không cấu hình nào đạt thì chạy test một lần với cấu hình và tập S có min(tỉ lệ) cao nhất trong số tập có G, và **báo là đánh đổi, không phải đạt**.
+- **Luật test** giữ nguyên v1: (V) tấn công trong vùng chứng nhận = 0 (có frame thành công là lỗi cài đặt); (1) ranh giới; (2) GAR_test(S) ≥ 0.90 × GAR_test(none) trên owner/s6 và p01/s2 (gate liveness, cùng ngưỡng/gallery mode của cấu hình); (3) so với cùng cấu hình dùng gray (nếu có student gray); (4) báo kèm certified rate, lệch landmark.
+- Ngưỡng hiệu chỉnh chỉ được hạ thấp FAR bằng FAR_none (không bao giờ nới FAR); chẩn đoán v1 cho thấy lỗi chính là khớp nhầm, không phải ngưỡng.

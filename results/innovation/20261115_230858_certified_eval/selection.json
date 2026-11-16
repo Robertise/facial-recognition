@@ -1,0 +1,89 @@
+{
+  "selected_set": null,
+  "thresholds": {
+    "owner_dev": 0.33246000000000003,
+    "lfwval": 0.44577
+  },
+  "pass_table": {
+    "G48+L+F": {
+      "gar_owner": 0.1126,
+      "gar_lfw": 0.1509,
+      "pass": false
+    },
+    "G32+L+F": {
+      "gar_owner": 0.1486,
+      "gar_lfw": 0.1431,
+      "pass": false
+    },
+    "G16+L+F": {
+      "gar_owner": 0.2027,
+      "gar_lfw": 0.1635,
+      "pass": false
+    },
+    "G0+L+F": {
+      "gar_owner": 0.2523,
+      "gar_lfw": 0.1714,
+      "pass": false
+    },
+    "G48+L": {
+      "gar_owner": 0.1126,
+      "gar_lfw": 0.1761,
+      "pass": false
+    },
+    "G48+F": {
+      "gar_owner": 0.1171,
+      "gar_lfw": 0.1871,
+      "pass": false
+    },
+    "G32+L": {
+      "gar_owner": 0.1486,
+      "gar_lfw": 0.1698,
+      "pass": false
+    },
+    "G32+F": {
+      "gar_owner": 0.1667,
+      "gar_lfw": 0.184,
+      "pass": false
+    },
+    "G16+L": {
+      "gar_owner": 0.2027,
+      "gar_lfw": 0.1965,
+      "pass": false
+    },
+    "G16+F": {
+      "gar_owner": 0.2387,
+      "gar_lfw": 0.1997,
+      "pass": false
+    },
+    "G0+L": {
+      "gar_owner": 0.2523,
+      "gar_lfw": 0.206,
+      "pass": false
+    },
+    "G0+F": {
+      "gar_owner": 0.3018,
+      "gar_lfw": 0.2233,
+      "pass": false
+    },
+    "G48": {
+      "gar_owner": 0.1171,
+      "gar_lfw": 0.2547,
+      "pass": false
+    },
+    "G32": {
+      "gar_owner": 0.1667,
+      "gar_lfw": 0.2579,
+      "pass": false
+    },
+    "G16": {
+      "gar_owner": 0.2387,
+      "gar_lfw": 0.2704,
+      "pass": false
+    },
+    "G0": {
+      "gar_owner": 0.3018,
+      "gar_lfw": 0.2956,
+      "pass": false
+    }
+  }
+}

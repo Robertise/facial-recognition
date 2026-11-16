@@ -1036,7 +1036,7 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
         for br in branch_list:
             if br == "none":
                 emb = recognizer.extract_embedding(gal_item["crop"])
-                galleries[br][pid] = emb
+                galleries[br][pid] = np.atleast_2d(emb)
             else:
                 m_name, fill = br.split("/", 1)
                 m112 = mask_in_window(gal_item["window"], gal_item["eyes"], masks[m_name], size=112)
@@ -1046,10 +1046,13 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
                     if fill == "inpaint":
                         c = apply_purifier(inpainter, c, m112, device=device)
                     emb = recognizer.extract_embedding(c)
-                    galleries[br][pid] = emb
+                    galleries[br][pid] = np.atleast_2d(emb)
 
         for p_it in probe_items:
             probes.append({"person": pid, **p_it})
+
+    if getattr(args, "limit", None) is not None and args.limit > 0:
+        probes = probes[:args.limit]
 
     all_rows = []
     for p_it in probes:
@@ -1274,6 +1277,7 @@ def main():
     lfw_p.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     lfw_p.add_argument("--inpainter-ckpt", default=None)
     lfw_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    lfw_p.add_argument("--limit", type=int, default=None)
     lfw_p.add_argument("--output-dir", default=None)
 
     sum_p = sub.add_parser("summarize")

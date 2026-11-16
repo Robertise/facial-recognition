@@ -1,0 +1,2140 @@
+{
+  "split": "dev",
+  "total_rows": 2925,
+  "sets_evaluated": {
+    "owner/s3_vary": 75,
+    "owner/s4_vary": 75,
+    "owner/s5_vary": 75
+  },
+  "branches": {
+    "none": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.4933,
+          "gar_wilson_95": [
+            0.3833,
+            0.604
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.625,
+          "gar_wilson_95": [
+            0.5095,
+            0.7278
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3694,
+          "gar_wilson_95": [
+            0.3086,
+            0.4346
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3694,
+      "gar_wilson_95": [
+        0.3086,
+        0.4346
+      ],
+      "attacks": {}
+    },
+    "G0/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.3733,
+          "gar_wilson_95": [
+            0.2726,
+            0.4865
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.5417,
+          "gar_wilson_95": [
+            0.4274,
+            0.6517
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3018,
+          "gar_wilson_95": [
+            0.2452,
+            0.3651
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3018,
+      "gar_wilson_95": [
+        0.2452,
+        0.3651
+      ],
+      "attacks": {}
+    },
+    "G0/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.4133,
+          "gar_wilson_95": [
+            0.3088,
+            0.5263
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.5,
+          "gar_wilson_95": [
+            0.3875,
+            0.6125
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3018,
+          "gar_wilson_95": [
+            0.2452,
+            0.3651
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3018,
+      "gar_wilson_95": [
+        0.2452,
+        0.3651
+      ],
+      "attacks": {}
+    },
+    "G16/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.4,
+          "gar_wilson_95": [
+            0.2966,
+            0.5131
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.4722,
+          "gar_wilson_95": [
+            0.3613,
+            0.586
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.2883,
+          "gar_wilson_95": [
+            0.2327,
+            0.3511
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.2883,
+      "gar_wilson_95": [
+        0.2327,
+        0.3511
+      ],
+      "attacks": {}
+    },
+    "G16/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.3333,
+          "gar_wilson_95": [
+            0.2371,
+            0.4458
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.3889,
+          "gar_wilson_95": [
+            0.2847,
+            0.5044
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.2387,
+          "gar_wilson_95": [
+            0.1874,
+            0.299
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.2387,
+      "gar_wilson_95": [
+        0.1874,
+        0.299
+      ],
+      "attacks": {}
+    },
+    "G32/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.2133,
+          "gar_wilson_95": [
+            0.1358,
+            0.3188
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.3333,
+          "gar_wilson_95": [
+            0.2353,
+            0.4482
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.1802,
+          "gar_wilson_95": [
+            0.1352,
+            0.236
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.1802,
+      "gar_wilson_95": [
+        0.1352,
+        0.236
+      ],
+      "attacks": {}
+    },
+    "G32/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.2133,
+          "gar_wilson_95": [
+            0.1358,
+            0.3188
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.2917,
+          "gar_wilson_95": [
+            0.1994,
+            0.4051
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.1667,
+          "gar_wilson_95": [
+            0.1234,
+            0.2213
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.1667,
+      "gar_wilson_95": [
+        0.1234,
+        0.2213
+      ],
+      "attacks": {}
+    },
+    "G48/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.1333,
+          "gar_wilson_95": [
+            0.0741,
+            0.2283
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.3472,
+          "gar_wilson_95": [
+            0.2475,
+            0.4624
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.1577,
+          "gar_wilson_95": [
+            0.1156,
+            0.2114
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.1577,
+      "gar_wilson_95": [
+        0.1156,
+        0.2114
+      ],
+      "attacks": {}
+    },
+    "G48/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.1067,
+          "gar_wilson_95": [
+            0.055,
+            0.1966
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.25,
+          "gar_wilson_95": [
+            0.1644,
+            0.3609
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.1171,
+          "gar_wilson_95": [
+            0.0812,
+            0.1661
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.1171,
+      "gar_wilson_95": [
+        0.0812,
+        0.1661
+      ],
+      "attacks": {}
+    },
+    "L/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.32,
+          "gar_wilson_95": [
+            0.2254,
+            0.4321
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.5694,
+          "gar_wilson_95": [
+            0.4544,
+            0.6774
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.2928,
+          "gar_wilson_95": [
+            0.2369,
+            0.3558
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.2928,
+      "gar_wilson_95": [
+        0.2369,
+        0.3558
+      ],
+      "attacks": {}
+    },
+    "L/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.4133,
+          "gar_wilson_95": [
+            0.3088,
+            0.5263
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.5,
+          "gar_wilson_95": [
+            0.3875,
+            0.6125
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3018,
+          "gar_wilson_95": [
+            0.2452,
+            0.3651
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3018,
+      "gar_wilson_95": [
+        0.2452,
+        0.3651
+      ],
+      "attacks": {}
+    },
+    "F/gray": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.48,
+          "gar_wilson_95": [
+            0.3707,
+            0.5913
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.625,
+          "gar_wilson_95": [
+            0.5095,
+            0.7278
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3649,
+          "gar_wilson_95": [
+            0.3043,
+            0.43
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3649,
+      "gar_wilson_95": [
+        0.3043,
+        0.43
+      ],
+      "attacks": {}
+    },
+    "F/inpaint": {
+      "genuine_sets": {
+        "owner/s3_vary": {
+          "total": 75,
+          "gar": 0.0,
+          "gar_wilson_95": [
+            0.0,
+            0.0487
+          ]
+        },
+        "owner/s4_vary": {
+          "total": 75,
+          "gar": 0.4933,
+          "gar_wilson_95": [
+            0.3833,
+            0.604
+          ]
+        },
+        "owner/s5_vary": {
+          "total": 72,
+          "gar": 0.625,
+          "gar_wilson_95": [
+            0.5095,
+            0.7278
+          ]
+        },
+        "owner_dev": {
+          "total": 222,
+          "gar": 0.3694,
+          "gar_wilson_95": [
+            0.3086,
+            0.4346
+          ]
+        }
+      },
+      "genuine_total": 222,
+      "gar": 0.3694,
+      "gar_wilson_95": [
+        0.3086,
+        0.4346
+      ],
+      "attacks": {}
+    }
+  },
+  "sets": {
+    "G48+L+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.4933
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.08,
+            "gar_wilson_95": [
+              0.0372,
+              0.1637
+            ],
+            "certified_rate": 0.3733
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2353,
+              0.4482
+            ],
+            "certified_rate": 0.6111
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1351,
+            "gar_wilson_95": [
+              0.0963,
+              0.1864
+            ],
+            "certified_rate": 0.491
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1351,
+        "gar_wilson_95": [
+          0.0963,
+          0.1864
+        ],
+        "certified_rate": 0.491,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5067
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1067,
+            "gar_wilson_95": [
+              0.055,
+              0.1966
+            ],
+            "certified_rate": 0.48
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2361,
+            "gar_wilson_95": [
+              0.153,
+              0.346
+            ],
+            "certified_rate": 0.6111
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1126,
+            "gar_wilson_95": [
+              0.0774,
+              0.161
+            ],
+            "certified_rate": 0.5315
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1126,
+        "gar_wilson_95": [
+          0.0774,
+          0.161
+        ],
+        "certified_rate": 0.5315,
+        "attacks": {}
+      }
+    },
+    "G32+L+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.2933
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.0667,
+            "gar_wilson_95": [
+              0.0288,
+              0.1468
+            ],
+            "certified_rate": 0.3067
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2917,
+            "gar_wilson_95": [
+              0.1994,
+              0.4051
+            ],
+            "certified_rate": 0.4722
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1171,
+            "gar_wilson_95": [
+              0.0812,
+              0.1661
+            ],
+            "certified_rate": 0.3559
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1171,
+        "gar_wilson_95": [
+          0.0812,
+          0.1661
+        ],
+        "certified_rate": 0.3559,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.76
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1733,
+            "gar_wilson_95": [
+              0.1042,
+              0.2743
+            ],
+            "certified_rate": 0.56
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2778,
+            "gar_wilson_95": [
+              0.1876,
+              0.3905
+            ],
+            "certified_rate": 0.9028
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1486,
+            "gar_wilson_95": [
+              0.1078,
+              0.2014
+            ],
+            "certified_rate": 0.7387
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1486,
+        "gar_wilson_95": [
+          0.1078,
+          0.2014
+        ],
+        "certified_rate": 0.7387,
+        "attacks": {}
+      }
+    },
+    "G16+L+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5467
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2667,
+            "gar_wilson_95": [
+              0.1798,
+              0.3763
+            ],
+            "certified_rate": 0.6133
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4167,
+            "gar_wilson_95": [
+              0.3099,
+              0.5319
+            ],
+            "certified_rate": 0.6528
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2252,
+            "gar_wilson_95": [
+              0.1752,
+              0.2846
+            ],
+            "certified_rate": 0.6036
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2252,
+        "gar_wilson_95": [
+          0.1752,
+          0.2846
+        ],
+        "certified_rate": 0.6036,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.8267
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2933,
+            "gar_wilson_95": [
+              0.2024,
+              0.4044
+            ],
+            "certified_rate": 0.5467
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3194,
+            "gar_wilson_95": [
+              0.2233,
+              0.4339
+            ],
+            "certified_rate": 0.7917
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2027,
+            "gar_wilson_95": [
+              0.1551,
+              0.2604
+            ],
+            "certified_rate": 0.7207
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2027,
+        "gar_wilson_95": [
+          0.1551,
+          0.2604
+        ],
+        "certified_rate": 0.7207,
+        "attacks": {}
+      }
+    },
+    "G0+L+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.64
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2,
+            "gar_wilson_95": [
+              0.1251,
+              0.3041
+            ],
+            "certified_rate": 0.5067
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4861,
+            "gar_wilson_95": [
+              0.3743,
+              0.5993
+            ],
+            "certified_rate": 0.8472
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2252,
+            "gar_wilson_95": [
+              0.1752,
+              0.2846
+            ],
+            "certified_rate": 0.6622
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2252,
+        "gar_wilson_95": [
+          0.1752,
+          0.2846
+        ],
+        "certified_rate": 0.6622,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.7067
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.36,
+            "gar_wilson_95": [
+              0.2606,
+              0.473
+            ],
+            "certified_rate": 0.7067
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4028,
+            "gar_wilson_95": [
+              0.2972,
+              0.5182
+            ],
+            "certified_rate": 0.9306
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2523,
+            "gar_wilson_95": [
+              0.1997,
+              0.3133
+            ],
+            "certified_rate": 0.7793
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2523,
+        "gar_wilson_95": [
+          0.1997,
+          0.3133
+        ],
+        "certified_rate": 0.7793,
+        "attacks": {}
+      }
+    },
+    "G48+L": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.4933
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.0933,
+            "gar_wilson_95": [
+              0.0459,
+              0.1803
+            ],
+            "certified_rate": 0.4
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2353,
+              0.4482
+            ],
+            "certified_rate": 0.6111
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1396,
+            "gar_wilson_95": [
+              0.1001,
+              0.1914
+            ],
+            "certified_rate": 0.5
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1396,
+        "gar_wilson_95": [
+          0.1001,
+          0.1914
+        ],
+        "certified_rate": 0.5,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5067
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1067,
+            "gar_wilson_95": [
+              0.055,
+              0.1966
+            ],
+            "certified_rate": 0.48
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2361,
+            "gar_wilson_95": [
+              0.153,
+              0.346
+            ],
+            "certified_rate": 0.6111
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1126,
+            "gar_wilson_95": [
+              0.0774,
+              0.161
+            ],
+            "certified_rate": 0.5315
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1126,
+        "gar_wilson_95": [
+          0.0774,
+          0.161
+        ],
+        "certified_rate": 0.5315,
+        "attacks": {}
+      }
+    },
+    "G48+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5333
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.12,
+            "gar_wilson_95": [
+              0.0644,
+              0.2126
+            ],
+            "certified_rate": 0.44
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3472,
+            "gar_wilson_95": [
+              0.2475,
+              0.4624
+            ],
+            "certified_rate": 0.625
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1532,
+            "gar_wilson_95": [
+              0.1117,
+              0.2064
+            ],
+            "certified_rate": 0.5315
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1532,
+        "gar_wilson_95": [
+          0.1117,
+          0.2064
+        ],
+        "certified_rate": 0.5315,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.6
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1067,
+            "gar_wilson_95": [
+              0.055,
+              0.1966
+            ],
+            "certified_rate": 0.5733
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.25,
+            "gar_wilson_95": [
+              0.1644,
+              0.3609
+            ],
+            "certified_rate": 0.6528
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1171,
+            "gar_wilson_95": [
+              0.0812,
+              0.1661
+            ],
+            "certified_rate": 0.6081
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1171,
+        "gar_wilson_95": [
+          0.0812,
+          0.1661
+        ],
+        "certified_rate": 0.6081,
+        "attacks": {}
+      }
+    },
+    "G32+L": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.2933
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.08,
+            "gar_wilson_95": [
+              0.0372,
+              0.1637
+            ],
+            "certified_rate": 0.3333
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2917,
+            "gar_wilson_95": [
+              0.1994,
+              0.4051
+            ],
+            "certified_rate": 0.4722
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1216,
+            "gar_wilson_95": [
+              0.0849,
+              0.1712
+            ],
+            "certified_rate": 0.3649
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1216,
+        "gar_wilson_95": [
+          0.0849,
+          0.1712
+        ],
+        "certified_rate": 0.3649,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.76
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1733,
+            "gar_wilson_95": [
+              0.1042,
+              0.2743
+            ],
+            "certified_rate": 0.56
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2778,
+            "gar_wilson_95": [
+              0.1876,
+              0.3905
+            ],
+            "certified_rate": 0.9028
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1486,
+            "gar_wilson_95": [
+              0.1078,
+              0.2014
+            ],
+            "certified_rate": 0.7387
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1486,
+        "gar_wilson_95": [
+          0.1078,
+          0.2014
+        ],
+        "certified_rate": 0.7387,
+        "attacks": {}
+      }
+    },
+    "G32+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.3333
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2,
+            "gar_wilson_95": [
+              0.1251,
+              0.3041
+            ],
+            "certified_rate": 0.4933
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2353,
+              0.4482
+            ],
+            "certified_rate": 0.5139
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1757,
+            "gar_wilson_95": [
+              0.1313,
+              0.2311
+            ],
+            "certified_rate": 0.4459
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1757,
+        "gar_wilson_95": [
+          0.1313,
+          0.2311
+        ],
+        "certified_rate": 0.4459,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.88
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2133,
+            "gar_wilson_95": [
+              0.1358,
+              0.3188
+            ],
+            "certified_rate": 0.64
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2917,
+            "gar_wilson_95": [
+              0.1994,
+              0.4051
+            ],
+            "certified_rate": 0.9722
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1667,
+            "gar_wilson_95": [
+              0.1234,
+              0.2213
+            ],
+            "certified_rate": 0.8288
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1667,
+        "gar_wilson_95": [
+          0.1234,
+          0.2213
+        ],
+        "certified_rate": 0.8288,
+        "attacks": {}
+      }
+    },
+    "G16+L": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5467
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.28,
+            "gar_wilson_95": [
+              0.191,
+              0.3904
+            ],
+            "certified_rate": 0.64
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4167,
+            "gar_wilson_95": [
+              0.3099,
+              0.5319
+            ],
+            "certified_rate": 0.6528
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2297,
+            "gar_wilson_95": [
+              0.1793,
+              0.2894
+            ],
+            "certified_rate": 0.6126
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2297,
+        "gar_wilson_95": [
+          0.1793,
+          0.2894
+        ],
+        "certified_rate": 0.6126,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.8267
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2933,
+            "gar_wilson_95": [
+              0.2024,
+              0.4044
+            ],
+            "certified_rate": 0.5467
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3194,
+            "gar_wilson_95": [
+              0.2233,
+              0.4339
+            ],
+            "certified_rate": 0.7917
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2027,
+            "gar_wilson_95": [
+              0.1551,
+              0.2604
+            ],
+            "certified_rate": 0.7207
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2027,
+        "gar_wilson_95": [
+          0.1551,
+          0.2604
+        ],
+        "certified_rate": 0.7207,
+        "attacks": {}
+      }
+    },
+    "G16+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5867
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.3867,
+            "gar_wilson_95": [
+              0.2846,
+              0.4998
+            ],
+            "certified_rate": 0.8133
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4722,
+            "gar_wilson_95": [
+              0.3613,
+              0.586
+            ],
+            "certified_rate": 0.7083
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2838,
+            "gar_wilson_95": [
+              0.2285,
+              0.3464
+            ],
+            "certified_rate": 0.7027
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2838,
+        "gar_wilson_95": [
+          0.2285,
+          0.3464
+        ],
+        "certified_rate": 0.7027,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.96
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2371,
+              0.4458
+            ],
+            "certified_rate": 0.5867
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3889,
+            "gar_wilson_95": [
+              0.2847,
+              0.5044
+            ],
+            "certified_rate": 0.8472
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2387,
+            "gar_wilson_95": [
+              0.1874,
+              0.299
+            ],
+            "certified_rate": 0.7973
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2387,
+        "gar_wilson_95": [
+          0.1874,
+          0.299
+        ],
+        "certified_rate": 0.7973,
+        "attacks": {}
+      }
+    },
+    "G0+L": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.64
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2133,
+            "gar_wilson_95": [
+              0.1358,
+              0.3188
+            ],
+            "certified_rate": 0.5333
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4861,
+            "gar_wilson_95": [
+              0.3743,
+              0.5993
+            ],
+            "certified_rate": 0.8472
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2297,
+            "gar_wilson_95": [
+              0.1793,
+              0.2894
+            ],
+            "certified_rate": 0.6712
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2297,
+        "gar_wilson_95": [
+          0.1793,
+          0.2894
+        ],
+        "certified_rate": 0.6712,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.7067
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.36,
+            "gar_wilson_95": [
+              0.2606,
+              0.473
+            ],
+            "certified_rate": 0.7067
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4028,
+            "gar_wilson_95": [
+              0.2972,
+              0.5182
+            ],
+            "certified_rate": 0.9306
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2523,
+            "gar_wilson_95": [
+              0.1997,
+              0.3133
+            ],
+            "certified_rate": 0.7793
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2523,
+        "gar_wilson_95": [
+          0.1997,
+          0.3133
+        ],
+        "certified_rate": 0.7793,
+        "attacks": {}
+      }
+    },
+    "G0+F": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.68
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.36,
+            "gar_wilson_95": [
+              0.2606,
+              0.473
+            ],
+            "certified_rate": 0.7467
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.5417,
+            "gar_wilson_95": [
+              0.4274,
+              0.6517
+            ],
+            "certified_rate": 0.9028
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2973,
+            "gar_wilson_95": [
+              0.241,
+              0.3605
+            ],
+            "certified_rate": 0.7748
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2973,
+        "gar_wilson_95": [
+          0.241,
+          0.3605
+        ],
+        "certified_rate": 0.7748,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.84
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.4133,
+            "gar_wilson_95": [
+              0.3088,
+              0.5263
+            ],
+            "certified_rate": 0.8267
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.5,
+            "gar_wilson_95": [
+              0.3875,
+              0.6125
+            ],
+            "certified_rate": 1.0
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.3018,
+            "gar_wilson_95": [
+              0.2452,
+              0.3651
+            ],
+            "certified_rate": 0.8874
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.3018,
+        "gar_wilson_95": [
+          0.2452,
+          0.3651
+        ],
+        "certified_rate": 0.8874,
+        "attacks": {}
+      }
+    },
+    "G48": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5333
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1333,
+            "gar_wilson_95": [
+              0.0741,
+              0.2283
+            ],
+            "certified_rate": 0.4667
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3472,
+            "gar_wilson_95": [
+              0.2475,
+              0.4624
+            ],
+            "certified_rate": 0.625
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1577,
+            "gar_wilson_95": [
+              0.1156,
+              0.2114
+            ],
+            "certified_rate": 0.5405
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1577,
+        "gar_wilson_95": [
+          0.1156,
+          0.2114
+        ],
+        "certified_rate": 0.5405,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.6
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.1067,
+            "gar_wilson_95": [
+              0.055,
+              0.1966
+            ],
+            "certified_rate": 0.5733
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.25,
+            "gar_wilson_95": [
+              0.1644,
+              0.3609
+            ],
+            "certified_rate": 0.6528
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1171,
+            "gar_wilson_95": [
+              0.0812,
+              0.1661
+            ],
+            "certified_rate": 0.6081
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1171,
+        "gar_wilson_95": [
+          0.0812,
+          0.1661
+        ],
+        "certified_rate": 0.6081,
+        "attacks": {}
+      }
+    },
+    "G32": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.3333
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2133,
+            "gar_wilson_95": [
+              0.1358,
+              0.3188
+            ],
+            "certified_rate": 0.52
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2353,
+              0.4482
+            ],
+            "certified_rate": 0.5139
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1802,
+            "gar_wilson_95": [
+              0.1352,
+              0.236
+            ],
+            "certified_rate": 0.455
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1802,
+        "gar_wilson_95": [
+          0.1352,
+          0.236
+        ],
+        "certified_rate": 0.455,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.88
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.2133,
+            "gar_wilson_95": [
+              0.1358,
+              0.3188
+            ],
+            "certified_rate": 0.64
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.2917,
+            "gar_wilson_95": [
+              0.1994,
+              0.4051
+            ],
+            "certified_rate": 0.9722
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.1667,
+            "gar_wilson_95": [
+              0.1234,
+              0.2213
+            ],
+            "certified_rate": 0.8288
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.1667,
+        "gar_wilson_95": [
+          0.1234,
+          0.2213
+        ],
+        "certified_rate": 0.8288,
+        "attacks": {}
+      }
+    },
+    "G16": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.5867
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.4,
+            "gar_wilson_95": [
+              0.2966,
+              0.5131
+            ],
+            "certified_rate": 0.84
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.4722,
+            "gar_wilson_95": [
+              0.3613,
+              0.586
+            ],
+            "certified_rate": 0.7083
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2883,
+            "gar_wilson_95": [
+              0.2327,
+              0.3511
+            ],
+            "certified_rate": 0.7117
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2883,
+        "gar_wilson_95": [
+          0.2327,
+          0.3511
+        ],
+        "certified_rate": 0.7117,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.96
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.3333,
+            "gar_wilson_95": [
+              0.2371,
+              0.4458
+            ],
+            "certified_rate": 0.5867
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.3889,
+            "gar_wilson_95": [
+              0.2847,
+              0.5044
+            ],
+            "certified_rate": 0.8472
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.2387,
+            "gar_wilson_95": [
+              0.1874,
+              0.299
+            ],
+            "certified_rate": 0.7973
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.2387,
+        "gar_wilson_95": [
+          0.1874,
+          0.299
+        ],
+        "certified_rate": 0.7973,
+        "attacks": {}
+      }
+    },
+    "G0": {
+      "gray": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.68
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.3733,
+            "gar_wilson_95": [
+              0.2726,
+              0.4865
+            ],
+            "certified_rate": 0.7733
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.5417,
+            "gar_wilson_95": [
+              0.4274,
+              0.6517
+            ],
+            "certified_rate": 0.9028
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.3018,
+            "gar_wilson_95": [
+              0.2452,
+              0.3651
+            ],
+            "certified_rate": 0.7838
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.3018,
+        "gar_wilson_95": [
+          0.2452,
+          0.3651
+        ],
+        "certified_rate": 0.7838,
+        "attacks": {}
+      },
+      "inpaint": {
+        "genuine_sets": {
+          "owner/s3_vary": {
+            "total": 75,
+            "gar": 0.0,
+            "gar_wilson_95": [
+              0.0,
+              0.0487
+            ],
+            "certified_rate": 0.84
+          },
+          "owner/s4_vary": {
+            "total": 75,
+            "gar": 0.4133,
+            "gar_wilson_95": [
+              0.3088,
+              0.5263
+            ],
+            "certified_rate": 0.8267
+          },
+          "owner/s5_vary": {
+            "total": 72,
+            "gar": 0.5,
+            "gar_wilson_95": [
+              0.3875,
+              0.6125
+            ],
+            "certified_rate": 1.0
+          },
+          "owner_dev": {
+            "total": 222,
+            "gar": 0.3018,
+            "gar_wilson_95": [
+              0.2452,
+              0.3651
+            ],
+            "certified_rate": 0.8874
+          }
+        },
+        "genuine_total": 222,
+        "gar": 0.3018,
+        "gar_wilson_95": [
+          0.2452,
+          0.3651
+        ],
+        "certified_rate": 0.8874,
+        "attacks": {}
+      }
+    }
+  }
+}

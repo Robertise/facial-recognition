@@ -516,3 +516,57 @@ def test_maskset_eye_zone_check_and_landmark_195(tmp_path):
     assert "overlaps eye zone" in str(excinfo.value)
 
 
+def test_eval_certified_lfwval_smoke_fixture(tmp_path):
+    """eval_certified lfwval smoke test on minimal synthetic fixture with --output-dir in tmp_path."""
+    from innovation.defense.eval_certified import cmd_lfwval
+    from types import SimpleNamespace
+
+    # Create dummy maskset
+    maskset_dir = tmp_path / "maskset"
+    maskset_dir.mkdir()
+    for m in MASK_NAMES:
+        dummy_mask = np.zeros((CANVAS_H, CANVAS_W), dtype=np.uint8)
+        dummy_mask[350:450, 250:550] = 255
+        cv2.imwrite(str(maskset_dir / f"{m}.png"), dummy_mask)
+
+    # Create dummy inpainter checkpoint
+    ckpt_path = tmp_path / "mock_inpainter.pt"
+    dummy_model = PurifierUNet()
+    torch.save({"model_state_dict": dummy_model.state_dict(), "model_class": "PurifierUNet"}, ckpt_path)
+
+    # Create dummy crops and landmarks with at least one identity having >= 2 valid images
+    crops_dir = tmp_path / "crops"
+    landmarks_dir = tmp_path / "landmarks"
+    crops_dir.mkdir()
+    landmarks_dir.mkdir()
+
+    dummy_crops = np.random.randint(0, 255, size=(3, 112, 112, 3), dtype=np.uint8)
+    dummy_eyes = np.array([[[120.0, 160.0], [200.0, 160.0]]] * 3, dtype=np.float32)
+    dummy_win = np.array([[100, 120, 220, 260]] * 3, dtype=np.int32)
+    dummy_ok = np.array([1, 1, 1], dtype=np.uint8)
+    dummy_paths = ["p1", "p2", "p3"]
+    dummy_ids = ["person_A", "person_A", "person_B"]
+
+    np.savez_compressed(crops_dir / "val_000.npz", crops=dummy_crops, paths=dummy_paths, identities=dummy_ids)
+    np.savez_compressed(landmarks_dir / "val_000.npz", eyes=dummy_eyes, window=dummy_win, ok=dummy_ok, paths=dummy_paths)
+
+    out_dir = tmp_path / "lfwval_out"
+    args = SimpleNamespace(
+        crops_dir=crops_dir,
+        landmarks_dir=landmarks_dir,
+        maskset_dir=maskset_dir,
+        inpainter_ckpt=str(ckpt_path),
+        checkpoint="checkpoints/method3_best.pth",
+        device="cpu",
+        limit=None,
+        output_dir=str(out_dir),
+    )
+    cmd_lfwval(args)
+    assert (out_dir / "frames.csv").exists()
+    assert (out_dir / "summary.json").exists()
+    summary_data = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    assert "branches" in summary_data
+    assert "sets" in summary_data
+
+
+

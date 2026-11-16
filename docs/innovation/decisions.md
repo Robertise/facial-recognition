@@ -130,3 +130,11 @@ Giữ nguyên danh sách ở spec §10 (rPPG, YOLO bắt điện thoại, blink 
 - **Loại: thêm bộ phát hiện (chữ ký, nhất quán).** Kẻ thích ứng vừa vô hiệu hoá bộ phát hiện nhất quán (11-13).
 - **Loại: che kép PatchCleanser đầy đủ.** K² lượt, chỉ cần khi muốn chứng nhận nhận đúng người; điểm danh chỉ cần chứng nhận không giả danh (người thật bị từ chối thì thử lại).
 - **Hoãn (cần luật mới):** ngưỡng riêng từng nhánh; fine-tune recognizer trên mặt đã inpaint.
+
+## 2026-11-16 Tối ưu tiếp phòng thủ chứng nhận: student recognizer + gallery sạch
+- **Chọn (owner yêu cầu tối ưu tiếp):** student recognizer khởi tạo từ method3, học đưa mặt đã che về embedding mặt sạch của teacher (template-level KD, Huber et al. FG 2021; unmasking embedding, Boutros et al. PR 2022), loss cos + InfoNCE, webcam augmentation, cosine LR, early stopping; so với gallery sạch; ngưỡng hiệu chỉnh theo FAR. Plan `plan_certified_v2.md`, luật `experiment_log.md` 2026-11-16.
+- **Lý do:** chẩn đoán v1: lỗi chính là khớp nhầm sang người khác khi cả probe lẫn gallery bị che cùng chỗ (embedding dồn lại), không phải ngưỡng; inpainter không giúp trên webcam. Sửa ở recognizer có đòn bẩy lớn nhất. Chứng nhận vẫn giữ vì nhánh vẫn là hàm của pixel ngoài mask.
+- **Loại: hạ ngưỡng để tăng GAR.** Lỗi chính là khớp nhầm; hạ ngưỡng làm tăng FAR và giảm tỉ lệ chứng nhận.
+- **Loại: bỏ vế LFW khỏi luật chọn.** Dời cột gôn sau khi thấy số.
+- **Hoãn: nới luật thành "top-1 đồng thuận, chỉ nhánh none cần ≥ 0.5".** Chỉ chứng nhận được khi kẻ tấn công đã enroll; đổi mô hình đe doạ.
+- **Hoãn (pha 3 nếu cần):** student kiến trúc lớn hơn; thêm dữ liệu mặt (VGGFace2/CelebA, cần dựng landmark); gated/partial conv cho inpainter.

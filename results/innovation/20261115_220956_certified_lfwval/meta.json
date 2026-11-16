@@ -1,0 +1,17 @@
+{
+  "run_id": "20261115_220956_certified_lfwval",
+  "started": "2026-11-15T22:09:56",
+  "git_commit": "03790ad9da2ae3d19d522228499f79b2ffba020e",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\defense\\eval_certified.py lfwval --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cpu",
+  "args": {},
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
