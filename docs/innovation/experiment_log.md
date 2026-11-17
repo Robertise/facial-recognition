@@ -892,3 +892,30 @@ Mẫu:
 - **Hạn tối ưu:** hết 2026-11-19 23:59. Có cấu hình đạt thì chạy test một lần với cấu hình + S đó. Không cấu hình nào đạt thì chạy test một lần với cấu hình và tập S có min(tỉ lệ) cao nhất trong số tập có G, và **báo là đánh đổi, không phải đạt**.
 - **Luật test** giữ nguyên v1: (V) tấn công trong vùng chứng nhận = 0 (có frame thành công là lỗi cài đặt); (1) ranh giới; (2) GAR_test(S) ≥ 0.90 × GAR_test(none) trên owner/s6 và p01/s2 (gate liveness, cùng ngưỡng/gallery mode của cấu hình); (3) so với cùng cấu hình dùng gray (nếu có student gray); (4) báo kèm certified rate, lệch landmark.
 - Ngưỡng hiệu chỉnh chỉ được hạ thấp FAR bằng FAR_none (không bao giờ nới FAR); chẩn đoán v1 cho thấy lỗi chính là khớp nhầm, không phải ngưỡng.
+
+## 2026-11-17 Phòng thủ chứng nhận v2: kết quả dev (code `820ddcf`, vast.ai; tên run trong `grid_v2.txt`)
+- Lần chạy đầu (16–17/11) mất kết quả do lệnh đóng gói bị chạy trên laptop và instance đã huỷ; chạy lại toàn bộ, đây là lần duy nhất có số.
+- Student gray `20261117_120646` (best epoch 29/35, early stop; val A recog TB 0.183, F 0.34, G48 0.09). Student inpaint `20261117_123128` (best epoch 20, dừng ở 26; val A TB 0.252, F 0.42, G48 0.17). Ngưỡng hiệu chỉnh (FAR_none 7.1% trên 308 impostor val A) nằm trong 0.385–0.525.
+- Tỉ lệ `gar_recog` so với none (owner_dev 222 frame, none 0.960 / LFW val B 328 probe, none 0.460), nhánh đơn và tập tốt nhất:
+
+| Cấu hình | G0 | G16 | G48 | L | F | {G0, F} | {G0, L, F} | {G48, L, F} |
+|---|---|---|---|---|---|---|---|---|
+| C0 symmetric, method3 (v1) | 0.84 / 0.70 | 0.75 / 0.66 | 0.39 / 0.61 | 0.86 / 0.85 | 1.03 / 0.80 | 0.83 / 0.50 | 0.70 / 0.36 | 0.34 / 0.36 |
+| C1 clean, method3 | 0.56 / 0.44 | 0.24 / 0.40 | 0.02 / 0.36 | 0.51 / 0.44 | 1.02 / 0.61 | 0.56 / 0.30 | 0.31 / 0.16 | 0.00 / 0.10 |
+| C2 = C1 + ngưỡng | 0.58 / 0.45 | 0.25 / 0.42 | 0.02 / 0.36 | 0.39 / 0.39 | 1.02 / 0.61 | 0.58 / 0.30 | 0.25 / 0.15 | 0.00 / 0.09 |
+| C3 student gray, clean | 0.56 / 0.34 | 0.37 / 0.28 | 0.12 / 0.21 | 0.70 / 0.44 | 1.01 / 0.46 | 0.56 / 0.26 | 0.32 / 0.10 | 0.06 / 0.07 |
+| C4 student inpaint, clean | 0.79 / 0.44 | 0.52 / 0.38 | 0.27 / 0.32 | 0.65 / 0.42 | 1.03 / 0.56 | 0.79 / 0.32 | 0.51 / 0.15 | 0.11 / 0.10 |
+| C5g = C3 + ngưỡng | 0.76 / 0.49 | 0.47 / 0.45 | 0.23 / 0.29 | 0.66 / 0.38 | 1.01 / 0.50 | 0.76 / 0.33 | 0.47 / 0.12 | 0.08 / 0.08 |
+| C5i = C4 + ngưỡng | 0.83 / 0.55 | 0.63 / 0.52 | 0.32 / 0.46 | 0.67 / 0.45 | 1.04 / 0.64 | 0.83 / 0.40 | 0.55 / 0.19 | 0.15 / 0.13 |
+
+- **Áp luật v2:** không cấu hình nào có tập S đạt (cần ≥ 0.90 trên cả hai). Theo luật C5 lấy C4 (tốt hơn C3) → C5i; C5i không đạt.
+- **Giả thuyết v2 sai:** so với gallery sạch (C1) làm tụt mạnh so với gallery che cùng chỗ (C0): owner G0 0.84 → 0.56, G48 0.39 → 0.02. Student kéo lại một phần (C4/C5i) nhưng **không cấu hình v2 nào vượt C0**. Ngưỡng hiệu chỉnh chỉ đổi vài điểm. Chẩn đoán "khớp nhầm do gallery che" ở v1 đúng về hiện tượng, nhưng che đối xứng vẫn tốt hơn bỏ che ở gallery: khoảng cách giữa mặt che và mặt sạch lớn hơn khoảng cách do dồn embedding.
+- Student học trên 11 388 ảnh LFW (đa số danh tính 1 ảnh) chỉ đạt recog val A 0.18–0.25 (method3 không che trên LFW ~0.46): không đủ dữ liệu để học ánh xạ mặt che → mặt sạch.
+- Vế LFW là ràng buộc chặn: tỉ lệ LFW cao nhất của một tập có G là 0.70 (C0, {G0}). Vế owner: {G0} C0 0.84, C5i 0.83; {G0, F} C0 0.83.
+- Theo luật dự phòng (nếu không cấu hình nào đạt trước hạn 19/11): tập có G với min(tỉ lệ) cao nhất là **C0, {G0}** (min 0.70); kế đến C0 {G16} 0.66, C0 {G0, F} 0.50.
+
+## 2026-11-17 Luật v3 (TRƯỚC khi có code/số v3; plan `plan_certified_v3.md`)
+- Owner quyết định tối ưu tiếp; kết quả v1 dùng trong report (hình minh hoạ), v2 ghi là thử thất bại có phân tích.
+- Cấu hình thử (liệt kê trước): C7 (symmetric + student inpaint v2 cho cả probe và gallery), C8 (student mới train thêm trên VGGFace2 test có nhãn, loss đối xứng có giám sát), C9 (C8 + ngưỡng hiệu chỉnh FAR). Một lần train mỗi model, seed 0; checkpoint theo chỉ số đối xứng trên LFW val A.
+- Dữ liệu VGGFace2 test: loại mọi danh tính trùng tên với gallery LFW và LFW val; không dùng frame owner/p01.
+- **Vế dev (owner chọn trước khi có số v3, xem bên dưới).** Chọn S trong mỗi cấu hình theo thứ tự ưu tiên như v1/v2; chọn cấu hình như v2. Hạn tối ưu giữ 2026-11-19 23:59; luật test giữ nguyên (owner/s6 VÀ p01/s2 ≥ 0.90 × none, gate liveness, chạy một lần).

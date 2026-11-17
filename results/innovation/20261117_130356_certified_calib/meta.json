@@ -1,0 +1,17 @@
+{
+  "run_id": "20261117_130356_certified_calib",
+  "started": "2026-11-17T13:03:56",
+  "git_commit": "",
+  "git_dirty": false,
+  "command": "/workspace/code-inno/innovation/defense/eval_certified.py calibrate --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cuda --gallery-mode clean --student-ckpt results/innovation/20261117_120646_student_train/best.pt",
+  "args": {},
+  "machine": {
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "processor": "x86_64",
+    "cpu_count": 32,
+    "torch": "2.14.1+cu132",
+    "torch_threads": 16,
+    "cuda": true
+  }
+}

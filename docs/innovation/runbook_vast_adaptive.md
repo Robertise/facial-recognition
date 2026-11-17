@@ -1,5 +1,7 @@
 # Runbook: chạy tối ưu tấn công thích ứng trên vast.ai (2026-11-12)
 
+> **Lỗi thời về cách chạy (2026-11-17):** các lệnh `nohup ... &` / `tail -f` trong file này không dùng nữa. Trên vast mọi lệnh chạy tiền cảnh, xem quy tắc ở đầu `runbook_vast_v2.md`.
+
 > **Đã thay bằng `runbook_vast_adaptive_v2.md` (2026-11-13).** Bản này là v1, dùng cho bộ run 11-12 đã huỷ (xem `experiment_log.md` 2026-11-13).
 
 Chỉ phần **optimize** chạy trên vast.ai. Phần **eval** chạy trên laptop (cùng môi trường với mọi eval khác: liveness, enhancer, MediaPipe).

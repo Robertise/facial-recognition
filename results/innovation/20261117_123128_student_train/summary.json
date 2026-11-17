@@ -1,0 +1,14 @@
+{
+  "best_epoch": 20,
+  "best_val_recog_mean": 0.251617,
+  "val_recog_per_mask": {
+    "G0": 0.263,
+    "G16": 0.2175,
+    "G32": 0.1916,
+    "G48": 0.1688,
+    "L": 0.25,
+    "F": 0.4188
+  },
+  "val_cos_st": 0.706608,
+  "total_time_seconds": 1054.85
+}

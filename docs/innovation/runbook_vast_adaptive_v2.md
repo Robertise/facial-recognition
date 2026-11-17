@@ -1,5 +1,7 @@
 # Runbook v2: chạy lại tấn công thích ứng trên vast.ai (sau `plan_adaptive.md` §7), 2026-11-13
 
+> **Lỗi thời về cách chạy (2026-11-17):** các lệnh `nohup ... &` / `tail -f` trong file này không dùng nữa. Trên vast mọi lệnh chạy tiền cảnh, xem quy tắc ở đầu `runbook_vast_v2.md`.
+
 Thay `runbook_vast_adaptive.md` (v1). Máy vast.ai là **máy mới, trống hoàn toàn**: không có code, data, checkpoint hay thư viện nào ngoài image PyTorch. Chỉ **optimize** chạy trên vast. **Eval chạy trên laptop.** Luật: `experiment_log.md` mục 2026-11-13.
 
 ---

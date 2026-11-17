@@ -1,69 +1,88 @@
-# Runbook v2 trên vast.ai: train student + lưới cấu hình dev (plan_certified_v2), 2026-11-16
+# Runbook v2 trên vast.ai: train student + lưới cấu hình dev (plan_certified_v2), sửa 2026-11-17
 
-Máy vast.ai **mới, trống**. Train student và chạy toàn bộ lưới dev **trên vast** (dev không gate liveness nên chạy được trên GPU). **Không** đưa frame test (owner/s6, p01) lên vast; test chạy một lần trên laptop sau khi Claude chọn cấu hình.
+**Quy tắc bắt buộc:** mọi lệnh trên vast chạy **tiền cảnh** (không `nohup`, không `&` cuối lệnh, không `tail -f`). Mỗi khối lệnh chạy xong sẽ tự trả về dấu nhắc `$`, rồi mới sang khối sau. Log giữ bằng `| tee <file>`. Giữ cửa sổ SSH mở trong lúc chạy.
+
+Mỗi khối ghi rõ **[LAPTOP]** hay **[VAST]**. Lần chạy trước mất kết quả vì lệnh đóng gói kết quả bị chạy trên laptop.
+
+Máy vast.ai **mới, trống**. Không đưa frame test (owner/s6, p01) lên vast.
 
 ## 0. Điều kiện
-Agent xong `plan_certified_v2.md` §7, Claude đã verify; owner commit, gửi hash.
+Code commit `820ddcf` (đã có). Gói `v2_pkg.tgz` (525 665 702 byte, 2026-11-17) đã có sẵn trên laptop tại gốc `code-inno`, **không cần đóng gói lại** nếu code không đổi sau `820ddcf`.
+
+**[LAPTOP]** kiểm gói còn khớp code hiện tại:
+```
+cd "C:\Swinburne University\COS30082 - Applied Machine Learning\PROJECT\code-inno"
+git status --short innovation
+certutil -hashfile v2_pkg.tgz SHA256
+```
+`git status --short innovation` phải không in gì (code không đổi). Ghi lại chuỗi SHA256.
 
 ## 1. Thuê máy
 GPU VRAM ≥ 8 GB, RAM ≥ 16 GB, disk ≥ 25 GB, template PyTorch CUDA 12.x, Python 3.10–3.12, bật SSH.
 
-## 2. Đóng gói trên laptop (cmd/PowerShell)
+## 2. Tải gói lên
+**[LAPTOP]** (cổng và IP lấy từ lệnh SSH của instance, dạng `ssh -p 41234 root@203.0.113.7`; số ví dụ là giả):
 ```
 cd "C:\Swinburne University\COS30082 - Applied Machine Learning\PROJECT\code-inno"
-tar --exclude=__pycache__ -czf v2_pkg.tgz backend liveness emotion extreme_cond_enhancer innovation checkpoints/method3_best.pth data/innovation/defense data/innovation/gallery data/innovation/gallery_people data/innovation/frames/owner/s3_vary data/innovation/frames/owner/s4_vary data/innovation/frames/owner/s5_vary results/innovation/20261115_144634_inpainter_train/best.pt
-tar -tzf v2_pkg.tgz | findstr /i "train_student.py eval_certified.py method3_best.pth lfw_crops/val_001.npz lfw_landmarks/val_001.npz maskset/L.png gallery_people/p01 s5_vary/0074.jpg 20261115_144634_inpainter_train/best.pt"
-certutil -hashfile v2_pkg.tgz SHA256
-```
-Lệnh `findstr` phải in đủ các mục: `innovation/defense/train_student.py`, `innovation/defense/eval_certified.py`, `checkpoints/method3_best.pth`, `.../lfw_crops/val_001.npz`, `.../lfw_landmarks/val_001.npz`, `.../maskset/L.png`, ít nhất một dòng `data/innovation/gallery_people/p01/...`, `.../s5_vary/0074.jpg`, `results/innovation/20261115_144634_inpainter_train/best.pt`. Ghi lại chuỗi SHA256. Không được thấy `s6_vary` hay `frames/p01`.
-
-| Thứ | Trên vast (`/workspace/code-inno/...`) | Dùng cho |
-|---|---|---|
-| backend, liveness, emotion, extreme_cond_enhancer, innovation | thư mục cùng tên | code (liveness chỉ cần import được) |
-| `checkpoints/method3_best.pth` | như bên trái | teacher, nhánh none |
-| `data/innovation/defense/` (lfw_crops, lfw_landmarks, maskset, band) | như bên trái | train student, lfwval, calibrate, render mask |
-| `data/innovation/gallery`, `data/innovation/gallery_people` | như bên trái | gallery dev |
-| `data/innovation/frames/owner/s3_vary, s4_vary, s5_vary` | như bên trái | dev owner |
-| inpainter v1 `results/innovation/20261115_144634_inpainter_train/best.pt` | như bên trái | fill inpaint |
-
-## 3. Đưa lên vast (scp, không dùng Jupyter cho file lớn)
-Lấy cổng và IP từ lệnh SSH của instance (dạng `ssh -p 41234 root@203.0.113.7`, số ví dụ là giả). Trên laptop tại `code-inno`:
-```
 scp -P 41234 v2_pkg.tgz root@203.0.113.7:/workspace/
 ```
 
-## 4. Trên vast: kiểm, giải nén, cài
+## 3. Kiểm, giải nén, cài
+**[VAST]**
 ```
 sha256sum /workspace/v2_pkg.tgz
 ```
-Phải **trùng** chuỗi `certutil`. Trùng thì:
+Phải trùng chuỗi `certutil`. Trùng thì:
+
+**[VAST]**
 ```
-cd /workspace && rm -rf code-inno && mkdir -p code-inno && tar -xzf v2_pkg.tgz -C code-inno && cd /workspace/code-inno
+cd /workspace && rm -rf code-inno && mkdir -p code-inno && tar -xzf v2_pkg.tgz -C code-inno && cd /workspace/code-inno && ls
+```
+**[VAST]**
+```
 apt-get update && apt-get install -y libgl1 libglib2.0-0
+```
+**[VAST]**
+```
 pip install "mediapipe==0.10.14" "protobuf>=4.25.3,<5" "numpy==1.26.4" "opencv-contrib-python==4.11.0.86"
+```
+**[VAST]**
+```
+cd /workspace/code-inno
 python -c "import torch, mediapipe, cv2, numpy; print(torch.__version__, torch.cuda.is_available(), mediapipe.__version__, numpy.__version__, cv2.__version__)"
 python -c "import innovation.defense.train_student, innovation.defense.eval_certified; print('import ok')"
 python -c "import json;m=json.load(open('data/innovation/defense/maskset/maskset_meta.json'));print(m['landmarks']['l_top_landmark'], m['eye_zone_check']['pass'])"
 ls data/innovation/frames/owner
 ```
-Phải ra `True`, `0.10.14`, `1.26.4`, `4.11.0`, `import ok`, `195 True`, và `ls` chỉ có `s3_vary s4_vary s5_vary`.
+Phải ra `True`, `0.10.14`, `1.26.4`, `4.11.0`, `import ok`, `195 True`; `ls` chỉ có `s3_vary s4_vary s5_vary`.
 
-## 5. Chạy thử
+## 4. Chạy thử (vài chục giây)
+**[VAST]**
 ```
 cd /workspace/code-inno
-python -m innovation.defense.train_student --fill gray --limit 128 --epochs 1 --device cuda --output-dir /workspace/tmp_st && cat /workspace/tmp_st/summary.json && rm -rf /workspace/tmp_st
+python -m innovation.defense.train_student --fill gray --limit 128 --epochs 1 --device cuda --output-dir /workspace/tmp_st
+cat /workspace/tmp_st/summary.json
+rm -rf /workspace/tmp_st
 ```
 
-## 6. Train hai student (nối tiếp, chạy nền)
+## 5. Train student gray (tiền cảnh, ~15 phút)
+**[VAST]**
 ```
 cd /workspace/code-inno
-nohup bash -c 'python -m innovation.defense.train_student --fill gray --device cuda; python -m innovation.defense.train_student --fill inpaint --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cuda' > student_log.txt 2>&1 &
-tail -f student_log.txt
+python -m innovation.defense.train_student --fill gray --device cuda 2>&1 | tee student_gray_log.txt
 ```
-Xong khi log có hai dòng `Student training completed: ...`.
+Chờ tới dòng `Student training completed: results/innovation/<ts>_student_train` và dấu nhắc `$` hiện lại.
 
-## 7. Lưới cấu hình dev (chạy nền, tự ghi bảng tên run)
-Tạo file `grid_v2.sh` rồi chạy:
+## 6. Train student inpaint (tiền cảnh, ~15 phút)
+**[VAST]**
+```
+cd /workspace/code-inno
+python -m innovation.defense.train_student --fill inpaint --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cuda 2>&1 | tee student_inpaint_log.txt
+```
+Chờ dòng `Student training completed: ...` và dấu nhắc `$`.
+
+## 7. Lưới cấu hình dev (tiền cảnh, ~30 phút)
+**[VAST]** tạo script (lệnh này chỉ ghi file, xong ngay):
 ```
 cd /workspace/code-inno
 cat > grid_v2.sh <<'SH'
@@ -84,15 +103,34 @@ cal C5g --gallery-mode clean --student-ckpt $SG/best.pt; ev C5g --gallery-mode c
 cal C5i --gallery-mode clean --student-ckpt $SI/best.pt; ev C5i --gallery-mode clean --student-ckpt $SI/best.pt --thresholds $(latest certified_calib)/thresholds.json
 echo DONE >> grid_v2.txt
 SH
-nohup bash grid_v2.sh > grid_log.txt 2>&1 &
-tail -f grid_v2.txt
 ```
-(C0 = cấu hình v1 đo lại bằng `gar_recog` trên LFW B để so; C5g/C5i tính cả hai, Claude áp luật chọn đúng một theo C3/C4.) Xong khi `grid_v2.txt` có dòng `DONE`. Lỗi thì xem `grid_log.txt`, gửi Claude.
-
-## 8. Mang về
+**[VAST]** chạy (tiền cảnh):
 ```
 cd /workspace/code-inno
-tar -czf v2_runs.tgz results/innovation/*_student_train results/innovation/*_certified_lfwval results/innovation/*_certified_eval results/innovation/*_certified_calib student_log.txt grid_v2.txt grid_log.txt
+bash grid_v2.sh 2>&1 | tee grid_log.txt
+cat grid_v2.txt
+```
+Xong khi dấu nhắc `$` hiện lại và `cat grid_v2.txt` có dòng cuối `DONE` (19 dòng run + 2 dòng SG/SI). Có lỗi thì script dừng (do `set -e`): gửi Claude 30 dòng cuối `grid_log.txt`.
+
+## 8. Đóng gói kết quả — **chạy trên VAST, không phải laptop**
+**[VAST]**
+```
+cd /workspace/code-inno
+ls -d results/innovation/*_student_train results/innovation/*_certified_*
+tar -czf v2_runs.tgz results/innovation/*_student_train results/innovation/*_certified_lfwval results/innovation/*_certified_eval results/innovation/*_certified_calib student_gray_log.txt student_inpaint_log.txt grid_v2.txt grid_log.txt
+ls -l v2_runs.tgz
 sha256sum v2_runs.tgz
 ```
-Trên laptop tại `code-inno`: `scp -P 41234 root@203.0.113.7:/workspace/code-inno/v2_runs.tgz .`, kiểm `certutil -hashfile v2_runs.tgz SHA256` trùng, rồi `tar -xzf v2_runs.tgz`. Gửi Claude nội dung `grid_v2.txt`. Claude áp luật chọn cấu hình + S rồi đưa lệnh test (laptop, `--liveness`, một lần).
+`ls -d` phải liệt kê 2 thư mục `*_student_train` và 17 thư mục `*_certified_*`. Gói phải nặng **vài chục MB** (mỗi `best.pt` của student cỡ 20 MB); nếu chỉ vài trăm KB là sai, dừng lại.
+
+## 9. Mang về
+**[LAPTOP]**
+```
+cd "C:\Swinburne University\COS30082 - Applied Machine Learning\PROJECT\code-inno"
+del v2_runs.tgz
+scp -P 41234 root@203.0.113.7:/workspace/code-inno/v2_runs.tgz .
+certutil -hashfile v2_runs.tgz SHA256
+tar -xzf v2_runs.tgz
+dir /b results\innovation | findstr _student_train
+```
+(`del` xoá gói sai từ lần trước; nếu báo không có file thì bỏ qua.) SHA256 phải trùng `sha256sum` trên vast; `dir` phải in 2 thư mục student. **Chỉ huỷ instance sau khi bước này đạt.** Gửi Claude nội dung `grid_v2.txt` mới.

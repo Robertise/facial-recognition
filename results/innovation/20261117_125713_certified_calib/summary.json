@@ -1,0 +1,40 @@
+{
+  "thresholds": {
+    "none": 0.5,
+    "G0/gray": 0.435,
+    "G0/inpaint": 0.49,
+    "G16/gray": 0.42,
+    "G16/inpaint": 0.495,
+    "G32/gray": 0.42,
+    "G32/inpaint": 0.505,
+    "G48/gray": 0.415,
+    "G48/inpaint": 0.5,
+    "L/gray": 0.44,
+    "L/inpaint": 0.525,
+    "F/gray": 0.455,
+    "F/inpaint": 0.5
+  },
+  "far_none": 0.0714,
+  "num_impostors": 308,
+  "far_by_branch": {
+    "none": 0.0714,
+    "G0/gray": 0.0682,
+    "G0/inpaint": 0.0584,
+    "G16/gray": 0.0682,
+    "G16/inpaint": 0.0682,
+    "G32/gray": 0.0617,
+    "G32/inpaint": 0.0714,
+    "G48/gray": 0.0617,
+    "G48/inpaint": 0.0714,
+    "L/gray": 0.0682,
+    "L/inpaint": 0.0714,
+    "F/gray": 0.0714,
+    "F/inpaint": 0.0682
+  },
+  "config": {
+    "gallery_mode": "clean",
+    "student_ckpt": null,
+    "student_fill": null,
+    "inpainter_ckpt": "results/innovation/20261115_144634_inpainter_train/best.pt"
+  }
+}

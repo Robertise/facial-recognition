@@ -1,5 +1,7 @@
 # Runbook: train inpainter nhiều mask trên vast.ai (plan_certified), 2026-11-14
 
+> **Lỗi thời về cách chạy (2026-11-17):** các lệnh `nohup ... &` / `tail -f` trong file này không dùng nữa. Trên vast mọi lệnh chạy tiền cảnh, xem quy tắc ở đầu `runbook_vast_v2.md`.
+
 Máy vast.ai **mới, trống**. Chỉ phần **train** chạy trên vast. Landmark, dựng mask và mọi eval chạy trên laptop.
 
 ## 0. Điều kiện
