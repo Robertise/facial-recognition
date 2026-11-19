@@ -1,0 +1,119 @@
+[prepare_faces] Found 500 identity dirs, excluded 28 (matching LFW), processing 28320 images with per_id<=60 (workers=8)...
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.022719    3352 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.023860    3354 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.024268    3350 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.025250    3356 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.025291    3355 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.025875    3349 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.026055    3353 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795009934.026559    3351 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.517059    3832 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.518363    3827 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.518976    3831 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1795009934.522558    3815 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.523931    3790 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.524238    3829 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.525285    3834 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.525550    3800 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.526500    3830 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+I0000 00:00:1795009934.527750    3833 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+I0000 00:00:1795009934.529706    3828 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.529948    3769 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.530496    3809 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.531664    3773 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1795009934.536469    3824 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.536882    3783 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.537117    3355 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.538400    3351 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.539073    3354 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.542960    3349 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.544950    3356 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.550144    3353 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.561361    3352 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.561392    3350 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795009934.826341    4018 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.827067    3953 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.827389    3944 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.828584    4056 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+I0000 00:00:1795009934.833118    4027 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.833239    3883 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.833710    3943 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.833998    3948 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.834415    4024 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.834946    3861 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.836568    4130 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.839520    3967 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.839964    3838 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795009934.840659    4129 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795009934.841199    4064 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+W0000 00:00:1795009934.844831    4069 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+W0000 00:00:1795009934.848371    4044 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+W0000 00:00:1795009934.851663    3916 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.852620    3977 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.852841    3919 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.853234    4007 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+W0000 00:00:1795009934.855192    3840 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795009934.855320    4065 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+W0000 00:00:1795009934.855987    4105 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+Saved shard train_000.npz: total=1000, ok=1000, elapsed=2.67s
+Saved shard train_001.npz: total=1000, ok=1000, elapsed=2.32s
+Saved shard train_002.npz: total=1000, ok=997, elapsed=2.65s
+Saved shard train_003.npz: total=1000, ok=1000, elapsed=2.25s
+Saved shard train_004.npz: total=1000, ok=997, elapsed=2.34s
+Saved shard train_005.npz: total=1000, ok=997, elapsed=2.45s
+Saved shard train_006.npz: total=1000, ok=999, elapsed=2.11s
+Saved shard train_007.npz: total=1000, ok=1000, elapsed=2.73s
+Saved shard train_008.npz: total=1000, ok=1000, elapsed=2.35s
+Saved shard train_009.npz: total=1000, ok=999, elapsed=3.28s
+Saved shard train_010.npz: total=1000, ok=998, elapsed=2.17s
+Saved shard train_011.npz: total=1000, ok=999, elapsed=2.98s
+Saved shard train_012.npz: total=1000, ok=999, elapsed=2.15s
+Saved shard train_013.npz: total=1000, ok=999, elapsed=2.83s
+Saved shard train_014.npz: total=1000, ok=1000, elapsed=2.30s
+Saved shard train_015.npz: total=1000, ok=1000, elapsed=2.29s
+Saved shard train_016.npz: total=1000, ok=998, elapsed=2.26s
+Saved shard train_017.npz: total=1000, ok=997, elapsed=2.40s
+Saved shard train_018.npz: total=1000, ok=998, elapsed=2.44s
+Saved shard train_019.npz: total=1000, ok=997, elapsed=2.62s
+Saved shard train_020.npz: total=1000, ok=999, elapsed=2.84s
+Saved shard train_021.npz: total=1000, ok=999, elapsed=3.05s
+Saved shard train_022.npz: total=1000, ok=998, elapsed=3.26s
+Saved shard train_023.npz: total=1000, ok=999, elapsed=2.70s
+Saved shard train_024.npz: total=1000, ok=1000, elapsed=2.23s
+Saved shard train_025.npz: total=1000, ok=997, elapsed=2.83s
+Saved shard train_026.npz: total=1000, ok=1000, elapsed=2.33s
+Saved shard train_027.npz: total=1000, ok=999, elapsed=2.36s
+Saved shard train_028.npz: total=320, ok=316, elapsed=0.54s
+[prepare_faces] Finished: 472 identities used, 530 excluded, 28320 images, 28281 ok, in 165.6s. Report -> data/innovation/defense/vgg_test/report.json

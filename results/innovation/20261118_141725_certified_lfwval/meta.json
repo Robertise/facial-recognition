@@ -1,0 +1,17 @@
+{
+  "run_id": "20261118_141725_certified_lfwval",
+  "started": "2026-11-18T14:17:25",
+  "git_commit": "",
+  "git_dirty": false,
+  "command": "/workspace/code-inno/innovation/defense/eval_certified.py lfwval --val-part B --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cuda --gallery-mode symmetric --gallery-encoder student --student-ckpt results/innovation/20261118_135729_student_train/best.pt --thresholds results/innovation/20261118_141635_certified_calib/thresholds.json",
+  "args": {},
+  "machine": {
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "processor": "x86_64",
+    "cpu_count": 36,
+    "torch": "2.14.1+cu132",
+    "torch_threads": 18,
+    "cuda": true
+  }
+}

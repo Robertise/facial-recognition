@@ -1,0 +1,33 @@
+[FaceRecognizer] Loaded checkpoint: checkpoints/method3_best.pth (FaceCNN_ArcFace, 112x112)
+[FaceRecognizer] Loaded checkpoint: checkpoints/method3_best.pth (FaceCNN_ArcFace, 112x112)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1795010821.120668    9899 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795010821.188457    9977 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1795010821.195002    9971 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1795010821.198159    9899 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1795010821.231498   10014 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.84), renderer: NVIDIA GeForce RTX 4070 Ti SUPER/PCIe/SSE2
+W0000 00:00:1795010821.235378    9981 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1795010821.244381    9980 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+/venv/main/lib/python3.12/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/workspace/code-inno/innovation/defense/eval_certified.py", line 1753, in <module>
+    main()
+  File "/workspace/code-inno/innovation/defense/eval_certified.py", line 1741, in main
+    cmd_run(args)
+  File "/workspace/code-inno/innovation/defense/eval_certified.py", line 905, in cmd_run
+    eg_gal, _ = build_branch_gallery(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/code-inno/innovation/defense/eval_certified.py", line 169, in build_branch_gallery
+    for person in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith("_")):
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/code-inno/innovation/defense/eval_certified.py", line 169, in <genexpr>
+    for person in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith("_")):
+                                    ^^^^^^^^^^^^^^
+  File "/venv/main/lib/python3.12/pathlib.py", line 1056, in iterdir
+    for name in os.listdir(self):
+                ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'data/innovation/gallery_people'

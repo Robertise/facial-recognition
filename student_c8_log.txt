@@ -1,0 +1,18 @@
+[FaceRecognizer] Loaded checkpoint: checkpoints/method3_best.pth (FaceCNN_ArcFace, 112x112)
+[StudentEmbedder] Initialized student weights from: results/innovation/20261117_123128_student_train/best.pt
+Epoch 01/15 | loss=2.0659 (cos=0.3446, nce=0.0981, supcon=1.6232) | val_recog=0.2397 sym_recog=0.5552 (G0:0.240 G16:0.204 G32:0.185 G48:0.146 L:0.217 F:0.445) cos_st=0.6579 | time=32.8s
+Epoch 02/15 | loss=1.7983 (cos=0.3497, nce=0.0895, supcon=1.3592) | val_recog=0.2035 sym_recog=0.5563 (G0:0.201 G16:0.179 G32:0.153 G48:0.117 L:0.185 F:0.386) cos_st=0.6373 | time=32.0s
+Epoch 03/15 | loss=1.7323 (cos=0.3615, nce=0.0994, supcon=1.2714) | val_recog=0.2062 sym_recog=0.5752 (G0:0.217 G16:0.179 G32:0.140 G48:0.114 L:0.172 F:0.416) cos_st=0.6322 | time=32.0s
+Epoch 04/15 | loss=1.6037 (cos=0.3587, nce=0.0909, supcon=1.1541) | val_recog=0.2235 sym_recog=0.5812 (G0:0.237 G16:0.195 G32:0.166 G48:0.114 L:0.179 F:0.451) cos_st=0.6333 | time=31.8s
+Epoch 05/15 | loss=1.5568 (cos=0.3567, nce=0.0911, supcon=1.1090) | val_recog=0.2159 sym_recog=0.5860 (G0:0.234 G16:0.179 G32:0.153 G48:0.120 L:0.198 F:0.412) cos_st=0.6298 | time=32.4s
+Epoch 06/15 | loss=1.4510 (cos=0.3544, nce=0.0873, supcon=1.0092) | val_recog=0.2202 sym_recog=0.5833 (G0:0.211 G16:0.175 G32:0.153 G48:0.120 L:0.201 F:0.461) cos_st=0.6337 | time=31.8s
+Epoch 07/15 | loss=1.4486 (cos=0.3592, nce=0.0919, supcon=0.9975) | val_recog=0.2392 sym_recog=0.5915 (G0:0.250 G16:0.214 G32:0.182 G48:0.123 L:0.214 F:0.451) cos_st=0.6333 | time=31.8s
+Epoch 08/15 | loss=1.3982 (cos=0.3537, nce=0.0819, supcon=0.9626) | val_recog=0.2478 sym_recog=0.5698 (G0:0.260 G16:0.221 G32:0.188 G48:0.143 L:0.211 F:0.464) cos_st=0.6365 | time=31.9s
+Epoch 09/15 | loss=1.3389 (cos=0.3564, nce=0.0832, supcon=0.8993) | val_recog=0.2392 sym_recog=0.5920 (G0:0.257 G16:0.214 G32:0.166 G48:0.133 L:0.188 F:0.477) cos_st=0.6342 | time=32.1s
+Epoch 10/15 | loss=1.3109 (cos=0.3463, nce=0.0749, supcon=0.8897) | val_recog=0.2592 sym_recog=0.6093 (G0:0.279 G16:0.234 G32:0.204 G48:0.146 L:0.204 F:0.487) cos_st=0.6391 | time=32.1s
+Epoch 11/15 | loss=1.2602 (cos=0.3416, nce=0.0721, supcon=0.8465) | val_recog=0.2381 sym_recog=0.6028 (G0:0.250 G16:0.211 G32:0.169 G48:0.120 L:0.201 F:0.477) cos_st=0.6417 | time=31.7s
+Epoch 12/15 | loss=1.2832 (cos=0.3499, nce=0.0774, supcon=0.8560) | val_recog=0.2494 sym_recog=0.5958 (G0:0.266 G16:0.231 G32:0.188 G48:0.140 L:0.198 F:0.474) cos_st=0.6395 | time=31.9s
+Epoch 13/15 | loss=1.2962 (cos=0.3529, nce=0.0757, supcon=0.8676) | val_recog=0.2484 sym_recog=0.5936 (G0:0.273 G16:0.224 G32:0.185 G48:0.133 L:0.201 F:0.474) cos_st=0.6408 | time=32.3s
+Epoch 14/15 | loss=1.2471 (cos=0.3464, nce=0.0720, supcon=0.8288) | val_recog=0.2451 sym_recog=0.5995 (G0:0.270 G16:0.217 G32:0.185 G48:0.130 L:0.192 F:0.477) cos_st=0.6424 | time=32.1s
+Early stopping triggered at epoch 14 (patience 4)
+Student training completed: /workspace/code-inno/results/innovation/20261118_135729_student_train

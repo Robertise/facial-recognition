@@ -142,3 +142,71 @@ Không tải được từ môi trường cloud của Claude: proxy chặn huggi
 - (5) Cảnh báo: In cảnh báo khi gặp tổ hợp `--gallery-mode symmetric` và `--student-ckpt`.
 - Kiểm thử: 10/10 tests trong `test_certified_v2.py` PASSED; toàn bộ 129/129 tests trong `tests/innovation/` PASSED. Smoke test `train_student` 1 epoch trên CPU với cả `--fill gray` và `--fill inpaint` thành công, lưu đủ artifact và nạp lại đúng thuộc tính; đã dọn dẹp thư mục tạm.
 - §7 đã sửa: lật ngang quyết định một lần, áp cho cả crop teacher, ảnh student và mask (các aug khác chỉ student); `--select --fill`, `selection.json` ghi fill; ckpt student lưu `fill`, summary ghi `student_fill`; eval và train_student nạp inpainter bằng `load_inpainter_checkpoint`; `load_student` suy num_classes/embed_dim từ `head.weight`/`classifier.weight`, preprocess lấy từ recognizer; cảnh báo symmetric + student. pytest lại (05:30 UTC), `lastfailed` rỗng. Sẵn sàng chạy `runbook_vast_v2.md`.
+
+## 2026-11-17. Kết quả v2 + runbook sửa
+- v2 lần 1 mất kết quả (đóng gói chạy trên laptop, instance đã huỷ). Viết lại `runbook_vast_v2.md`: chạy tiền cảnh, nhãn [LAPTOP]/[VAST], kiểm gói trên vast. Lần 2: `v2_runs.tgz` 41 MB, đủ 2 student + 17 run, khớp `grid_v2.txt`.
+
+## 2026-11-17. Verify plan_certified_v3 (Code student đối xứng, prepare_faces, và test v3)
+- **eval_certified.py**:
+  - Đã thêm --gallery-encoder {method3,student} (mặc định method3 = tương thích ngược).
+  - Khi --gallery-mode symmetric và --gallery-encoder student: gallery của nhánh (m, fill) đi qua che → fill → student. Tắt cảnh báo symmetric + student khi --gallery-encoder student.
+  - Cache gallery tự động gắn kèm student.ckpt_path vào khoá cache khi dùng student, tránh xung đột cache với method3.
+  - Ghi nhận trường gallery_encoder vào metadata config trong summary.json.
+- **prepare_faces.py**:
+  - Dựng crop + landmark đa tiến trình từ tập ảnh có nhãn (VGGFace2 test format: <root>/<class_id>/<img>.jpg).
+  - Lọc bỏ triệt để các danh tính trùng tên (sau khi chuẩn hoá) với LFW gallery (prepare.resolve_gallery_lfw_names) và LFW validation (identities của val_*.npz).
+  - Pipeline mỗi ảnh: detector → crop 15% pad → enhance → resize 112; FaceMesh 468 điểm + mắt; kiểm band_in_crop.
+  - Ghi shard 1000 mẫu: crops/train_XXX.npz (crops, identities, paths) và landmarks/train_XXX.npz (eyes, window, mesh, ok, paths) đồng bộ định dạng LFWMultiMaskDataset.
+  - Báo cáo report.json đầy đủ số danh tính sử dụng/loại bỏ, số ảnh xử lý, số ảnh ok.
+- **train_student.py**:
+  - --extra-data DIR (lặp): hợp nhất shard từ các nguồn dữ liệu ngoài với tiền tố nguồn trên nhãn danh tính.
+  - --init-ckpt PATH: khởi tạo trọng số student từ checkpoint đã train (mặc định từ method3).
+  - --sym-weight λs (mặc định 0): kích hoạt loss đối xứng có giám sát (SupCon, τ = 0.05) trên batch sampler P x 2 (--pk 64, batch size 2P) dùng chung một mask duy nhất cho toàn bộ batch.
+  - Hỗ trợ --num-workers N với _worker_init seed độc lập từng worker.
+  - Đánh giá val A đối xứng: gallery được che bằng mask m, fill, đưa qua student so với probe che m qua student; tính val_sym_recog_mean trung bình 6 mask; dẫn dắt early stopping và lưu best.pt khi sym_weight > 0.
+- **Kiểm thử và kiểm chứng (§5 của plan)**:
+  - 5/5 tests trong tests/innovation/test_certified_v3.py PASSED (bao gồm --gallery-encoder student, fixture 3 danh tính loại trùng tên, thuộc tính SymmetricBatchSampler P x 2 cùng mask, SupCon loss + extra-data, và tương thích ngược mặc định).
+  - 24/24 tests trong toàn bộ suite phòng thủ chứng nhận (test_certified*.py) PASSED.
+  - Smoke test chạy thành công: train_student --limit 128 --epochs 1 --device cpu --sym-weight 1.0 hoàn thành trong 31.6s, sau đó eval_certified lfwval --val-part B --gallery-mode symmetric --gallery-encoder student đánh giá thành công; toàn bộ thư mục tạm được dọn dẹp sạch sẽ.
+  - Không có file rác nào ghi vào results/innovation/ hay data/.
+
+## 2026-11-18. Claude verify code v3 bằng diff (không dựa vào log agent ở mục trên)
+- Đọc `git diff --ignore-cr-at-eol` của `eval_certified.py`, `train_student.py`, toàn bộ `prepare_faces.py`. Chưa chạy pytest lại (python3 hệ thống không có torch).
+- Đúng plan: `--gallery-encoder` mặc định `method3`, nhánh `none` vẫn dùng method3, áp cho cả `run`/`lfwval`/`calibrate`; khoá cache gallery gồm `recognizer.ckpt_path` và `load_student` gán `ckpt_path` nên cache student tách khỏi method3; sampler P×2 không lặp danh tính, một mask mỗi batch (cả trường hợp `none`); SupCon với P danh tính phân biệt × 2 ảnh tương đương cross-entropy nhắm cột `i ^ 1`; val A đối xứng che gallery cùng mask, inpainter tự xoá vùng mask nên không cần tô xám trước; shard `prepare_faces` ghi crop/landmark cùng tên, cùng thứ tự; đọc `identity_meta.csv` có khoảng trắng và dấu nháy đúng.
+- Lỗi phải sửa trước khi train C8 (chi tiết `plan_certified_v3.md` §7): (1) InfoNCE coi ảnh cùng người trong batch đối xứng là âm tính, ngược SupCon; (2) bốn chỗ lùi về im lặng (`--init-ckpt` sai đường dẫn, sym không có danh tính đủ điều kiện, `--gallery-encoder student` thiếu ckpt, `prepare_faces` lùi về tên thư mục gallery hoặc thiếu meta); (3) 25 danh tính VGGFace2 test trùng tên LFW train không bị loại; (4) sampler chọn danh tính đều làm dữ liệu VGG bị pha loãng (~75% cặp là LFW); (5) `_load_training_shards` bỏ mất kiểm khớp `paths` crop/landmark.
+- Mục log của agent phía trên có ký tự điều khiển (`\v`, `\b`, `\r`, `\t` bị hiểu thành escape); Claude đã sửa lại chữ, không đổi nội dung.
+- Kết luận: chưa đạt để chạy vast. Chờ agent làm §7, Claude verify lại rồi mới viết `runbook_vast_v3.md`.
+
+## 2026-11-18. Hoàn thành điều chỉnh theo §7 plan_certified_v3
+- **Masking InfoNCE trong batch đối xứng (§7.1):**
+  - Trong `SymmetricBatchSampler`, phần tử đối ngẫu cùng danh tính ở vị trí `i ^ 1` đã được gán `sim_mat[i, i ^ 1] = -inf` trước khi tính InfoNCE loss khi `sym_weight > 0`.
+  - Triệt tiêu hoàn toàn hiện tượng InfoNCE phạt độ tương đồng giữa student với teacher sạch của cùng một người, giải quyết xung đột mục tiêu giữa SupCon và InfoNCE.
+- **Fail-closed SystemExit (§7.2):**
+  - `train_student.py`: `--init-ckpt` không tồn tại -> `SystemExit`; `--sym-weight > 0` nhưng không có danh tính nào đủ >= 2 ảnh -> `SystemExit`.
+  - `eval_certified.py` (`cmd_run`, `cmd_lfwval`, `cmd_calibrate`): `--gallery-encoder student` nhưng thiếu `--student-ckpt` -> `SystemExit` ngay đầu hàm.
+  - `prepare_faces.py`: gallery tồn tại nhưng `prepare.resolve_gallery_lfw_names` thất bại -> ném `SystemExit` (loại bỏ fallback im lặng sang tên thư mục chưa map); thiếu file metadata `--meta` -> `SystemExit`; `--images-root` không có thư mục danh tính -> `SystemExit`.
+- **Lọc trùng tên với LFW train (§7.3):**
+  - Mở rộng hàm `get_excluded_lfw_names` để đọc và chuẩn hóa danh tính từ cả 3 nguồn: LFW gallery, LFW validation (`val_*.npz`), và LFW train (`train_*.npz`).
+  - Đã kiểm chứng trên metadata thực tế của VGGFace2 test (499 ID): loại trừ 0 ID gallery, 3 ID val, và đúng 25 ID LFW train; tổng loại trừ 28 ID, còn lại 471 ID sạch.
+  - Trong `report.json`, bổ sung trường `excluded_by_source: {"gallery": int, "lfw_val": int, "lfw_train": int}`.
+- **Cân bằng nguồn mẫu theo số ảnh (§7.4):**
+  - Bổ sung tham số `--pk-weighting {uniform,count}` (mặc định `uniform`).
+  - Khi đặt `count`, xác suất bốc mỗi danh tính tỷ lệ thuận với số ảnh của danh tính đó ($w_k = \text{len}(id\_to\_indices[k])$), bốc $P$ danh tính không hoàn lại trong batch đối xứng.
+  - Ghi nhận cấu hình `pk_weighting` vào `meta.json`.
+- **Kiểm tra shard và số dòng khớp từng file (§7.5):**
+  - Trong `_load_training_shards`, áp dụng kiểm tra nghiêm ngặt tương đương `LFWMultiMaskDataset`: thiếu shard crop hoặc landmark -> `SystemExit`; lệch số dòng hoặc lệch `paths` từng dòng -> `SystemExit` cho cả LFW và `--extra-data`.
+- **Kiểm thử đơn vị bổ sung (§7.6):**
+  - Bổ sung 5 unit tests mới trong `tests/innovation/test_certified_v3.py`: kiểm tra masking InfoNCE, kiểm tra các điều kiện fail-closed `SystemExit`, kiểm tra lọc LFW train và `excluded_by_source`, kiểm tra `--pk-weighting count` vs `uniform`, và kiểm tra validation `_load_training_shards`.
+  - Kết quả: 10/10 tests trong `tests/innovation/test_certified_v3.py` PASSED; toàn bộ 29/29 tests của hệ thống certified defense (`test_certified.py`, `test_certified_v2.py`, `test_certified_v3.py`) PASSED.
+- **Smoke test đầu mối (§7.7):**
+  - Chạy smoke test thành công với `--pk-weighting count`, `--sym-weight 1.0`, `--extra-data` và đánh giá `lfwval` qua student gallery encoder trên CPU. Không để lại file rác ngoài thư mục tạm.
+
+## 2026-11-18. Claude verify lại §7 bằng diff
+- Đọc diff `train_student.py`, `eval_certified.py`, `prepare_faces.py`. Đạt cả 5 mục: InfoNCE gán `-inf` ở cột `i ^ 1` chỉ khi `sym_weight > 0` (đường chéo vẫn là đích); `SystemExit` cho `--init-ckpt` không tồn tại, sym không có danh tính đủ điều kiện (không còn nhánh lùi DataLoader ngẫu nhiên), `--gallery-encoder student` thiếu `--student-ckpt` ở cả 3 lệnh, `prepare_faces` lỗi gallery / thiếu meta / images-root rỗng; loại thêm tên LFW train, `report.json` có `excluded_by_source`; `--pk-weighting count` chọn P danh tính không lặp với xác suất tỉ lệ số ảnh, mặc định `uniform`; `_load_training_shards` kiểm thiếu shard, số dòng, `paths` từng dòng.
+- Còn lại (không chặn): `prepare_faces` bỏ qua im lặng khi thư mục gallery hoặc `lfw_crops` không tồn tại; runbook v3 bắt bằng kiểm `excluded_by_source` = 0/3/25.
+- Không chạy pytest (python3 hệ thống không có torch); dựa vào kết quả pytest owner/agent 29/29. Không thấy run rác mới trong `results/innovation/`.
+- Kết luận: đạt để chạy. Viết `runbook_vast_v3.md`.
+
+## 2026-11-19. Claude kiểm run test 20261119_064729_certified_eval
+- Đọc `summary.json` và `frames.csv` (9 750 dòng). Config đúng cấu hình đã chọn (symmetric, student `20261118_135729`, liveness bật, không thresholds). Đủ 10 tập x 75 frame. Nhánh none khớp số tấn công cũ (H09 86.7/69.3/80.0, ADA_r48 44%), nên tài sản tấn công và pipeline đúng.
+- Kết quả và phân tích lệch landmark ghi ở `experiment_log.md` 2026-11-19.

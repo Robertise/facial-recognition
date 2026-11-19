@@ -1,0 +1,17 @@
+{
+  "run_id": "20261118_140701_certified_eval",
+  "started": "2026-11-18T14:07:01",
+  "git_commit": "",
+  "git_dirty": false,
+  "command": "/workspace/code-inno/innovation/defense/eval_certified.py run --split dev --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --device cuda --gallery-mode symmetric --gallery-encoder student --student-ckpt results/innovation/20261117_123128_student_train/best.pt",
+  "args": {},
+  "machine": {
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "processor": "x86_64",
+    "cpu_count": 36,
+    "torch": "2.14.1+cu132",
+    "torch_threads": 18,
+    "cuda": true
+  }
+}

@@ -783,7 +783,18 @@ def evaluate_certified_session(
 
 def cmd_run(args: argparse.Namespace) -> Path:
     """Run certified evaluation on dev or test split."""
-    device = args.device
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    gallery_encoder = getattr(args, "gallery_encoder", "method3")
+    if gallery_encoder == "student" and not getattr(args, "student_ckpt", None):
+        raise SystemExit("--gallery-encoder student requires --student-ckpt to be specified")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None and gallery_encoder != "student":
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
+
+    device = getattr(args, "device", "cpu")
     maskset_dir = Path(args.maskset_dir)
     masks = load_maskset(maskset_dir)
 
@@ -793,7 +804,7 @@ def cmd_run(args: argparse.Namespace) -> Path:
 
     inpainter = None
     inpainter_tag = "none"
-    if args.inpainter_ckpt:
+    if getattr(args, "inpainter_ckpt", None):
         p_ckpt = Path(args.inpainter_ckpt)
         if not p_ckpt.exists():
             raise FileNotFoundError(f"Inpainter checkpoint not found: {p_ckpt}")
@@ -819,14 +830,6 @@ def cmd_run(args: argparse.Namespace) -> Path:
             thresholds_map = {k: float(v) for k, v in raw_th["thresholds"].items()}
         else:
             thresholds_map = {k: float(v) for k, v in raw_th.items()}
-
-    gallery_mode = getattr(args, "gallery_mode", "symmetric")
-    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
-        print(
-            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
-            "In symmetric mode, gallery branch embeddings still use method3. "
-            "Certified Face Defense v2 is designed for --gallery-mode clean."
-        )
 
     from liveness.liveness_detector import LivenessDetector
     live_detector = LivenessDetector() if args.liveness else None
@@ -879,13 +882,15 @@ def cmd_run(args: argparse.Namespace) -> Path:
         for br in branch_list:
             if br == "none":
                 m_canvas = None
+                gal_rec = recognizer
             else:
                 m_name, _ = br.split("/", 1)
                 m_canvas = masks[m_name]
+                gal_rec = student if (gallery_encoder == "student" and student is not None) else recognizer
 
             gal, _ = build_branch_gallery(
                 gallery_dir=Path(args.gallery),
-                recognizer=recognizer,
+                recognizer=gal_rec,
                 detector=detector,
                 eyes_finder=eyes_finder,
                 branch_name=br,
@@ -899,7 +904,7 @@ def cmd_run(args: argparse.Namespace) -> Path:
                 for eg in args.extra_gallery:
                     eg_gal, _ = build_branch_gallery(
                         gallery_dir=Path(eg),
-                        recognizer=recognizer,
+                        recognizer=gal_rec,
                         detector=detector,
                         eyes_finder=eyes_finder,
                         branch_name=br,
@@ -1068,6 +1073,7 @@ def cmd_run(args: argparse.Namespace) -> Path:
         "sets": sets_summary,
         "config": {
             "gallery_mode": gallery_mode,
+            "gallery_encoder": gallery_encoder,
             "student_ckpt": getattr(args, "student_ckpt", None),
             "student_fill": getattr(student, "fill", None) if student else None,
             "thresholds": getattr(args, "thresholds", None),
@@ -1081,13 +1087,24 @@ def cmd_run(args: argparse.Namespace) -> Path:
 
 def cmd_lfwval(args: argparse.Namespace) -> Path:
     """Evaluate LFW validation set across branches and candidate sets."""
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    gallery_encoder = getattr(args, "gallery_encoder", "method3")
+    if gallery_encoder == "student" and not getattr(args, "student_ckpt", None):
+        raise SystemExit("--gallery-encoder student requires --student-ckpt to be specified")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None and gallery_encoder != "student":
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
+
     crops_dir = Path(args.crops_dir)
     landmarks_dir = Path(args.landmarks_dir)
     maskset_dir = Path(args.maskset_dir)
     masks = load_maskset(maskset_dir)
-    device = args.device
+    device = getattr(args, "device", "cpu")
 
-    if not args.inpainter_ckpt:
+    if not getattr(args, "inpainter_ckpt", None):
         raise SystemExit("Missing required argument: --inpainter-ckpt")
     p_ckpt = Path(args.inpainter_ckpt)
     if not p_ckpt.exists():
@@ -1115,14 +1132,6 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
             thresholds_map = {k: float(v) for k, v in raw_th["thresholds"].items()}
         else:
             thresholds_map = {k: float(v) for k, v in raw_th.items()}
-
-    gallery_mode = getattr(args, "gallery_mode", "symmetric")
-    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
-        print(
-            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
-            "In symmetric mode, gallery branch embeddings still use method3. "
-            "Certified Face Defense v2 is designed for --gallery-mode clean."
-        )
 
     if args.output_dir:
         run_dir = Path(args.output_dir)
@@ -1236,7 +1245,10 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
                     c[m112 > 0] = 128
                     if fill == "inpaint":
                         c = apply_purifier(inpainter, c, m112, device=device)
-                    emb = recognizer.extract_embedding(c)
+                    if gallery_encoder == "student" and student is not None:
+                        emb = student.extract_embedding(c)
+                    else:
+                        emb = recognizer.extract_embedding(c)
                     galleries[br][pid] = np.atleast_2d(emb)
 
         for p_it in probe_items:
@@ -1326,6 +1338,7 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
         "config": {
             "val_part": val_part,
             "gallery_mode": gallery_mode,
+            "gallery_encoder": gallery_encoder,
             "student_ckpt": getattr(args, "student_ckpt", None),
             "student_fill": getattr(student, "fill", None) if student else None,
             "thresholds": getattr(args, "thresholds", None),
@@ -1339,11 +1352,22 @@ def cmd_lfwval(args: argparse.Namespace) -> Path:
 
 def cmd_calibrate(args: argparse.Namespace) -> Path:
     """Calibrate branch thresholds on LFW val A so each branch FAR <= FAR_none."""
+    gallery_mode = getattr(args, "gallery_mode", "symmetric")
+    gallery_encoder = getattr(args, "gallery_encoder", "method3")
+    if gallery_encoder == "student" and not getattr(args, "student_ckpt", None):
+        raise SystemExit("--gallery-encoder student requires --student-ckpt to be specified")
+    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None and gallery_encoder != "student":
+        print(
+            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
+            "In symmetric mode, gallery branch embeddings still use method3. "
+            "Certified Face Defense v2 is designed for --gallery-mode clean."
+        )
+
     crops_dir = Path(args.crops_dir)
     landmarks_dir = Path(args.landmarks_dir)
     maskset_dir = Path(args.maskset_dir)
     masks = load_maskset(maskset_dir)
-    device = args.device
+    device = getattr(args, "device", "cpu")
 
     recognizer = FaceRecognizer(ckpt_path=args.checkpoint, strict=True)
     inpainter = None
@@ -1360,14 +1384,6 @@ def cmd_calibrate(args: argparse.Namespace) -> Path:
         if not p_stu.exists():
             raise SystemExit(f"Student checkpoint not found: {p_stu}")
         student = load_student(p_stu, device=device)
-
-    gallery_mode = getattr(args, "gallery_mode", "symmetric")
-    if gallery_mode == "symmetric" and getattr(args, "student_ckpt", None) is not None:
-        print(
-            "Warning: --student-ckpt is supplied with --gallery-mode symmetric. "
-            "In symmetric mode, gallery branch embeddings still use method3. "
-            "Certified Face Defense v2 is designed for --gallery-mode clean."
-        )
 
     if args.output_dir:
         run_dir = Path(args.output_dir)
@@ -1446,7 +1462,10 @@ def cmd_calibrate(args: argparse.Namespace) -> Path:
                     c[m112 > 0] = 128
                     if fill == "inpaint" and inpainter is not None:
                         c = apply_purifier(inpainter, c, m112, device=device)
-                    emb = recognizer.extract_embedding(c)
+                    if gallery_encoder == "student" and student is not None:
+                        emb = student.extract_embedding(c)
+                    else:
+                        emb = recognizer.extract_embedding(c)
                     galleries[br][pid] = np.atleast_2d(emb)
 
         for p_it in probe_items:
@@ -1514,6 +1533,7 @@ def cmd_calibrate(args: argparse.Namespace) -> Path:
         "far_by_branch": far_by_branch,
         "config": {
             "gallery_mode": gallery_mode,
+            "gallery_encoder": gallery_encoder,
             "student_ckpt": getattr(args, "student_ckpt", None),
             "student_fill": getattr(student, "fill", None) if student else None,
             "inpainter_ckpt": getattr(args, "inpainter_ckpt", None),
@@ -1673,6 +1693,7 @@ def main():
     run_p.add_argument("--inpainter-ckpt", default=None)
     run_p.add_argument("--student-ckpt", default=None)
     run_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    run_p.add_argument("--gallery-encoder", choices=("method3", "student"), default="method3")
     run_p.add_argument("--thresholds", default=None)
     run_p.add_argument("--liveness", action="store_true")
     run_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -1687,6 +1708,7 @@ def main():
     lfw_p.add_argument("--inpainter-ckpt", default=None)
     lfw_p.add_argument("--student-ckpt", default=None)
     lfw_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    lfw_p.add_argument("--gallery-encoder", choices=("method3", "student"), default="method3")
     lfw_p.add_argument("--thresholds", default=None)
     lfw_p.add_argument("--val-part", choices=("all", "A", "B"), default="all")
     lfw_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -1701,6 +1723,7 @@ def main():
     cal_p.add_argument("--inpainter-ckpt", default=None)
     cal_p.add_argument("--student-ckpt", default=None)
     cal_p.add_argument("--gallery-mode", choices=("symmetric", "clean"), default="symmetric")
+    cal_p.add_argument("--gallery-encoder", choices=("method3", "student"), default="method3")
     cal_p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     cal_p.add_argument("--limit", type=int, default=None)
     cal_p.add_argument("--output-dir", default=None)

@@ -1,0 +1,36 @@
+{
+  "run_id": "20261118_135729_student_train",
+  "started": "2026-11-18T13:57:29",
+  "git_commit": "",
+  "git_dirty": false,
+  "command": "/workspace/code-inno/innovation/defense/train_student.py --fill inpaint --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --init-ckpt results/innovation/20261117_123128_student_train/best.pt --extra-data data/innovation/defense/vgg_test --sym-weight 1.0 --pk 64 --pk-weighting count --epochs 15 --patience 4 --num-workers 8 --device cuda",
+  "args": {
+    "fill": "inpaint",
+    "inpainter_ckpt": "results/innovation/20261115_144634_inpainter_train/best.pt",
+    "epochs": 15,
+    "batch": 128,
+    "lr": 0.0001,
+    "lambda_nce": 1.0,
+    "patience": 4,
+    "seed": 0,
+    "device": "cuda",
+    "limit": null,
+    "extra_data": [
+      "data/innovation/defense/vgg_test"
+    ],
+    "init_ckpt": "results/innovation/20261117_123128_student_train/best.pt",
+    "sym_weight": 1.0,
+    "pk": 64,
+    "pk_weighting": "count",
+    "num_workers": 8
+  },
+  "machine": {
+    "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.39",
+    "python": "3.12.15",
+    "processor": "x86_64",
+    "cpu_count": 36,
+    "torch": "2.14.1+cu132",
+    "torch_threads": 18,
+    "cuda": true
+  }
+}

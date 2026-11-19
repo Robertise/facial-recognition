@@ -1,0 +1,10 @@
+S7=results/innovation/20261117_123128_student_train
+S8=results/innovation/20261118_135729_student_train
+C7 lfwB results/innovation/20261118_140609_certified_lfwval
+C7 dev results/innovation/20261118_140846_certified_eval
+C8 lfwB results/innovation/20261118_141211_certified_lfwval
+C8 dev results/innovation/20261118_141306_certified_eval
+C9 calib results/innovation/20261118_141635_certified_calib
+C9 lfwB results/innovation/20261118_141725_certified_lfwval
+C9 dev results/innovation/20261118_141819_certified_eval
+DONE

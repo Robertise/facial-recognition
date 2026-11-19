@@ -1,0 +1,17 @@
+{
+  "run_id": "20261119_064729_certified_eval",
+  "started": "2026-11-19T06:47:29",
+  "git_commit": "4c9f62bc6209d54286a4987ac3bf16ad5e003d5e",
+  "git_dirty": true,
+  "command": "C:\\Swinburne University\\COS30082 - Applied Machine Learning\\PROJECT\\code-inno\\innovation\\defense\\eval_certified.py run --split test --liveness --device cpu --inpainter-ckpt results/innovation/20261115_144634_inpainter_train/best.pt --gallery-mode symmetric --gallery-encoder student --student-ckpt results/innovation/20261118_135729_student_train/best.pt",
+  "args": {},
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cpu_count": 16,
+    "torch": "2.2.2+cpu",
+    "torch_threads": 12,
+    "cuda": false
+  }
+}
