@@ -84,3 +84,9 @@ results/innovation/*advglasses*/texture*
 results/innovation/*advglasses*/print_*
 results/innovation/*advglasses*/mask.png
 results/innovation/_cache/
+
+# packaging and run logs
+*.tgz
+*_log.txt
+grid_*.txt
+.claude/
